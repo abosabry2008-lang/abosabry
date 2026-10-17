@@ -53,8 +53,10 @@ class AppConfig {
       result = result.substring(0, result.length - 1);
     }
     if (result.isEmpty) return defaultBaseUrl;
-    // A relative base (`/api/v1`) is resolved against the page origin on web.
-    if (kIsWeb && result.startsWith('/')) {
+    // A relative base (`/api/v1`) is resolved against the page origin on web,
+    // which is how the deployed bundle talks to the API it is served by.
+    if (result.startsWith('/')) {
+      if (!kIsWeb) return _devBaseUrl;
       final origin = Uri.base.origin;
       return origin.isEmpty ? result : origin + result;
     }

@@ -407,22 +407,18 @@ Key invariants:
 
 ## 9. Deploying
 
-> 🚀 **خطوة بخطوة بالعربي:** [`erp/DEPLOY.md`](DEPLOY.md) — النشر المجاني على **Render + Neon**
-> (API + Flutter Web + PostgreSQL) في 6 خطوات، مع استكشاف الأخطاء.
+> 🚀 **المسار الموصى به:** [`erp/DEPLOY-DOCKER.md`](DEPLOY-DOCKER.md) — صورة **Docker واحدة** فيها
+> الـ API + موقع Flutter معًا (**رابط واحد**، من غير CORS) على Koyeb / Hugging Face / Railway،
+> مع قاعدة بيانات مجانية على Neon. خطوات بالعربي + استكشاف أخطاء.
+>
+> 🔙 [`erp/DEPLOY.md`](DEPLOY.md) — البديل: Render + Neon (ملف `render.yaml` في جذر الريبو).
 
-Everything needed is in the repo root [`render.yaml`](../render.yaml): it defines the API web
-service, the static site and the environment variables. Deploying is:
+Whatever the host, it is one Docker image built from the **repository root** `Dockerfile`:
+it contains the compiled API **and** the Flutter web bundle (`erp/web`), served from the same
+origin — so `https://<host>` is the app and `https://<host>/api/v1` is the API.
 
-1. Push the repo to GitHub.
-2. Create a free PostgreSQL database on [Neon](https://neon.tech) and copy its connection string.
-3. Render → **New + → Blueprint** → pick the repo → paste the Neon `DATABASE_URL` → **Apply**.
-4. Run `npm run seed` once from the API service **Shell** (loads the demo data).
-5. Rebuild the web bundle against the deployed API and push:
-   ```powershell
-   .\erp\deploy\build_web.ps1 -ApiUrl https://<your-api>.onrender.com/api/v1
-   git add erp/web ; git commit -m "web: production API" ; git push
-   ```
-6. Make sure `CORS_ORIGIN` matches the static-site URL (the blueprint wires this automatically).
+Environment the container expects: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`,
+`NODE_ENV=production`. It runs `prisma db push` on boot, then starts the server on `$PORT` (4000).
 
 ### Manual / any other host
 

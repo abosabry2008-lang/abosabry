@@ -32242,7 +32242,7 @@ if(o==null){o=A.a([],s)
 n.n(0,p,o)
 p=o}else p=o
 J.kw(p,q)}return n},
-b2E(){var s=A.Nf("https://erp-api.onrender.com/api/v1")
+b2E(){var s=A.Nf("/api/v1")
 return s},
 a9s(){var s=0,r=A.A(t.H),q,p
 var $async$a9s=A.B(function(a,b){if(a===1)return A.x(b,r)
@@ -32264,9 +32264,8 @@ case 2:return A.y(null,r)}})
 return A.z($async$Ng,r)},
 Nf(a){var s,r,q=B.c.ac(a)
 for(;B.c.n1(q,"/");)q=B.c.a6(q,0,q.length-1)
-if(q.length===0){s=A.Nf("https://erp-api.onrender.com/api/v1")
-return s}s=B.c.ce(q,"/")
-if(s){r=A.at9().gyS()
+if(q.length===0){s=A.Nf("/api/v1")
+return s}if(B.c.ce(q,"/")){r=A.at9().gyS()
 return r.length===0?q:r+q}return q},
 aT3(a){var s,r,q,p,o=null,n=A.aTt(a,o,o,B.MP),m=a===B.aJ,l=m?B.Mv:n.k2,k=n.k2,j=n.k3,i=A.aT0(o,o,k,!1,0,j,o,2,o,o,o,o,o,o,o,o)
 if(m)k=B.r
@@ -46203,7 +46202,7 @@ b=t.p
 d=A.a([k,B.a6,i,B.eB,g,B.a8w,h,B.a6,e,B.a0,new A.cD(B.c3,a0,a0,A.aX7(c,A.j(p.gj()==="ar"?"\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u062e\u0627\u062f\u0645":"Server settings",a0,a0,a0,a0,a0,a0,a0,a0),d),a0)],b)
 if(a.x){k=p.gj()==="ar"?"\u0639\u0646\u0648\u0627\u0646 API \u0627\u0644\u0623\u0633\u0627\u0633\u064a":"API base URL"
 i=a.gH6()
-h=A.Nf("https://erp-api.onrender.com/api/v1")
+h=A.Nf("/api/v1")
 g=p.gj()==="ar"?"\u0645\u062b\u0627\u0644: http://192.168.1.10:4000/api/v1":"Example: http://192.168.1.10:4000/api/v1"
 B.b.T(d,A.a([B.eB,A.c_(!1,i,f,g,h,a0,B.a9u,k,1,!1,a0,a0,B.PG,B.a5,a0,new A.aDw(a1)),B.a0],b))}d.push(B.a6)
 a1=q?a0:a.gajO()

@@ -1,0 +1,21 @@
+# Keep the Docker build context small. Only erp/backend and erp/web are used.
+.git
+.github
+.idea
+.vscode
+
+# Unrelated / leftover folders (not part of the build)
+abosabry
+erpsystem
+docs
+*.zip
+*.log
+
+# Flutter sources — the built bundle (erp/web) is what we ship
+erp/app
+
+# Never bake local state or secrets into the image
+**/node_modules
+**/dist
+erp/backend/.env
+erp/deploy

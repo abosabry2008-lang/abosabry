@@ -1,27 +1,31 @@
 # 🚀 النشر على الإنترنت — Render + Neon
 
+> 📌 **مسار تاني وأبسط:** صورة **Docker واحدة** فيها الـ API + موقع الويب معًا على **رابط واحد**
+> (Koyeb / Hugging Face / Railway) — شوف [`DEPLOY-DOCKER.md`](DEPLOY-DOCKER.md).
+> الدليل اللي تحت ده هو خيار Render، وهو بيقدم نفس الشكل: سيرفس واحد فيه كل حاجة.
+
 دليل كامل خطوة بخطوة لرفع الـ ERP (الـ API + تطبيق الويب + قاعدة البيانات) على الإنترنت مجاناً.
 
 **المعمارية بعد النشر**
 
 ```
-   ┌──────────────────────────┐        ┌──────────────────────────┐
-   │  erp-web                 │        │  erp-api                 │
-   │  Flutter Web (Static)    │──API──▶│  Node.js + Express       │
-   │  https://erp-web...      │  HTTPS │  https://erp-api...      │
-   └──────────────────────────┘        └────────────┬─────────────┘
-                                                    │ PostgreSQL (SSL)
-                                       ┌────────────▼─────────────┐
-                                       │  Neon (PostgreSQL 16)    │
-                                       │  مجاني — neon.tech       │
-                                       └──────────────────────────┘
+   ┌────────────────────────────────────────────┐
+   │  erp (Render Web Service, Node.js)         │
+   │                                            │
+   │  Flutter Web  ←  https://<host>/           │
+   │  Express API  ←  https://<host>/api/v1     │
+   └──────────────────────┬─────────────────────┘
+                          │  PostgreSQL (SSL)
+               ┌──────────▼───────────┐
+               │  Neon (PostgreSQL 16)│
+               │  مجاني — neon.tech   │
+               └──────────────────────┘
 ```
 
 | المكوّن | المنصة | التكلفة | ملاحظة |
 | --- | --- | --- | --- |
 | قاعدة البيانات | **Neon** | مجاني | PostgreSQL 16، ينام بعد ~5 دقايق خمول |
-| الـ API | **Render** (Web Service) | مجاني | ينام بعد 15 دقيقة خمول (أول طلب بياخد ~50 ثانية) |
-| الويب (Flutter) | **Render** (Static Site) | مجاني | سريع جدًا (CDN) |
+| الـ API + الويب | **Render** (Web Service واحد) | مجاني | ينام بعد 15 دقيقة خمول (أول طلب بياخد ~50 ثانية) |
 
 > ⚠️ **مهم:** الخطة المجانية بتخلّي الـ API ينام. أول ما تفتح الموقع بعد فترة خمول، استنى من 30 لـ 60 ثانية لحد ما يصحى. بعدها كل حاجة سريعة.
 
@@ -80,30 +84,29 @@ git push -u origin master
 
 1. افتح 👉 **https://render.com** → **Sign up / Sign in** بحساب GitHub.
 2. **Dashboard → New + → Blueprint**
-3. اختر ريبو **`Default-Project`** → **Connect**
-4. Render هيلاقي ملف `render.yaml` ويقرأ منه السيرفسين.
+3. اختر ريبو **`abosabry`** → **Connect**
+4. Render هيلاقي ملف `render.yaml` ويقرأ منه.
 5. في شاشة الإدخال هيطلب منك قيمة **`DATABASE_URL`**
    (لأنها معلمة بـ `sync: false`) → الزق رابط Neon من الخطوة 2.
 6. اضغط **Apply**.
 
-Render هيعمل:
-- سيرفس `erp-api` (Node) → بيـ build ويشغّل الـ API.
-- سيرفس `erp-web` (Static) → بينشر `erp/web`.
+Render هيعمل **سيرفس واحد** `erp` (Node) فيه الـ API + موقع الويب معًا.
 
 ⏳ أول نشر بياخد من 3 لـ 6 دقايق.
 
 ### استنى لحد ما يخلص وتحقق
-- `erp-api` → **Logs**: لازم تشوف
+- سيرفس `erp` → **Logs**: لازم تشوف
   ```
-  ERP API ready on http://0.0.0.0:10000/api/v1  (production)
+  Serving the web app from /opt/render/project/src/erp/web
+  ERP API ready on http://localhost:10000/api/v1  (production)
   ```
-- افتح `https://erp-api-xxxx.onrender.com/api/v1/health`
-  → لازم ترجع `{"status":"ok","version":"1.0.0"}`
-- افتح `https://erp-web-xxxx.onrender.com` → لازم تشوف شاشة تسجيل الدخول.
+- افتح `https://erp-xxxx.onrender.com/health`
+  → لازم ترجع `{"status":"ok","uptime":...}`
+- افتح `https://erp-xxxx.onrender.com` → لازم تشوف شاشة تسجيل الدخول (نفس الرابط بالظبط!).
 
 > 📌 **سجّل الرابطين عندك:**
-> - API: `https://____________.onrender.com/api/v1`
-> - Web: `https://____________.onrender.com`
+> - الموقع (والتطبيق): `https://____________.onrender.com`
+> - الـ API: `https://____________.onrender.com/api/v1`
 
 ---
 
@@ -111,7 +114,7 @@ Render هيعمل:
 
 قاعدة بيانات Neon جديدة = فاضية. عايز تحمّل بيانات تجريبية (منتجات، عملاء، فواتير، مستخدمين):
 
-1. Render → سيرفس **`erp-api`** → تاب **Shell** (فوق على اليمين).
+1. Render → سيرفس **`erp`** → تاب **Shell** (فوق على اليمين).
 2. اكتب:
    ```bash
    npm run seed
@@ -132,43 +135,24 @@ Render هيعمل:
 
 ---
 
-## الخطوة 5 — ضبط عنوان الـ API داخل تطبيق الويب
+## الخطوة 5 — مفيش حاجة تظبطها (نفس الدومين)
 
-تطبيق الـ Web محتاج يعرف مكان الـ API. عندك طريقتين:
+موقع الويب دلوقتي جزء من نفس السيرفس: `erp/web` بيتحمّل في نفس الديبلايمنت، والتطبيق
+بيكلّم `/api/v1` **على نفس الدومين** (عنوان الـ API المدمج في النسخة المنشورة هو `/api/v1`).
 
-### الطريقة أ — إعادة بناء الويب بالعنوان الصح (المفضلة)
+- موقعك: `https://erp-xxxx.onrender.com`
+- الـ API: `https://erp-xxxx.onrender.com/api/v1`
+- **مفيش CORS** ولا محتاج تعمل deploy تاني ولا تظبط روابط.
 
-```powershell
-cd "C:\Users\abosa\OneDrive\Documents\Default Project"
-.\erp\deploy\build_web.ps1 -ApiUrl https://erp-api-xxxx.onrender.com/api/v1
-git add erp/web
-git commit -m "web: point to production API"
-git push
-```
-
-Render هيعمل deploy تلقائي لـ `erp-web` في خلال ثواني.
-
-### الطريقة ب — من الشاشة نفسها (بدون إعادة بناء)
-
-افتح الموقع → في شاشة **تسجيل الدخول** فيه خانة **API URL** → الصق
-`https://erp-api-xxxx.onrender.com/api/v1` → سجّل الدخول. العنوان بيتحفظ على الجهاز.
-
----
-
-## الخطوة 6 — تأكيد الـ CORS
-
-الـ API بيسمح للموقع يكلّمه (CORS). الملف `render.yaml` بياخد عنوان الموقع أوتوماتيك من
-متغيّر `RENDER_EXTERNAL_URL`.
-
-لو الموقع طلع فيه أخطاء شبكة (`CORS` / `Failed to fetch`):
-
-1. Render → `erp-api` → **Environment**
-2. عدّل **`CORS_ORIGIN`** وخليها رابط الموقع بالظبط (من غير `/` في الآخر):
-   ```
-   https://erp-web-xxxx.onrender.com
-   ```
-   أو `*` مؤقتًا للتجربة.
-3. **Save Changes** → Render هيعمل redeploy لوحده.
+> ⚠️ بس لازم تكون رافع **`erp/web` مبني بـ `-ApiUrl /api/v1`** — اللي هو وضعه الحالي في الريبو.
+> لو رجعت تبنيه بعنوان `https://...` هيبقى مربوط بعنوان تاني ومحتاج يرجّع تاني.
+>
+> عايز تدير الموقع من دومين تاني (مثلاً Netlify/Cloudflare Pages)؟ ساعتها بنّيه بعنوان مطلق:
+> ```powershell
+> .\erp\deploy\build_web.ps1 -ApiUrl https://erp-xxxx.onrender.com/api/v1
+> git add erp/web ; git commit -m "web" ; git push
+> ```
+> أو اكتب الرابط في خانة **API URL** في شاشة تسجيل الدخول مرة واحدة.
 
 ---
 
@@ -177,13 +161,13 @@ Render هيعمل deploy تلقائي لـ `erp-web` في خلال ثواني.
 | المشكلة | السبب / الحل |
 | --- | --- |
 | الموقع بيفضل "loading" أول مرة | الـ API نايم (خطة مجانية). استنى ~50 ثانية وحدّث الصفحة. |
-| `Failed to fetch` / أخطاء CORS | راجع `CORS_ORIGIN` في `erp-api` (الخطوة 6). |
-| `Missing required environment variable "DATABASE_URL"` | متغيّر `DATABASE_URL` مش متسجّل في `erp-api` → Environment → أضفه. |
+| `Failed to fetch` | الموقع والـ API على نفس الدومين (مفيش CORS) — لو ده حصل شوف لوج التشغيل. |
+| `Missing required environment variable "DATABASE_URL"` | متغيّر `DATABASE_URL` مش متسجّل في `erp` → Environment → أضفه. |
 | API بيرجع 500 وكله على قاعدة البيانات | رابط Neon غلط أو نام. راجع الاتصال من Neon Console. |
 | `prisma db push` فشل في الـ build | تأكد إن رابط Neon فيه `?sslmode=require` وإن الـ DB موجودة. |
 | تسجيل الدخول يقول invalid credentials | معملتش `npm run seed` (الخطوة 4). |
 | تحديث الأسعار/الجلسة بتضيع | دي طبيعة الخطة المجانية؛ الصعود لخطة مدفوعة بيحل الموضوع. |
-| عايز أشوف لوجز الـ API | Render → `erp-api` → **Logs**. |
+| عايز أشوف لوجز الـ API | Render → `erp` → **Logs**. |
 
 ---
 
@@ -197,10 +181,10 @@ git commit -m "…"
 git push
 ```
 
-- تغييرات في `erp/backend/**` → يعيد بناء `erp-api` بس.
-- تغييرات في `erp/web/**` → ينشر `erp-web` بس.
+- تغييرات في `erp/backend/**` أو `erp/web/**` → يعيد بناء السيرفس تلقائي.
 - تغييرات في كود Flutter (`erp/app/**`) → **لازم** تعيد
-  `.\erp\deploy\build_web.ps1` وترفع `erp/web` (لأن البناء بيحصل على جهازك).
+  `.\erp\deploy\build_web.ps1 -ApiUrl /api/v1` وترفع `erp/web`
+  (لأن البناء بيحصل على جهازك، مش على المنصة).
 
 ---
 
@@ -220,7 +204,7 @@ Render → الخدمة → **Settings → Custom Domains** → **Add Custom Dom
 
 ```powershell
 cd erp\app
-flutter build apk --release --dart-define=API_BASE=https://erp-api-xxxx.onrender.com/api/v1
+flutter build apk --release --dart-define=API_BASE=https://erp-xxxx.onrender.com/api/v1
 ```
 
 > ملاحظة: أندرويد إيميوليتر بيستخدم `10.0.2.2` بدل `localhost` في التطوير المحلي.
@@ -236,4 +220,4 @@ flutter build apk --release --dart-define=API_BASE=https://erp-api-xxxx.onrender
 | Render Starter للـ API (من غير نوم) | ~7$ / شهر |
 | Render Postgres مدفوع (بدل Neon) | من ~6$ / شهر |
 
-للإنتاج الحقيقي: ارفع `erp-api` لخطة Starter (من غير خمول) + Neon أو Render Postgres مدفوع، وخُد نسخ احتياطية دورية.
+للإنتاج الحقيقي: ارفع `erp` لخطة Starter (من غير خمول) + Neon أو Render Postgres مدفوع، وخُد نسخ احتياطية دورية.

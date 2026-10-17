@@ -19,8 +19,10 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $apiUrl = $ApiUrl.TrimEnd('/')
-if (-not $apiUrl.StartsWith('http')) {
-  throw "ApiUrl must start with http:// or https:// (got: $ApiUrl)"
+# Accept an absolute URL (https://api.example.com/api/v1) or a same-origin
+# relative path (/api/v1) for deployments that serve the web app from the API.
+if (-not $apiUrl.StartsWith('http') -and -not $apiUrl.StartsWith('/')) {
+  throw "ApiUrl must be an absolute URL (https://...) or a path starting with '/' (got: $ApiUrl)"
 }
 
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
