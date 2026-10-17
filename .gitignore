@@ -1,0 +1,72 @@
+# ---------------------------------------------------------------------------
+# Repository-wide ignore rules (Java/Swing desktop app + Flutter ERP)
+# ---------------------------------------------------------------------------
+
+# ---- Secrets (NEVER commit) -----------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- Old Java / Swing desktop app ----------------------------------------
+out/
+target/
+build/
+*.class
+*.jar
+warehouse.db
+
+# ---- IDE / editor ---------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.project
+.classpath
+
+# ---- Node / backend -------------------------------------------------------
+node_modules/
+erp/backend/dist/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ---- Flutter / Dart -------------------------------------------------------
+erp/app/.dart_tool/
+erp/app/.flutter-plugins
+erp/app/.flutter-plugins-dependencies
+erp/app/build/
+erp/app/android/.gradle/
+erp/app/android/local.properties
+erp/app/ios/Pods/
+erp/app/ios/.symlinks/
+erp/app/ios/Flutter/Flutter.framework
+erp/app/ios/Flutter/Flutter.podspec
+erp/app/ios/Flutter/ephemeral/
+erp/app/macos/Flutter/ephemeral/
+erp/app/windows/flutter/ephemeral/
+erp/app/linux/flutter/ephemeral/
+
+# NOTE: erp/web/ is intentionally NOT ignored — it is the committed Flutter
+# web build that Render serves as the static site (see erp/deploy/build_web.ps1).
+
+# ---- Logs / OS ------------------------------------------------------------
+*.log
+logs/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Local tooling --------------------------------------------------------
+run-console.bat
+*.tmp
+
+# ---- Unrelated/leftover folders & archives (kept on disk, not deployed) ----
+# These contain their own git repositories and would break `git add` here.
+# Remove these lines only if you really want them inside this repository.
+abosabry/
+erpsystem/
+*.zip

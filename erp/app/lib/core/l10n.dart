@@ -1,0 +1,929 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'formatters.dart';
+
+/// Persists and exposes the user's language choice (`en` / `ar`).
+///
+/// The chosen language code is stored in [SharedPreferences] under the key
+/// `app_locale`. English is the default when nothing has been stored yet.
+class LocaleController extends ChangeNotifier {
+  static const String _key = 'app_locale';
+
+  Locale _locale = const Locale('en');
+
+  /// The currently active locale.
+  Locale get locale => _locale;
+
+  /// True when the active locale is Arabic.
+  bool get isArabic => _locale.languageCode == 'ar';
+
+  /// Loads the persisted language (if any). Should be awaited during startup.
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_key);
+    if (stored == 'en' || stored == 'ar') {
+      _locale = Locale(stored!);
+      notifyListeners();
+    }
+  }
+
+  /// Switches to [locale] and persists the choice.
+  Future<void> setLocale(Locale locale) async {
+    if (locale.languageCode == _locale.languageCode) return;
+    _locale = Locale(locale.languageCode);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, _locale.languageCode);
+  }
+
+  /// Toggles between English and Arabic, persisting the new choice.
+  Future<void> toggle() =>
+      setLocale(isArabic ? const Locale('en') : const Locale('ar'));
+}
+
+/// All user-visible strings for the app, resolved for a single [locale].
+///
+/// Every string is exposed as a typed getter (or parameterised method) so that
+/// `flutter analyze` catches typos and missing translations.
+class AppStrings {
+  const AppStrings(this.locale);
+
+  final Locale locale;
+
+  bool get isArabic => locale.languageCode == 'ar';
+
+  String _t(String en, String ar) => isArabic ? ar : en;
+
+  static AppStrings of(BuildContext context) =>
+      Localizations.of<AppStrings>(context, AppStrings) ??
+      const AppStrings(Locale('en'));
+
+  // ---------------------------------------------------------------------------
+  // Generic
+  // ---------------------------------------------------------------------------
+  String get appName => _t('ERP', 'ERP');
+  String get inventorySalesTagline =>
+      _t('Inventory & sales management', 'إدارة المخزون والمبيعات');
+  String get save => _t('Save', 'حفظ');
+  String get saving => _t('Saving…', 'جارٍ الحفظ…');
+  String get saveChanges => _t('Save changes', 'حفظ التغييرات');
+  String get cancel => _t('Cancel', 'إلغاء');
+  String get delete => _t('Delete', 'حذف');
+  String get edit => _t('Edit', 'تعديل');
+  String get print => _t('Print', 'طباعة');
+  String get couldNotOpenPrintPage =>
+      _t('Could not open the print page.', 'تعذّر فتح صفحة الطباعة.');
+  String get create => _t('Create', 'إنشاء');
+  String get confirm => _t('Confirm', 'تأكيد');
+  String get continueLabel => _t('Continue', 'متابعة');
+  String get retry => _t('Retry', 'إعادة المحاولة');
+  String get tryAgain => _t('Try again', 'إعادة المحاولة');
+  String get refresh => _t('Refresh', 'تحديث');
+  String get clear => _t('Clear', 'مسح');
+  String get search => _t('Search', 'بحث');
+  String get searchEllipsis => _t('Search…', 'بحث…');
+  String get add => _t('Add', 'إضافة');
+  String get remove => _t('Remove', 'إزالة');
+  String get somethingWentWrong => _t('Something went wrong', 'حدث خطأ ما');
+  String get nothingHereYet => _t('Nothing here yet', 'لا يوجد شيء بعد');
+  String get yes => _t('Yes', 'نعم');
+  String get no => _t('No', 'لا');
+  String get active => _t('Active', 'نشط');
+  String get inactive => _t('Inactive', 'غير نشط');
+  String get reserved => _t('reserved', 'محجوز');
+  String get selectADate => _t('Select a date', 'اختر تاريخًا');
+  String get name => _t('Name', 'الاسم');
+  String get nameRequired => _t('Name is required', 'الاسم مطلوب');
+  String get code => _t('Code', 'الرمز');
+  String get codeStar => _t('Code *', 'الرمز *');
+  String get codeRequired => _t('Code is required', 'الرمز مطلوب');
+  String get email => _t('Email', 'البريد الإلكتروني');
+  String get emailRequired => _t('Email is required', 'البريد الإلكتروني مطلوب');
+  String get enterValidEmail =>
+      _t('Enter a valid email', 'أدخل بريدًا إلكترونيًا صالحًا');
+  String get phone => _t('Phone', 'الهاتف');
+  String get address => _t('Address', 'العنوان');
+  String get prefixRequired => _t('Prefix is required', 'البادئة مطلوبة');
+  String get switchLanguageTooltip => isArabic ? 'English' : 'العربية';
+
+  // ---------------------------------------------------------------------------
+  // Login
+  // ---------------------------------------------------------------------------
+  String get signIn => _t('Sign in', 'تسجيل الدخول');
+  String get signingIn => _t('Signing in…', 'جارٍ تسجيل الدخول…');
+  String get signOut => _t('Sign out', 'تسجيل الخروج');
+  String get password => _t('Password', 'كلمة المرور');
+  String get passwordIsRequired =>
+      _t('Password is required', 'كلمة المرور مطلوبة');
+  String get showPassword => _t('Show password', 'إظهار كلمة المرور');
+  String get hidePassword => _t('Hide password', 'إخفاء كلمة المرور');
+  String get serverSettings => _t('Server settings', 'إعدادات الخادم');
+  String get apiBaseUrl => _t('API base URL', 'عنوان API الأساسي');
+  String get apiBaseUrlExample =>
+      _t('Example: http://192.168.1.10:4000/api/v1', 'مثال: http://192.168.1.10:4000/api/v1');
+  String get baseUrlIsRequired => _t('Base URL is required', 'عنوان URL مطلوب');
+  String get enterValidAbsoluteUrl =>
+      _t('Enter a valid absolute URL', 'أدخل عنوان URL مطلقًا صالحًا');
+  String get unableToSignIn => _t('Unable to sign in.', 'تعذّر تسجيل الدخول.');
+  String get signedInAsHint => _t(
+        'Signed in as an ERP user. Ask an administrator for your credentials.',
+        'يتم تسجيل الدخول كمستخدم ERP. اطلب بيانات الدخول من المسؤول.',
+      );
+
+  // ---------------------------------------------------------------------------
+  // Navigation / shell
+  // ---------------------------------------------------------------------------
+  String get dashboard => _t('Dashboard', 'لوحة التحكم');
+  String get pointOfSale => _t('Point of Sale', 'نقطة البيع');
+  String get products => _t('Products', 'المنتجات');
+  String get categories => _t('Categories', 'الفئات');
+  String get inventory => _t('Inventory', 'المخزون');
+  String get movements => _t('Movements', 'الحركات');
+  String get warehouses => _t('Warehouses', 'المستودعات');
+  String get suppliers => _t('Suppliers', 'الموردون');
+  String get purchasing => _t('Purchasing', 'المشتريات');
+  String get customers => _t('Customers', 'العملاء');
+  String get salesOrders => _t('Sales Orders', 'أوامر البيع');
+  String get invoices => _t('Invoices', 'الفواتير');
+  String get payments => _t('Payments', 'المدفوعات');
+  String get reports => _t('Reports', 'التقارير');
+  String get accounts => _t('Accounts', 'الحسابات');
+  String get journal => _t('Journal', 'دفتر اليومية');
+  String get settings => _t('Settings', 'الإعدادات');
+  String get users => _t('Users', 'المستخدمون');
+  String get account => _t('Account', 'الحساب');
+  String get erpUser => _t('ERP user', 'مستخدم ERP');
+  String roleLabel(String role) => _t('Role: $role', 'الدور: $role');
+  String noAccessMessage(String role) => _t(
+        'Your role ($role) does not have access to any section. '
+            'Contact an administrator.',
+        'دورك ($role) لا يملك صلاحية الوصول إلى أي قسم. تواصل مع المسؤول.',
+      );
+
+  // ---------------------------------------------------------------------------
+  // Dashboard
+  // ---------------------------------------------------------------------------
+  String get quickActions => _t('Quick actions', 'إجراءات سريعة');
+  String get newSale => _t('New sale', 'بيع جديد');
+  String get lowStockAlerts => _t('Low stock alerts', 'تنبيهات نقص المخزون');
+  String get everythingAboveReorder =>
+      _t('Everything is above its reorder level', 'كل الأصناف أعلى من حد إعادة الطلب');
+  String productsNeedAttention(int n) => _t(
+        '$n product(s) need attention',
+        '$n منتج بحاجة إلى متابعة',
+      );
+  String get noLowStockItems => _t('No low-stock items.', 'لا توجد أصناف منخفضة المخزون.');
+  String get recentMovements => _t('Recent movements', 'الحركات الأخيرة');
+  String get noRecentMovements =>
+      _t('No recent inventory movements.', 'لا توجد حركات مخزون حديثة.');
+  String get salesToday => _t('Sales today', 'مبيعات اليوم');
+  String get salesThisMonth => _t('Sales this month', 'مبيعات هذا الشهر');
+  String get receivables => _t('Receivables', 'المبالغ المستحقة');
+  String get inventoryValue => _t('Inventory value', 'قيمة المخزون');
+  String get lowStockItems => _t('Low stock items', 'أصناف منخفضة المخزون');
+  String get openInvoices => _t('Open invoices', 'الفواتير المفتوحة');
+  String reorderLevelValue(String value) =>
+      _t('Reorder level $value', 'حد إعادة الطلب $value');
+  String get productFallback => _t('Product', 'منتج');
+
+  // ---------------------------------------------------------------------------
+  // POS
+  // ---------------------------------------------------------------------------
+  String get searchProductsHint =>
+      _t('Search products by name, SKU or barcode…', 'ابحث عن المنتجات بالاسم أو الرمز أو الباركود…');
+  String get noProducts => _t('No products', 'لا توجد منتجات');
+  String get addProductsToStartSelling =>
+      _t('Add products to start selling.', 'أضف منتجات لبدء البيع.');
+  String get checkout => _t('Checkout', 'إتمام البيع');
+  String itemsCount(int n) => _t('$n item(s)', '$n عنصر');
+  String get cart => _t('Cart', 'السلة');
+  String get cartIsEmpty => _t('The cart is empty.', 'السلة فارغة.');
+  String get details => _t('Details', 'التفاصيل');
+  String get warehouseRequired => _t('Warehouse *', 'المستودع *');
+  String get customer => _t('Customer', 'العميل');
+  String get walkInCustomer => _t('Walk-in customer', 'عميل نقدي');
+  String get paymentMethod => _t('Payment method', 'طريقة الدفع');
+  String get amountReceived => _t('Amount received', 'المبلغ المستلم');
+  String get subtotal => _t('Subtotal', 'المجموع الفرعي');
+  String get total => _t('Total', 'الإجمالي');
+  String get discountWord => _t('Discount', 'الخصم');
+  String get unitPrice => _t('Unit price', 'سعر الوحدة');
+  String get qty => _t('Qty', 'الكمية');
+  String get lineTotal => _t('Line total', 'إجمالي السطر');
+  String get addLine => _t('Add line', 'إضافة سطر');
+  String get change => _t('Change', 'الباقي');
+  String get processing => _t('Processing…', 'جارٍ المعالجة…');
+  String get completeSale => _t('Complete sale', 'إتمام البيع');
+  String get noWarehousesAvailable =>
+      _t('No warehouses available for sales.', 'لا توجد مستودعات متاحة للبيع.');
+  String get couldNotCompleteSale =>
+      _t('Could not complete the sale.', 'تعذّر إتمام البيع.');
+  String get decrease => _t('Decrease', 'إنقاص');
+  String get increase => _t('Increase', 'زيادة');
+  String saleComplete({String? invoiceNumber, required String change}) {
+    final suffix = invoiceNumber == null
+        ? ''
+        : _t(' · invoice $invoiceNumber', ' · فاتورة $invoiceNumber');
+    return _t(
+      'Sale complete$suffix · change $change',
+      'تم إتمام البيع$suffix · الباقي $change',
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Products
+  // ---------------------------------------------------------------------------
+  String get barcodeLookup => _t('Barcode lookup', 'البحث بالباركود');
+  String get barcode => _t('Barcode', 'الباركود');
+  String get searchProductsByNameSku =>
+      _t('Search products by name or SKU…', 'ابحث عن المنتجات بالاسم أو الرمز…');
+  String get category => _t('Category', 'الفئة');
+  String get allCategories => _t('All categories', 'كل الفئات');
+  String get lowStock => _t('Low stock', 'مخزون منخفض');
+  String get noProductsFound => _t('No products found', 'لا توجد منتجات');
+  String get adjustFiltersOrAddProduct => _t(
+        'Adjust your filters or add a new product to get started.',
+        'عدّل عوامل التصفية أو أضف منتجًا جديدًا للبدء.',
+      );
+  String get newProduct => _t('New product', 'منتج جديد');
+  String get product => _t('Product', 'منتج');
+  String productCount(String count) => _t('$count product(s)', '$count منتج');
+  String onHandCount(String count) => _t('$count on hand', '$count في المخزون');
+  String get productNotFound => _t('Product not found.', 'المنتج غير موجود.');
+  String get identification => _t('Identification', 'التعريف');
+  String get skuStar => _t('SKU *', 'الرمز *');
+  String get skuRequired => _t('SKU is required', 'الرمز مطلوب');
+  String get nameStar => _t('Name *', 'الاسم *');
+  String get uncategorised => _t('Uncategorised', 'غير مصنّف');
+  String get description => _t('Description', 'الوصف');
+  String get pricingStock => _t('Pricing & stock', 'التسعير والمخزون');
+  String get costPrice => _t('Cost price', 'سعر التكلفة');
+  String get salePrice => _t('Sale price', 'سعر البيع');
+  String get taxRatePercent => _t('Tax rate %', 'نسبة الضريبة %');
+  String get unit => _t('Unit', 'الوحدة');
+  String get reorderLevel => _t('Reorder level', 'حد إعادة الطلب');
+  String get reorderLevelHelper => _t(
+        'Trigger a low-stock alert at or below this qty',
+        'أطلق تنبيه نقص المخزون عند هذه الكمية أو أقل',
+      );
+  String get trackInventory => _t('Track inventory', 'تتبع المخزون');
+  String get trackInventorySubtitle =>
+      _t('Maintain stock levels for this product', 'حافظ على مستويات مخزون هذا المنتج');
+  String get inactiveHiddenSubtitle =>
+      _t('Inactive products are hidden from new orders', 'المنتجات غير النشطة مخفية من الطلبات الجديدة');
+  String get productUpdated => _t('Product updated.', 'تم تحديث المنتج.');
+  String get productCreated => _t('Product created.', 'تم إنشاء المنتج.');
+  String get deleteProductQ => _t('Delete product?', 'حذف المنتج؟');
+  String productWillBeRemoved(String name) =>
+      _t('“$name” will be removed from the catalogue.', 'سيتم حذف «$name» من الكتالوج.');
+  String productDeleted(String name) => _t('$name deleted.', 'تم حذف $name.');
+  String skuLabel(String sku) => _t('SKU $sku', 'الرمز $sku');
+  String get taxRate => _t('Tax rate', 'نسبة الضريبة');
+  String get onHand => _t('On hand', 'المتوفر');
+
+  // ---------------------------------------------------------------------------
+  // Categories
+  // ---------------------------------------------------------------------------
+  String get newCategory => _t('New category', 'فئة جديدة');
+  String get editCategory => _t('Edit category', 'تعديل الفئة');
+  String get categoryCreated => _t('Category created.', 'تم إنشاء الفئة.');
+  String get categoryUpdated => _t('Category updated.', 'تم تحديث الفئة.');
+  String get deleteCategoryQ => _t('Delete category?', 'حذف الفئة؟');
+  String categoryWillBeRemoved(String name) => _t(
+        '“$name” will be removed. Products keep their data.',
+        'سيتم حذف «$name». ستحتفظ المنتجات ببياناتها.',
+      );
+  String categoryDeleted(String name) => _t('$name deleted.', 'تم حذف $name.');
+  String get noCategories => _t('No categories', 'لا توجد فئات');
+  String get createCategoryHint =>
+      _t('Create a category to organise your products.', 'أنشئ فئة لتنظيم منتجاتك.');
+  String get categoryWord => _t('Category', 'فئة');
+  String get searchCategoriesHint => _t('Search categories…', 'ابحث في الفئات…');
+
+  // ---------------------------------------------------------------------------
+  // Inventory
+  // ---------------------------------------------------------------------------
+  String get searchStockHint => _t('Search stock by product…', 'ابحث في المخزون حسب المنتج…');
+  String get warehouse => _t('Warehouse', 'المستودع');
+  String get allWarehouses => _t('All warehouses', 'كل المستودعات');
+  String get noStockRecords => _t('No stock records', 'لا توجد سجلات مخزون');
+  String get receiveOrAdjustHint =>
+      _t('Receive or adjust stock to populate this list.', 'استلم أو عدّل المخزون لتعبئة هذه القائمة.');
+  String get stock => _t('Stock', 'المخزون');
+  String get adjustStock => _t('Adjust stock', 'تعديل المخزون');
+  String get transferStock => _t('Transfer stock', 'تحويل المخزون');
+  String get receiveStock => _t('Receive stock', 'استلام مخزون');
+  String get cycleCount => _t('Cycle count', 'الجرد الدوري');
+  String get inventoryUpdated => _t('Inventory updated.', 'تم تحديث المخزون.');
+  String get low => _t('Low', 'منخفض');
+  String get adjust => _t('Adjust', 'تعديل');
+  String get transfer => _t('Transfer', 'تحويل');
+  String get receive => _t('Receive', 'استلام');
+  String get quantityStar => _t('Quantity *', 'الكمية *');
+  String get positiveAddsStock =>
+      _t('Positive adds stock, negative removes it', 'القيمة الموجبة تضيف مخزونًا والسالية تخصم منه');
+  String get enterWholeNumber => _t('Enter a whole number', 'أدخل عددًا صحيحًا');
+  String get enterNonZeroQuantity => _t('Enter a non-zero quantity', 'أدخل كمية غير صفرية');
+  String get reason => _t('Reason', 'السبب');
+  String get posting => _t('Posting…', 'جارٍ الترحيل…');
+  String get postAdjustment => _t('Post adjustment', 'ترحيل التسوية');
+  String get selectProduct => _t('Select a product', 'اختر منتجًا');
+  String get selectLocation => _t('Select a location', 'اختر موقعًا');
+  String get from => _t('From', 'من');
+  String get to => _t('To', 'إلى');
+  String get enterQtyGreaterThanZero =>
+      _t('Enter a quantity greater than zero', 'أدخل كمية أكبر من صفر');
+  String get note => _t('Note', 'ملاحظة');
+  String get countedItems => _t('Counted items', 'الأصناف المجرودة');
+  String get noItemsYet =>
+      _t('No items yet — add the products you counted.', 'لا توجد أصناف بعد — أضف المنتجات التي جردتها.');
+  String get counted => _t('Counted', 'المجرود');
+  String get submitting => _t('Submitting…', 'جارٍ الإرسال…');
+  String get submitCount => _t('Submit count', 'إرسال الجرد');
+  String get selectLocationToCount => _t('Select a location to count.', 'اختر موقعًا للجرد.');
+  String get selectProductEveryLine =>
+      _t('Select a product for every line.', 'اختر منتجًا لكل سطر.');
+  String get enterCountedEveryLine =>
+      _t('Enter a counted quantity for every line.', 'أدخل الكمية المجرودة لكل سطر.');
+  String get addAtLeastOneProduct => _t('Add at least one product.', 'أضف منتجًا واحدًا على الأقل.');
+  String get couldNotSubmitCycleCount =>
+      _t('Could not submit the cycle count.', 'تعذّر إرسال الجرد الدوري.');
+  String get couldNotPostAdjustment =>
+      _t('Could not post the adjustment.', 'تعذّر ترحيل التسوية.');
+  String get couldNotPostTransfer =>
+      _t('Could not post the transfer.', 'تعذّر ترحيل التحويل.');
+  String get couldNotReceiveStock => _t('Could not receive stock.', 'تعذّر استلام المخزون.');
+  String get selectAProduct => _t('Select a product.', 'اختر منتجًا.');
+  String get selectALocation => _t('Select a location.', 'اختر موقعًا.');
+  String get selectProductAndLocation => _t('Select a product and a location.', 'اختر منتجًا وموقعًا.');
+  String get selectProductSourceDestination => _t(
+        'Select a product, a source and a destination.',
+        'اختر منتجًا ومصدرًا ووجهة.',
+      );
+  String get sourceDestinationDiffer =>
+      _t('Source and destination must differ.', 'يجب أن يختلف المصدر عن الوجهة.');
+  String get location => _t('Location', 'الموقع');
+  String get selectAWarehouse => _t('Select a warehouse', 'اختر مستودعًا');
+  String get chooseWarehouseFirst => _t('Choose a warehouse first', 'اختر مستودعًا أولًا');
+  String get unitCost => _t('Unit cost', 'تكلفة الوحدة');
+  String get reference => _t('Reference', 'المرجع');
+  String get supplierInvoiceOrDeliveryNote =>
+      _t('Supplier invoice or delivery note number', 'رقم فاتورة المورد أو إشعار التسليم');
+  String get searchMovementsHint => _t('Search movements…', 'ابحث في الحركات…');
+  String get type => _t('Type', 'النوع');
+  String get allTypes => _t('All types', 'كل الأنواع');
+  String get noMovements => _t('No movements', 'لا توجد حركات');
+  String get movementsWillAppear =>
+      _t('Inventory movements will appear here.', 'ستظهر حركات المخزون هنا.');
+  String get searchByBarcodeHint =>
+      _t('Search by name, SKU or barcode…', 'ابحث بالاسم أو الرمز أو الباركود…');
+  String get noMatchingProducts => _t('No matching products.', 'لا توجد منتجات مطابقة.');
+  String get removeLine => _t('Remove line', 'إزالة السطر');
+
+  // ---------------------------------------------------------------------------
+  // Warehouses & locations
+  // ---------------------------------------------------------------------------
+  String get newWarehouse => _t('New warehouse', 'مستودع جديد');
+  String get editWarehouse => _t('Edit warehouse', 'تعديل المستودع');
+  String get warehouseCreated => _t('Warehouse created.', 'تم إنشاء المستودع.');
+  String get warehouseUpdated => _t('Warehouse updated.', 'تم تحديث المستودع.');
+  String get deleteWarehouseQ => _t('Delete warehouse?', 'حذف المستودع؟');
+  String warehouseAndLocationsWillBeRemoved(String name) => _t(
+        '“$name” and its locations will be removed.',
+        'سيتم حذف «$name» ومواقعه.',
+      );
+  String warehouseDeleted(String name) => _t('$name deleted.', 'تم حذف $name.');
+  String get noWarehouses => _t('No warehouses', 'لا توجد مستودعات');
+  String get createWarehouseHint =>
+      _t('Create a warehouse to start tracking stock.', 'أنشئ مستودعًا لبدء تتبع المخزون.');
+  String get warehouseWord => _t('Warehouse', 'مستودع');
+  String locationCount(String count) => _t('$count location(s)', '$count موقع');
+  String get searchWarehousesHint => _t('Search warehouses…', 'ابحث في المستودعات…');
+  String get newLocation => _t('New location', 'موقع جديد');
+  String get editLocation => _t('Edit location', 'تعديل الموقع');
+  String get locationCreated => _t('Location created.', 'تم إنشاء الموقع.');
+  String get locationUpdated => _t('Location updated.', 'تم تحديث الموقع.');
+  String get deleteLocationQ => _t('Delete location?', 'حذف الموقع؟');
+  String locationWillBeRemoved(String name) => _t(
+        '“$name” will be removed from this warehouse.',
+        'سيتم حذف «$name» من هذا المستودع.',
+      );
+  String get locationDeleted => _t('Location deleted.', 'تم حذف الموقع.');
+  String get noLocations => _t('No locations', 'لا توجد مواقع');
+  String get addBinHint =>
+      _t('Add a bin or shelf to start tracking stock.', 'أضف رفًا أو موقعًا لبدء تتبع المخزون.');
+  String get locationWord => _t('Location', 'موقع');
+
+  // ---------------------------------------------------------------------------
+  // Suppliers
+  // ---------------------------------------------------------------------------
+  String get noSuppliers => _t('No suppliers', 'لا يوجد موردون');
+  String get addSupplierHint =>
+      _t('Add a supplier to create purchase orders.', 'أضف موردًا لإنشاء أوامر الشراء.');
+  String get supplier => _t('Supplier', 'مورد');
+  String get newSupplier => _t('New supplier', 'مورد جديد');
+  String get deleteSupplierQ => _t('Delete supplier?', 'حذف المورد؟');
+  String supplierWillBeRemoved(String name) =>
+      _t('“$name” will be removed.', 'سيتم حذف «$name».');
+  String supplierDeleted(String name) => _t('$name deleted.', 'تم حذف $name.');
+  String get balance => _t('Balance', 'الرصيد');
+  String get accountStatement => _t('Account statement', 'كشف حساب');
+  String get supplierDetails => _t('Supplier details', 'بيانات المورد');
+  String get contactPerson => _t('Contact person', 'الشخص المسؤول');
+  String get taxId => _t('Tax ID', 'الرقم الضريبي');
+  String get paymentTermDays => _t('Payment term (days)', 'مدة السداد (أيام)');
+  String get supplierUpdated => _t('Supplier updated.', 'تم تحديث المورد.');
+  String get supplierCreated => _t('Supplier created.', 'تم إنشاء المورد.');
+  String get deleteSupplier => _t('Delete supplier', 'حذف المورد');
+  String get searchSuppliersHint => _t('Search suppliers…', 'ابحث في الموردين…');
+
+  // ---------------------------------------------------------------------------
+  // Purchasing
+  // ---------------------------------------------------------------------------
+  String get searchPurchaseOrdersHint =>
+      _t('Search purchase orders…', 'ابحث في أوامر الشراء…');
+  String get statusWord => _t('Status', 'الحالة');
+  String get allStatuses => _t('All statuses', 'كل الحالات');
+  String get noPurchaseOrders => _t('No purchase orders', 'لا توجد أوامر شراء');
+  String get createPurchaseOrderHint =>
+      _t('Create a purchase order to restock inventory.', 'أنشئ أمر شراء لإعادة تعبئة المخزون.');
+  String get purchaseOrder => _t('Purchase order', 'أمر شراء');
+  String get newPurchaseOrder => _t('New purchase order', 'أمر شراء جديد');
+  String get orderDetails => _t('Order details', 'تفاصيل الأمر');
+  String get supplierStar => _t('Supplier *', 'المورد *');
+  String get supplierRequired => _t('Supplier is required', 'المورد مطلوب');
+  String get expectedDate => _t('Expected date', 'التاريخ المتوقع');
+  String get notes => _t('Notes', 'ملاحظات');
+  String get lines => _t('Lines', 'الأسطر');
+  String get productsToOrder => _t('Products to order', 'المنتجات المطلوب طلبها');
+  String get createOrder => _t('Create order', 'إنشاء الأمر');
+  String get salesOrderCreated => _t('Sales order created.', 'تم إنشاء أمر البيع.');
+  String get warehouseIsRequired => _t('Warehouse is required', 'المستودع مطلوب');
+  String get selectSupplierAndWarehouse =>
+      _t('Select a supplier and a warehouse.', 'اختر موردًا ومستودعًا.');
+  String get addAtLeastOneCompleteLine =>
+      _t('Add at least one complete line.', 'أضف سطرًا مكتملًا واحدًا على الأقل.');
+  String get purchaseOrderCreated => _t('Purchase order created.', 'تم إنشاء أمر الشراء.');
+  String get purchaseOrderNotFound => _t('Purchase order not found.', 'أمر الشراء غير موجود.');
+  String get orderDate => _t('Order date', 'تاريخ الأمر');
+  String get expected => _t('Expected', 'المتوقع');
+  String get received => _t('Received', 'المستلم');
+  String get noLinesOnOrder => _t('No lines on this order.', 'لا توجد أسطر في هذا الأمر.');
+  String lineCount(int n) => _t('$n line(s)', '$n سطر');
+  String get tax => _t('Tax', 'الضريبة');
+  String get approve => _t('Approve', 'اعتماد');
+  String get approvePurchaseOrderQ =>
+      _t('Approve purchase order?', 'اعتماد أمر الشراء؟');
+  String get approvePurchaseOrderMessage =>
+      _t('The order can then be received.', 'يمكن بعد ذلك استلام الأمر.');
+  String get purchaseOrderApproved => _t('Purchase order approved.', 'تم اعتماد أمر الشراء.');
+  String get receiveAllOutstandingQ =>
+      _t('Receive all outstanding items?', 'استلام كل الأصناف المتبقية؟');
+  String get receiveAllOutstandingMessage => _t(
+        'Stock levels will be increased for every outstanding line.',
+        'سيتم زيادة مستويات المخزون لكل سطر متبقٍ.',
+      );
+  String get stockReceived => _t('Stock received.', 'تم استلام المخزون.');
+  String get cancelPurchaseOrderQ => _t('Cancel purchase order?', 'إلغاء أمر الشراء؟');
+  String get cannotBeUndone => _t('This cannot be undone.', 'لا يمكن التراجع عن هذا.');
+  String get purchaseOrderCancelled => _t('Purchase order cancelled.', 'تم إلغاء أمر الشراء.');
+  String get purchaseOrderUpdated => _t('Purchase order updated.', 'تم تحديث أمر الشراء.');
+  String lineQtyReceived(int qty, int received) =>
+      _t('qty $qty · received $received', 'الكمية $qty · المستلم $received');
+
+  // ---------------------------------------------------------------------------
+  // Customers
+  // ---------------------------------------------------------------------------
+  String get noCustomers => _t('No customers', 'لا يوجد عملاء');
+  String get addCustomerHint =>
+      _t('Add a customer to create sales orders.', 'أضف عميلًا لإنشاء أوامر البيع.');
+  String get newCustomer => _t('New customer', 'عميل جديد');
+  String get deleteCustomerQ => _t('Delete customer?', 'حذف العميل؟');
+  String customerWillBeRemoved(String name) =>
+      _t('“$name” will be removed.', 'سيتم حذف «$name».');
+  String customerDeleted(String name) => _t('$name deleted.', 'تم حذف $name.');
+  String get customerDetails => _t('Customer details', 'بيانات العميل');
+  String get creditLimit => _t('Credit limit', 'حد الائتمان');
+  String get customerUpdated => _t('Customer updated.', 'تم تحديث العميل.');
+  String get customerCreated => _t('Customer created.', 'تم إنشاء العميل.');
+  String get deleteCustomer => _t('Delete customer', 'حذف العميل');
+  String get searchCustomersHint => _t('Search customers…', 'ابحث في العملاء…');
+
+  // ---------------------------------------------------------------------------
+  // Sales
+  // ---------------------------------------------------------------------------
+  String get searchSalesOrdersHint => _t('Search sales orders…', 'ابحث في أوامر البيع…');
+  String get noSalesOrders => _t('No sales orders', 'لا توجد أوامر بيع');
+  String get createSalesOrderHint =>
+      _t('Create a sales order to start selling.', 'أنشئ أمر بيع لبدء البيع.');
+  String get salesOrder => _t('Sales order', 'أمر بيع');
+  String get newSalesOrder => _t('New sales order', 'أمر بيع جديد');
+  String get confirmWord => _t('Confirm', 'تأكيد');
+  String get fulfil => _t('Fulfil', 'تنفيذ');
+  String get createInvoice => _t('Create invoice', 'إنشاء فاتورة');
+  String get confirmSalesOrderQ => _t('Confirm sales order?', 'تأكيد أمر البيع؟');
+  String get confirmSalesOrderMessage => _t(
+        'Confirmed orders can be fulfilled and invoiced.',
+        'يمكن تنفيذ الأوامر المؤكدة وإصدار فواتير لها.',
+      );
+  String get salesOrderConfirmed => _t('Sales order confirmed.', 'تم تأكيد أمر البيع.');
+  String get fulfilAllQ => _t('Fulfil all outstanding items?', 'تنفيذ كل الأصناف المتبقية؟');
+  String get fulfilAllMessage => _t(
+        'Stock levels will be reduced for every outstanding line.',
+        'سيتم خفض مستويات المخزون لكل سطر متبقٍ.',
+      );
+  String get salesOrderFulfilled => _t('Sales order fulfilled.', 'تم تنفيذ أمر البيع.');
+  String get cancelSalesOrderQ => _t('Cancel sales order?', 'إلغاء أمر البيع؟');
+  String get salesOrderCancelled => _t('Sales order cancelled.', 'تم إلغاء أمر البيع.');
+  String get salesOrderUpdated => _t('Sales order updated.', 'تم تحديث أمر البيع.');
+  String get draftInvoiceCreated => _t(
+        'Draft invoice created. Issue it from Invoices.',
+        'تم إنشاء فاتورة مسودة. أصدرها من الفواتير.',
+      );
+  String get salesOrderNotFound => _t('Sales order not found.', 'أمر البيع غير موجود.');
+  String get channel => _t('Channel', 'القناة');
+  String get fulfilled => _t('Fulfilled', 'المنفذ');
+  String get productsToSell => _t('Products to sell', 'المنتجات المطلوب بيعها');
+  String lineQtyFulfilled(int qty, int fulfilled) =>
+      _t('qty $qty · fulfilled $fulfilled', 'الكمية $qty · المنفذ $fulfilled');
+  String get selectAWarehouseShort => _t('Select a warehouse.', 'اختر مستودعًا.');
+
+  // ---------------------------------------------------------------------------
+  // Invoices
+  // ---------------------------------------------------------------------------
+  String get searchInvoicesHint =>
+      _t('Search invoices by number or customer…', 'ابحث في الفواتير بالرقم أو العميل…');
+  String get noInvoices => _t('No invoices', 'لا توجد فواتير');
+  String get invoicesCreatedHint => _t(
+        'Invoices are created from sales orders or the POS screen.',
+        'تُنشأ الفواتير من أوامر البيع أو شاشة نقطة البيع.',
+      );
+  String get overdue => _t('Overdue', 'متأخرة');
+  String get invoiceNotFound => _t('Invoice not found.', 'الفاتورة غير موجودة.');
+  String get issued => _t('Issued', 'تاريخ الإصدار');
+  String get due => _t('Due', 'الاستحقاق');
+  String get noLinesOnInvoice =>
+      _t('No lines on this invoice.', 'لا توجد أسطر في هذه الفاتورة.');
+  String get issue => _t('Issue', 'إصدار');
+  String get recordPayment => _t('Record payment', 'تسجيل دفعة');
+  String get voidLabel => _t('Void', 'إبطال');
+  String get issueInvoiceQ => _t('Issue this invoice?', 'إصدار هذه الفاتورة؟');
+  String get issueInvoiceMessage => _t(
+        'Issued invoices can receive payments and cannot be edited.',
+        'يمكن للفواتير الصادرة استقبال المدفوعات ولا يمكن تعديلها.',
+      );
+  String get invoiceIssued => _t('Invoice issued.', 'تم إصدار الفاتورة.');
+  String get voidInvoiceQ => _t('Void this invoice?', 'إبطال هذه الفاتورة؟');
+  String get voidInvoiceMessage => _t(
+        'Voiding is permanent. Invoices with recorded payments cannot be voided.',
+        'الإبطال نهائي. لا يمكن إبطال الفواتير التي لها مدفوعات مسجلة.',
+      );
+  String get invoiceVoided => _t('Invoice voided.', 'تم إبطال الفاتورة.');
+  String get invoiceDetails => _t('Invoice details', 'تفاصيل الفاتورة');
+  String get dueDate => _t('Due date', 'تاريخ الاستحقاق');
+  String get productsAndServices => _t(
+        'Products and services on this invoice',
+        'المنتجات والخدمات في هذه الفاتورة',
+      );
+  String get itemFallback => _t('Item', 'صنف');
+  String qtyTimesPrice(String qty, String price) =>
+      _t('qty $qty × $price', 'الكمية $qty × $price');
+  String get eachLineNeedsProduct =>
+      _t('Each line needs a product or description and a quantity.',
+          'كل سطر يحتاج إلى منتج أو وصف وكمية.');
+  String get invoiceUpdated => _t('Invoice updated.', 'تم تحديث الفاتورة.');
+
+  // ---------------------------------------------------------------------------
+  // Payments
+  // ---------------------------------------------------------------------------
+  String get searchPaymentsHint =>
+      _t('Search payments by number or reference…', 'ابحث في المدفوعات بالرقم أو المرجع…');
+  String get direction => _t('Direction', 'الاتجاه');
+  String get allPayments => _t('All payments', 'كل المدفوعات');
+  String get inboundReceived => _t('Inbound (received)', 'وارد (مستلَم)');
+  String get outboundPaid => _t('Outbound (paid)', 'صادر (مدفوع)');
+  String get noPayments => _t('No payments', 'لا توجد مدفوعات');
+  String get paymentsHint =>
+      _t('Payments recorded against invoices appear here.', 'ستظهر هنا المدفوعات المسجلة على الفواتير.');
+  String get inbound => _t('Inbound', 'وارد');
+  String get outbound => _t('Outbound', 'صادر');
+  String get payment => _t('Payment', 'دفعة');
+  String get paymentRecorded => _t('Payment recorded.', 'تم تسجيل الدفعة.');
+  String get method => _t('Method', 'الطريقة');
+  String get amount => _t('Amount', 'المبلغ');
+  String get paid => _t('Paid', 'المدفوع');
+  String get paidOn => _t('Paid on', 'تاريخ الدفع');
+  String get noInvoice => _t('No invoice', 'بدون فاتورة');
+  String get chooseSupplier => _t('Choose a supplier', 'اختر موردًا');
+  String get selectSupplier => _t('Select a supplier', 'اختر موردًا');
+  String get selectCustomer => _t('Select a customer', 'اختر عميلًا');
+  String get chequeOrTransferRef => _t('Cheque or transfer reference', 'مرجع الشيك أو التحويل');
+  String get enterAmountGreaterThanZero =>
+      _t('Enter an amount greater than zero', 'أدخل مبلغًا أكبر من صفر');
+  String get recordAPayment => _t('Record a payment', 'تسجيل دفعة');
+  String get invoice => _t('Invoice', 'فاتورة');
+
+  // ---------------------------------------------------------------------------
+  // Reports
+  // ---------------------------------------------------------------------------
+  String get sales => _t('Sales', 'المبيعات');
+  String get topProducts => _t('Top products', 'أفضل المنتجات');
+  String get valuation => _t('Valuation', 'التقييم');
+  String get customerBalances => _t('Customer balances', 'أرصدة العملاء');
+  String get supplierBalances => _t('Supplier balances', 'أرصدة الموردين');
+  String get noSalesInPeriod => _t('No sales in this period', 'لا توجد مبيعات في هذه الفترة');
+  String get salesByDay => _t('Sales by day', 'المبيعات حسب اليوم');
+  String get revenuePerDay =>
+      _t('Revenue per day for the current year', 'الإيرادات اليومية للسنة الحالية');
+  String get noProductSalesYet => _t('No product sales yet', 'لا توجد مبيعات منتجات بعد');
+  String get last30Days => _t('Last 30 days by revenue', 'آخر 30 يومًا حسب الإيرادات');
+  String get noStockToValuate => _t('No stock to value', 'لا يوجد مخزون للتقييم');
+  String get stockLines => _t('Stock lines', 'أسطر المخزون');
+  String get units => _t('Units', 'الوحدات');
+  String get costValue => _t('Cost value', 'قيمة التكلفة');
+  String get retailValue => _t('Retail value', 'قيمة البيع');
+  String get valuationByLine => _t('Valuation by line', 'التقييم حسب السطر');
+  String get noOutstandingBalances => _t('No outstanding balances', 'لا توجد أرصدة مستحقة');
+  String customerCountLabel(String count) => _t('$count customer(s)', '$count عميل');
+  String supplierCountLabel(String count) => _t('$count supplier(s)', '$count مورد');
+  String invoiceCountLabel(String count) => _t('$count invoice(s)', '$count فاتورة');
+  String poCountLabel(String count) => _t('$count PO(s)', '$count أمر شراء');
+  String get itemLower => _t('Item', 'صنف');
+  String lineWithQty(String sku, String qty) =>
+      _t('$sku · qty $qty', '$sku · الكمية $qty');
+
+  // ---------------------------------------------------------------------------
+  // Settings
+  // ---------------------------------------------------------------------------
+  String get company => _t('Company', 'الشركة');
+  String get currencies => _t('Currencies', 'العملات');
+  String get settingsSaved => _t('Settings saved.', 'تم حفظ الإعدادات.');
+  String get couldNotSave => _t('Could not save.', 'تعذّر الحفظ.');
+  String get couldNotLoadSettings => _t('Could not load settings.', 'تعذّر تحميل الإعدادات.');
+  String get companyName => _t('Company name', 'اسم الشركة');
+  String get companyNameRequired => _t('Company name is required', 'اسم الشركة مطلوب');
+  String get defaults => _t('Defaults', 'الإعدادات الافتراضية');
+  String get baseCurrencyCode => _t('Base currency code', 'رمز العملة الأساسية');
+  String get baseCurrencyHelper => _t('e.g. USD, EUR, NGN', 'مثال: USD، EUR، NGN');
+  String get baseCurrencyRequired => _t('Base currency is required', 'العملة الأساسية مطلوبة');
+  String get defaultTaxRate => _t('Default tax rate (%)', 'نسبة الضريبة الافتراضية (%)');
+  String get enterRate => _t('Enter a rate between 0 and 100', 'أدخل نسبة بين 0 و100');
+  String get lowStockAlertsSetting => _t('Low stock alerts', 'تنبيهات نقص المخزون');
+  String get numberPrefixes => _t('Number prefixes', 'بادئات الأرقام');
+  String get purchaseOrderPrefix => _t('Purchase order', 'أمر شراء');
+  String get salesOrderPrefix => _t('Sales order', 'أمر بيع');
+  String get journalEntry => _t('Journal entry', 'قيد اليومية');
+  String get saveSettings => _t('Save settings', 'حفظ الإعدادات');
+  String get noCurrencies => _t('No currencies', 'لا توجد عملات');
+  String get currenciesManagedHint =>
+      _t('Currencies are managed by an administrator.', 'تُدار العملات من قبل المسؤول.');
+  String rateValue(String value) => _t('Rate $value', 'السعر $value');
+  String get baseLabel => _t('Base', 'أساسية');
+
+  // ---------------------------------------------------------------------------
+  // Users
+  // ---------------------------------------------------------------------------
+  String get searchUsersHint => _t('Search users by name or email…', 'ابحث في المستخدمين بالاسم أو البريد…');
+  String get role => _t('Role', 'الدور');
+  String get allRoles => _t('All roles', 'كل الأدوار');
+  String get noUsers => _t('No users', 'لا يوجد مستخدمون');
+  String get inviteUserHint => _t('Invite a colleague to collaborate.', 'ادعُ زميلًا للتعاون.');
+  String get user => _t('User', 'مستخدم');
+  String get deactivate => _t('Deactivate', 'إلغاء التنشيط');
+  String deactivateUserQ(String name) => _t('Deactivate $name?', 'إلغاء تنشيط $name؟');
+  String get deactivateUserMessage =>
+      _t('The user will no longer be able to sign in.', 'لن يتمكن المستخدم من تسجيل الدخول بعد الآن.');
+  String get userDeactivated => _t('User deactivated.', 'تم إلغاء تنشيط المستخدم.');
+  String get editUser => _t('Edit user', 'تعديل المستخدم');
+  String get newUser => _t('New user', 'مستخدم جديد');
+  String get newPasswordOptional => _t('New password (optional)', 'كلمة مرور جديدة (اختياري)');
+  String get useAtLeast8 => _t('Use at least 8 characters', 'استخدم 8 أحرف على الأقل');
+  String get userUpdated => _t('User updated.', 'تم تحديث المستخدم.');
+  String get userCreated => _t('User created.', 'تم إنشاء المستخدم.');
+
+  // ---------------------------------------------------------------------------
+  // Accounting
+  // ---------------------------------------------------------------------------
+  String get accountType => _t('Account type', 'نوع الحساب');
+  String get noAccounts => _t('No accounts', 'لا توجد حسابات');
+  String get chartCreatedHint => _t(
+        'The chart of accounts is created automatically on first use.',
+        'يُنشأ دليل الحسابات تلقائيًا عند أول استخدام.',
+      );
+  String accountCount(int n) => _t('$n account(s)', '$n حساب');
+  String get accountWord => _t('Account', 'حساب');
+  String get newAccount => _t('New account', 'حساب جديد');
+  String get accountCreated => _t('Account created.', 'تم إنشاء الحساب.');
+  String get searchJournalHint =>
+      _t('Search journal by number, memo or reference…', 'ابحث في اليومية بالرقم أو المذكرة أو المرجع…');
+  String get noJournalEntries => _t('No journal entries', 'لا توجد قيود يومية');
+  String get journalHint => _t(
+        'Entries are posted automatically by invoices and payments.',
+        'تُرحّل القيود تلقائيًا بواسطة الفواتير والمدفوعات.',
+      );
+  String get noLinesOnEntry => _t('No lines on this entry.', 'لا توجد أسطر في هذا القيد.');
+  String get totals => _t('Totals', 'الإجماليات');
+  String creditAmount(String amount) => _t('credit $amount', 'دائن $amount');
+  String get debit => _t('Debit', 'مدين');
+  String get credit => _t('Credit', 'دائن');
+  String get dr => _t('Dr', 'مدين');
+  String get cr => _t('Cr', 'دائن');
+  String get bal => _t('Bal', 'رصيد');
+
+  // ---------------------------------------------------------------------------
+  // Statement
+  // ---------------------------------------------------------------------------
+  String get statement => _t('Statement', 'كشف حساب');
+  String get currentBalance => _t('Current balance', 'الرصيد الحالي');
+  String get creditLimitLabel => _t('Credit limit', 'حد الائتمان');
+  String get period => _t('Period', 'الفترة');
+  String get ledger => _t('Ledger', 'دفتر الأستاذ');
+  String entriesCount(int n) => _t('$n entr${n == 1 ? 'y' : 'ies'}', '$n قيد');
+  String get noEntriesForPeriod => _t('No entries for this period.', 'لا توجد قيود في هذه الفترة.');
+  String get openingBalance => _t('Opening balance', 'الرصيد الافتتاحي');
+  String get totalDebit => _t('Total debit', 'إجمالي المدين');
+  String get totalCredit => _t('Total credit', 'إجمالي الدائن');
+  String get closingBalance => _t('Closing balance', 'الرصيد الختامي');
+  String get printStatement => _t('Print statement', 'طباعة كشف الحساب');
+  String get couldNotLoadStatement =>
+      _t('Could not load the statement.', 'تعذّر تحميل كشف الحساب.');
+  String get statementNotFound => _t('Statement not found.', 'كشف الحساب غير موجود.');
+
+  // ---------------------------------------------------------------------------
+  // Business status labels
+  // ---------------------------------------------------------------------------
+  static const Map<String, String> _statusAr = <String, String>{
+    // Document / order statuses.
+    'DRAFT': 'مسودة',
+    'ISSUED': 'صادرة',
+    'PAID': 'مدفوعة',
+    'PARTIALLY_PAID': 'مدفوعة جزئيًا',
+    'VOID': 'ملغاة',
+    'PENDING': 'قيد الانتظار',
+    'APPROVED': 'معتمدة',
+    'RECEIVED': 'مستلمة',
+    'PARTIALLY_RECEIVED': 'مستلمة جزئيًا',
+    'CONFIRMED': 'مؤكدة',
+    'FULFILLED': 'منفذة',
+    'PARTIALLY_FULFILLED': 'منفذة جزئيًا',
+    'CANCELLED': 'ملغاة',
+    'ACTIVE': 'نشط',
+    'INACTIVE': 'غير نشط',
+    'OVERDUE': 'متأخرة',
+    // Roles.
+    'ADMIN': 'مدير النظام',
+    'MANAGER': 'مدير',
+    'SALES': 'مبيعات',
+    'CASHIER': 'أمين صندوق',
+    'WAREHOUSE': 'أمين مستودع',
+    'ACCOUNTANT': 'محاسب',
+    // Payment methods.
+    'CASH': 'نقدًا',
+    'CARD': 'بطاقة',
+    'BANK_TRANSFER': 'تحويل بنكي',
+    'MOBILE_MONEY': 'محفظة إلكترونية',
+    'CHEQUE': 'شيك',
+    'OTHER': 'أخرى',
+    // Directions / channels.
+    'INBOUND': 'وارد',
+    'OUTBOUND': 'صادر',
+    'MANUAL': 'يدوي',
+    'POS': 'نقطة البيع',
+    // Inventory movement types.
+    'OPENING': 'رصيد افتتاحي',
+    'RECEIVE': 'استلام',
+    'DISPATCH': 'صرف',
+    'ADJUSTMENT': 'تسوية',
+    'TRANSFER_IN': 'تحويل وارد',
+    'TRANSFER_OUT': 'تحويل صادر',
+    'SALE': 'بيع',
+    'SALE_RETURN': 'مرتجع بيع',
+    'PURCHASE': 'شراء',
+    'PURCHASE_RETURN': 'مرتجع شراء',
+    'CYCLE_COUNT': 'جرد دوري',
+    // Account types.
+    'ASSET': 'أصول',
+    'LIABILITY': 'التزامات',
+    'EQUITY': 'حقوق ملكية',
+    'REVENUE': 'إيرادات',
+    'EXPENSE': 'مصروفات',
+  };
+
+  /// Translates an enum-like business value (status, role, method, type) into
+  /// the active language, falling back to [Formatters.label] for unknown keys.
+  String status(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return '—';
+    final key = raw.trim().toUpperCase();
+    final ar = _statusAr[key];
+    if (ar != null) return isArabic ? ar : Formatters.label(raw);
+    return Formatters.label(raw);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Reports, statements & settings (extended suite)
+  // ---------------------------------------------------------------------------
+  String get report => _t('Report', 'تقرير');
+  String get receipts => _t('Receipts', 'المقبوضات');
+  String get receivablesBySalesperson => _t(
+        'Receivables by salesperson',
+        'مديونية العملاء لكل مندوب',
+      );
+  String get receivablesBySalespersonHint => _t(
+        'Outstanding customer balances grouped by the salesperson who sold to them.',
+        'أرصدة العملاء المستحقة مجمّعة حسب المندوب الذي باع لهم.',
+      );
+  String get supplierPayables => _t('Supplier payables', 'مديونية الموردين');
+  String get supplierPayablesHint => _t(
+        'Full outstanding balance owed to every supplier.',
+        'كامل الرصيد المستحق لكل مورد.',
+      );
+  String get stockBalance => _t('Stock balance', 'رصيد المخزون');
+  String get stockBalanceHint => _t(
+        'On-hand quantity and value for counting and review.',
+        'الكمية والقيمة المتاحة للجرد والمراجعة.',
+      );
+  String get itemMovement => _t('Item movement', 'حركة صنف');
+  String get itemMovementHint => _t(
+        'Every movement of a single product with a running balance.',
+        'كل حركات صنف واحد مع الرصيد الجاري.',
+      );
+  String get statements => _t('Statements', 'كشوف الحسابات');
+  String get customerStatement => _t('Customer statement', 'كشف حساب عميل');
+  String get supplierStatement => _t('Supplier statement', 'كشف حساب مورد');
+  String get statementsHint => _t(
+        'Pick a customer or supplier and a date range to build a statement.',
+        'اختر عميلًا أو موردًا وفترة زمنية لإنشاء كشف الحساب.',
+      );
+  String get chooseCustomer => _t('Choose a customer', 'اختر عميلًا');
+  String get chooseProduct => _t('Choose a product', 'اختر صنفًا');
+  String get chooseSalesperson => _t('Choose a salesperson', 'اختر مندوبًا');
+  String get applyFilters => _t('Apply', 'تطبيق');
+  String get viewStatement => _t('View statement', 'عرض كشف الحساب');
+  String get salesperson => _t('Salesperson', 'المندوب');
+  String get unassigned => _t('Unassigned', 'بدون مندوب');
+  String get purchases => _t('Purchases', 'المشتريات');
+  String get quantity => _t('Quantity', 'الكمية');
+  String get available => _t('Available', 'المتاح');
+  String get reservedQty => _t('Reserved', 'المحجوز');
+  String get date => _t('Date', 'التاريخ');
+  String get openingShort => _t('Opening', 'الافتتاحي');
+  String get closingShort => _t('Closing', 'الختامي');
+  String get inShort => _t('In', 'وارد');
+  String get outShort => _t('Out', 'منصرف');
+  String get runningBalance => _t('Running balance', 'الرصيد الجاري');
+  String get noDataForFilters => _t(
+        'No data for the selected filters.',
+        'لا توجد بيانات للفلاتر المحددة.',
+      );
+  String get selectProductFirst => _t(
+        'Select a product first.',
+        'اختر صنفًا أولًا.',
+      );
+  String get selectPersonFirst => _t(
+        'Select a customer or supplier first.',
+        'اختر عميلًا أو موردًا أولًا.',
+      );
+  String get allSalespeople => _t('All salespeople', 'كل المندوبين');
+  String get dateRange => _t('Date range', 'الفترة الزمنية');
+  String get taxSettings => _t('Tax', 'الضريبة');
+  String get enableTax => _t('Enable tax', 'تفعيل الضريبة');
+  String get enableTaxHint => _t(
+        'When disabled, tax is set to zero on all new sales, purchases and invoices.',
+        'عند التعطيل تُصفَّر الضريبة على كل المبيعات والمشتريات والفواتير الجديدة.',
+      );
+  String get dashboardLayout => _t('Dashboard sections', 'أقسام لوحة التحكم');
+  String get dashboardLayoutHint => _t(
+        'Choose which sections appear on the dashboard.',
+        'اختر الأقسام التي تظهر في لوحة التحكم.',
+      );
+  String get dashKpis => _t('Key figures', 'المؤشرات');
+  String get dashQuickActions => _t('Quick actions', 'إجراءات سريعة');
+  String get dashLowStock => _t('Low-stock alerts', 'تنبيهات نقص المخزون');
+  String get dashRecentMovements => _t('Recent movements', 'أحدث الحركات');
+}
+
+/// [LocalizationsDelegate] for [AppStrings] supporting English and Arabic.
+class AppStringsDelegate extends LocalizationsDelegate<AppStrings> {
+  const AppStringsDelegate();
+
+  @override
+  bool isSupported(Locale locale) =>
+      locale.languageCode == 'en' || locale.languageCode == 'ar';
+
+  @override
+  Future<AppStrings> load(Locale locale) =>
+      SynchronousFuture<AppStrings>(AppStrings(locale));
+
+  @override
+  bool shouldReload(AppStringsDelegate old) => false;
+}
+
+/// The const delegate instance wired into [MaterialApp].
+const AppStringsDelegate appStringsDelegate = AppStringsDelegate();
+
+/// Convenience accessor: `context.s.signIn`.
+extension AppStringsX on BuildContext {
+  AppStrings get s => AppStrings.of(this);
+}

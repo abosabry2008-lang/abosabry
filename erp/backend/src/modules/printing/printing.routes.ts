@@ -1,0 +1,197 @@
+import type { Response } from 'express';
+import { Router } from 'express';
+import { ApiError } from '../../lib/api-error';
+import { asyncHandler } from '../../lib/http';
+import { prisma } from '../../lib/prisma';
+import { asDate, asString } from '../../lib/query';
+import { getSettings } from '../../lib/settings';
+import { authenticateToken } from '../../middleware/authenticate-token';
+import { requirePermission } from '../../middleware/authorize';
+import { invoiceInclude } from '../invoices/invoices.service';
+import {
+  buildInventoryValuation,
+  buildSalesReport,
+  buildTopProducts,
+  type SalesGroupBy,
+} from '../reports/reports.service';
+import { buildCustomerStatement, buildSupplierStatement } from '../reports/statement.service';
+import {
+  buildItemMovement,
+  buildReceivablesBySalesperson,
+  buildStockBalance,
+  buildSupplierPayables,
+} from '../reports/analytics.service';
+import {
+  customerStatementHtml,
+  inventoryValuationHtml,
+  invoiceHtml,
+  itemMovementHtml,
+  receivablesBySalespersonHtml,
+  salesReportHtml,
+  stockBalanceHtml,
+  supplierPayablesHtml,
+  supplierStatementHtml,
+  topProductsHtml,
+} from './printing.templates';
+
+const router = Router();
+
+// Print pages are opened in a browser, so the access token may arrive either as
+// an `Authorization: Bearer` header or as a `?token=` query parameter.
+router.use(authenticateToken);
+
+function sendHtml(res: Response, html: string): void {
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+}
+
+// GET /print/invoices/:id
+router.get(
+  '/invoices/:id',
+  requirePermission('invoices.read'),
+  asyncHandler(async (req, res) => {
+    const [invoice, settings] = await Promise.all([
+      prisma.invoice.findUnique({ where: { id: req.params.id }, include: invoiceInclude }),
+      getSettings(),
+    ]);
+    if (!invoice) throw ApiError.notFound('Invoice not found');
+    sendHtml(res, invoiceHtml(invoice, settings));
+  }),
+);
+
+// GET /print/customers/:id/statement
+router.get(
+  '/customers/:id/statement',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const [statement, settings] = await Promise.all([
+      buildCustomerStatement(req.params.id, from, to),
+      getSettings(),
+    ]);
+    sendHtml(res, customerStatementHtml(statement, settings));
+  }),
+);
+
+// GET /print/suppliers/:id/statement
+router.get(
+  '/suppliers/:id/statement',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const [statement, settings] = await Promise.all([
+      buildSupplierStatement(req.params.id, from, to),
+      getSettings(),
+    ]);
+    sendHtml(res, supplierStatementHtml(statement, settings));
+  }),
+);
+
+// GET /print/reports/sales
+router.get(
+  '/reports/sales',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const groupBy: SalesGroupBy = asString(req.query.groupBy) === 'month' ? 'month' : 'day';
+    const [report, settings] = await Promise.all([buildSalesReport(from, to, groupBy), getSettings()]);
+    sendHtml(res, salesReportHtml(report, settings));
+  }),
+);
+
+// GET /print/reports/inventory-valuation
+router.get(
+  '/reports/inventory-valuation',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const warehouseId = asString(req.query.warehouseId);
+    const [report, settings] = await Promise.all([
+      buildInventoryValuation(warehouseId),
+      getSettings(),
+    ]);
+    sendHtml(res, inventoryValuationHtml(report, settings));
+  }),
+);
+
+// GET /print/reports/top-products
+router.get(
+  '/reports/top-products',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const limit = Number(asString(req.query.limit) ?? 10);
+    const [report, settings] = await Promise.all([buildTopProducts(from, to, limit), getSettings()]);
+    sendHtml(res, topProductsHtml(report, settings));
+  }),
+);
+
+// GET /print/reports/receivables-by-salesperson
+router.get(
+  '/reports/receivables-by-salesperson',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const userId = asString(req.query.userId);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildReceivablesBySalesperson(from, to, userId),
+      getSettings(),
+    ]);
+    sendHtml(res, receivablesBySalespersonHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/reports/supplier-payables
+router.get(
+  '/reports/supplier-payables',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([buildSupplierPayables(from, to), getSettings()]);
+    sendHtml(res, supplierPayablesHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/reports/stock-balance
+router.get(
+  '/reports/stock-balance',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const warehouseId = asString(req.query.warehouseId);
+    const categoryId = asString(req.query.categoryId);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildStockBalance(warehouseId, categoryId),
+      getSettings(),
+    ]);
+    sendHtml(res, stockBalanceHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/reports/item-movement
+router.get(
+  '/reports/item-movement',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const productId = asString(req.query.productId);
+    if (!productId) throw ApiError.badRequest('productId is required', 'PRODUCT_REQUIRED');
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const warehouseId = asString(req.query.warehouseId);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildItemMovement(productId, from, to, warehouseId),
+      getSettings(),
+    ]);
+    sendHtml(res, itemMovementHtml(report, settings, lang));
+  }),
+);
+
+export default router;

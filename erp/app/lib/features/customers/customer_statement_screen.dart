@@ -1,0 +1,143 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/api_exception.dart';
+import '../../core/formatters.dart';
+import '../../core/l10n.dart';
+import '../../core/print_service.dart';
+import '../../core/session.dart';
+import '../../models/account_statement.dart';
+import '../../widgets/error_view.dart';
+import '../../widgets/statement_view.dart';
+import '../shell/navigation.dart';
+
+/// Account statement (كشف حساب) for a single customer.
+class CustomerStatementScreen extends StatefulWidget {
+  const CustomerStatementScreen({
+    super.key,
+    required this.customerId,
+    required this.customerName,
+    this.from,
+    this.to,
+  });
+
+  final String customerId;
+  final String customerName;
+  final DateTime? from;
+  final DateTime? to;
+
+  @override
+  State<CustomerStatementScreen> createState() =>
+      _CustomerStatementScreenState();
+}
+
+/// Navigates to the customer statement with a Print action in the app bar.
+Future<bool?> openCustomerStatement(
+  BuildContext context, {
+  required String customerId,
+  required String customerName,
+  DateTime? from,
+  DateTime? to,
+}) =>
+    pushScreen<bool>(
+      context,
+      context.s.statement,
+      CustomerStatementScreen(
+        customerId: customerId,
+        customerName: customerName,
+        from: from,
+        to: to,
+      ),
+      actions: <Widget>[
+        IconButton(
+          tooltip: context.s.print,
+          icon: const Icon(Icons.print_outlined),
+          onPressed: () => PrintService.printCustomerStatement(
+            context,
+            customerId,
+            from: from,
+            to: to,
+          ),
+        ),
+      ],
+    );
+
+class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
+  AccountStatement? _statement;
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final api = context.read<Session>().api;
+    setState(() {
+      _loading = _statement == null;
+      _error = null;
+    });
+    try {
+      final data = await api.getObject(
+        '/reports/customers/${widget.customerId}/statement',
+        query: <String, dynamic>{
+          if (widget.from != null) 'from': Formatters.isoDate(widget.from!),
+          if (widget.to != null) 'to': Formatters.isoDate(widget.to!),
+        },
+      );
+      if (!mounted) return;
+      setState(() => _statement = AccountStatement.fromJson(data));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.message);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = context.s.couldNotLoadStatement);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    final statement = _statement;
+    if (_loading && statement == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (statement == null) {
+      return Scaffold(
+        body: ErrorView(
+          message: _error ?? s.statementNotFound,
+          onRetry: _load,
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: <Widget>[
+            StatementView(statement: statement),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => PrintService.printCustomerStatement(
+                context,
+                widget.customerId,
+                from: statement.from,
+                to: statement.to,
+              ),
+              icon: const Icon(Icons.print_outlined),
+              label: Text(s.printStatement),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

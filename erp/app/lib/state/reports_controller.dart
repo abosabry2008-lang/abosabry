@@ -1,0 +1,384 @@
+import 'package:flutter/foundation.dart';
+
+import '../core/api_client.dart';
+import '../core/api_exception.dart';
+import '../models/dashboard_summary.dart';
+import '../models/sales_point.dart';
+import '../models/stock_movement.dart';
+import '../core/json_utils.dart';
+
+/// Dashboard KPIs (`GET /reports/dashboard`) plus a low-stock peek.
+class DashboardController extends ChangeNotifier {
+  DashboardController(this.api);
+
+  final ApiClient api;
+
+  DashboardSummary? summary;
+  List<StockMovement> recentMovements = <StockMovement>[];
+  bool loading = false;
+  String? error;
+
+  Future<void> load() async {
+    loading = true;
+    error = null;
+    notifyListeners();
+    try {
+      final data = await api.getObject('/reports/dashboard');
+      summary = DashboardSummary.fromJson(data);
+      recentMovements = asMapList(data['recentMovements'] ?? data['movements'])
+          .map(StockMovement.fromJson)
+          .toList();
+    } on ApiException catch (exception) {
+      error = exception.message;
+    } catch (exception) {
+      debugPrint('DashboardController.load failed: $exception');
+      error = 'Could not load the dashboard.';
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  /// `GET /inventory/low-stock` – used by the dashboard low-stock card.
+  Future<List<Map<String, dynamic>>> loadLowStock() async {
+    final json = await api.get('/inventory/low-stock');
+    final data = asMap(json)['data'];
+    if (data is List) return asMapList(data);
+    if (data is Map) return asMapList(asMap(data)['items']);
+    return <Map<String, dynamic>>[];
+  }
+}
+
+/// Report data for the reports screen.
+class ReportsController extends ChangeNotifier {
+  ReportsController(this.api);
+
+  final ApiClient api;
+
+  DashboardSummary? dashboard;
+  bool loadingDashboard = false;
+  String? dashboardError;
+
+  List<SalesPoint> salesSeries = <SalesPoint>[];
+  bool loadingSales = false;
+  String? salesError;
+
+  Map<String, dynamic> valuation = <String, dynamic>{};
+  bool loadingValuation = false;
+  String? valuationError;
+
+  List<SalesPoint> topProducts = <SalesPoint>[];
+  bool loadingTopProducts = false;
+  String? topProductsError;
+
+  List<Map<String, dynamic>> customerBalances = <Map<String, dynamic>>[];
+  bool loadingCustomerBalances = false;
+  String? customerBalancesError;
+
+  List<Map<String, dynamic>> supplierBalances = <Map<String, dynamic>>[];
+  bool loadingSupplierBalances = false;
+  String? supplierBalancesError;
+
+  List<Map<String, dynamic>> receivables = <Map<String, dynamic>>[];
+  Map<String, dynamic> receivablesTotals = <String, dynamic>{};
+  bool loadingReceivables = false;
+  String? receivablesError;
+
+  List<Map<String, dynamic>> supplierPayables = <Map<String, dynamic>>[];
+  Map<String, dynamic> supplierPayablesTotals = <String, dynamic>{};
+  bool loadingSupplierPayables = false;
+  String? supplierPayablesError;
+
+  List<Map<String, dynamic>> stockBalance = <Map<String, dynamic>>[];
+  Map<String, dynamic> stockBalanceTotals = <String, dynamic>{};
+  bool loadingStockBalance = false;
+  String? stockBalanceError;
+
+  Map<String, dynamic> itemMovement = <String, dynamic>{};
+  bool loadingItemMovement = false;
+  String? itemMovementError;
+
+  Future<void> loadDashboard() async {
+    loadingDashboard = true;
+    dashboardError = null;
+    notifyListeners();
+    try {
+      dashboard = DashboardSummary.fromJson(
+        await api.getObject('/reports/dashboard'),
+      );
+    } on ApiException catch (exception) {
+      dashboardError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadDashboard failed: $exception');
+      dashboardError = 'Could not load the dashboard report.';
+    } finally {
+      loadingDashboard = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadSales({
+    DateTime? from,
+    DateTime? to,
+    String groupBy = 'day',
+  }) async {
+    loadingSales = true;
+    salesError = null;
+    notifyListeners();
+    try {
+      final rows = await _fetchRows(
+        '/reports/sales',
+        <String, dynamic>{
+          if (from != null || to != null) 'groupBy': groupBy,
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+        },
+        listKey: 'series',
+      );
+      salesSeries = rows.map(SalesPoint.fromJson).toList();
+    } on ApiException catch (exception) {
+      salesError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadSales failed: $exception');
+      salesError = 'Could not load the sales report.';
+    } finally {
+      loadingSales = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadValuation() async {
+    loadingValuation = true;
+    valuationError = null;
+    notifyListeners();
+    try {
+      final json = await api.get('/reports/inventory-valuation');
+      final data = asMap(json)['data'];
+      if (data is Map) {
+        valuation = asMap(data);
+      } else if (data is List) {
+        valuation = <String, dynamic>{'items': asMapList(data)};
+      } else {
+        valuation = <String, dynamic>{};
+      }
+    } on ApiException catch (exception) {
+      valuationError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadValuation failed: $exception');
+      valuationError = 'Could not load the inventory valuation.';
+    } finally {
+      loadingValuation = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadTopProducts({
+    DateTime? from,
+    DateTime? to,
+    int limit = 10,
+  }) async {
+    loadingTopProducts = true;
+    topProductsError = null;
+    notifyListeners();
+    try {
+      final rows = await _fetchRows(
+        '/reports/top-products',
+        <String, dynamic>{
+          'limit': limit,
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+        },
+        listKey: 'rows',
+      );
+      topProducts = rows.map(SalesPoint.fromJson).toList();
+    } on ApiException catch (exception) {
+      topProductsError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadTopProducts failed: $exception');
+      topProductsError = 'Could not load top products.';
+    } finally {
+      loadingTopProducts = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadCustomerBalances() async {
+    loadingCustomerBalances = true;
+    customerBalancesError = null;
+    notifyListeners();
+    try {
+      customerBalances = await _fetchRows('/reports/customer-balances', null);
+    } on ApiException catch (exception) {
+      customerBalancesError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadCustomerBalances failed: $exception');
+      customerBalancesError = 'Could not load customer balances.';
+    } finally {
+      loadingCustomerBalances = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadSupplierBalances() async {
+    loadingSupplierBalances = true;
+    supplierBalancesError = null;
+    notifyListeners();
+    try {
+      supplierBalances = await _fetchRows('/reports/supplier-balances', null);
+    } on ApiException catch (exception) {
+      supplierBalancesError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadSupplierBalances failed: $exception');
+      supplierBalancesError = 'Could not load supplier balances.';
+    } finally {
+      loadingSupplierBalances = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadReceivables({
+    DateTime? from,
+    DateTime? to,
+    String? userId,
+  }) async {
+    loadingReceivables = true;
+    receivablesError = null;
+    notifyListeners();
+    try {
+      final data = await _fetchReport(
+        '/reports/receivables-by-salesperson',
+        <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+          if (userId != null && userId.isNotEmpty) 'userId': userId,
+        },
+      );
+      receivables = asMapList(data['rows']);
+      receivablesTotals = asMap(data['totals']);
+    } on ApiException catch (exception) {
+      receivablesError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadReceivables failed: $exception');
+      receivablesError = 'Could not load receivables by salesperson.';
+    } finally {
+      loadingReceivables = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadSupplierPayables({DateTime? from, DateTime? to}) async {
+    loadingSupplierPayables = true;
+    supplierPayablesError = null;
+    notifyListeners();
+    try {
+      final data = await _fetchReport(
+        '/reports/supplier-payables',
+        <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+        },
+      );
+      supplierPayables = asMapList(data['rows']);
+      supplierPayablesTotals = asMap(data['totals']);
+    } on ApiException catch (exception) {
+      supplierPayablesError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadSupplierPayables failed: $exception');
+      supplierPayablesError = 'Could not load supplier payables.';
+    } finally {
+      loadingSupplierPayables = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadStockBalance({
+    String? warehouseId,
+    String? categoryId,
+  }) async {
+    loadingStockBalance = true;
+    stockBalanceError = null;
+    notifyListeners();
+    try {
+      final data = await _fetchReport(
+        '/reports/stock-balance',
+        <String, dynamic>{
+          if (warehouseId != null && warehouseId.isNotEmpty)
+            'warehouseId': warehouseId,
+          if (categoryId != null && categoryId.isNotEmpty)
+            'categoryId': categoryId,
+        },
+      );
+      stockBalance = asMapList(data['rows']);
+      stockBalanceTotals = asMap(data['totals']);
+    } on ApiException catch (exception) {
+      stockBalanceError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadStockBalance failed: $exception');
+      stockBalanceError = 'Could not load the stock balance.';
+    } finally {
+      loadingStockBalance = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadItemMovement({
+    required String productId,
+    DateTime? from,
+    DateTime? to,
+    String? warehouseId,
+  }) async {
+    loadingItemMovement = true;
+    itemMovementError = null;
+    notifyListeners();
+    try {
+      itemMovement = await _fetchReport(
+        '/reports/item-movement',
+        <String, dynamic>{
+          'productId': productId,
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+          if (warehouseId != null && warehouseId.isNotEmpty)
+            'warehouseId': warehouseId,
+        },
+      );
+    } on ApiException catch (exception) {
+      itemMovementError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadItemMovement failed: $exception');
+      itemMovementError = 'Could not load the item movement.';
+    } finally {
+      loadingItemMovement = false;
+      notifyListeners();
+    }
+  }
+
+  /// Fetches a report whose `data` is an object (e.g. `{rows, totals}`).
+  Future<Map<String, dynamic>> _fetchReport(
+    String path,
+    Map<String, dynamic>? query,
+  ) async {
+    final json = await api.get(path, query: query);
+    return asMap(asMap(json)['data']);
+  }
+
+  /// Normalises `{data: [...]}`, `{data: {items: [...]}}` and single objects.
+  Future<List<Map<String, dynamic>>> _fetchRows(
+    String path,
+    Map<String, dynamic>? query, {
+    String? listKey,
+  }) async {
+    final json = await api.get(path, query: query);
+    final data = asMap(json)['data'];
+    if (data is List) return asMapList(data);
+    if (data is Map) {
+      final map = asMap(data);
+      if (listKey != null && map[listKey] is List) {
+        return asMapList(map[listKey]);
+      }
+      final items = map['items'];
+      if (items is List) return asMapList(items);
+      return <Map<String, dynamic>>[map];
+    }
+    return <Map<String, dynamic>>[];
+  }
+}

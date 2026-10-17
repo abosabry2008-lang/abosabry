@@ -1,0 +1,352 @@
+import { Router } from 'express';
+import { ApiError } from '../../lib/api-error';
+import { asyncHandler, ok } from '../../lib/http';
+import { round2 } from '../../lib/money';
+import { prisma } from '../../lib/prisma';
+import { asDate, asString } from '../../lib/query';
+import { authenticate } from '../../middleware/authenticate';
+import { requirePermission } from '../../middleware/authorize';
+import { lowStockProducts } from '../inventory/inventory.service';
+import {
+  buildInventoryValuation,
+  buildSalesReport,
+  buildTopProducts,
+  dayKey,
+} from './reports.service';
+import { buildCustomerStatement, buildSupplierStatement } from './statement.service';
+import {
+  buildItemMovement,
+  buildReceivablesBySalesperson,
+  buildStockBalance,
+  buildSupplierPayables,
+} from './analytics.service';
+
+const router = Router();
+router.use(authenticate);
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+// GET /reports/dashboard
+router.get(
+  '/dashboard',
+  requirePermission('reports.read'),
+  asyncHandler(async (_req, res) => {
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+    const [
+      productCount,
+      customerCount,
+      supplierCount,
+      warehouseCount,
+      salesToday,
+      salesMonth,
+      receivables,
+      payables,
+      levels,
+      lowStock,
+      recentMovements,
+      salesLines,
+      recentOrders,
+    ] = await Promise.all([
+      prisma.product.count({ where: { deletedAt: null, active: true } }),
+      prisma.customer.count({ where: { active: true } }),
+      prisma.supplier.count({ where: { active: true } }),
+      prisma.warehouse.count({ where: { active: true } }),
+      prisma.salesOrder.aggregate({
+        where: { orderDate: { gte: todayStart }, status: { not: 'CANCELLED' } },
+        _sum: { total: true },
+        _count: { _all: true },
+      }),
+      prisma.salesOrder.aggregate({
+        where: { orderDate: { gte: monthStart }, status: { not: 'CANCELLED' } },
+        _sum: { total: true },
+        _count: { _all: true },
+      }),
+      prisma.invoice.aggregate({
+        where: { status: { in: ['ISSUED', 'PARTIALLY_PAID'] } },
+        _sum: { balance: true },
+      }),
+      prisma.supplier.aggregate({ _sum: { balance: true } }),
+      prisma.stockLevel.findMany({ select: { productId: true, quantity: true } }),
+      lowStockProducts(),
+      prisma.stockMovement.findMany({
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          product: { select: { id: true, sku: true, name: true } },
+          location: { select: { id: true, code: true, name: true } },
+        },
+      }),
+      prisma.salesOrderLine.findMany({
+        where: {
+          salesOrder: { orderDate: { gte: last30 }, status: { not: 'CANCELLED' } },
+        },
+        select: { productId: true, quantity: true, unitPrice: true },
+      }),
+      prisma.salesOrder.findMany({
+        where: { orderDate: { gte: weekStart }, status: { not: 'CANCELLED' } },
+        select: { orderDate: true, total: true },
+      }),
+    ]);
+
+    const productIds = [...new Set(levels.map((level) => level.productId))];
+    const products = productIds.length
+      ? await prisma.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, costPrice: true, salePrice: true },
+        })
+      : [];
+    const priceById = new Map(
+      products.map((product) => [
+        product.id,
+        { cost: Number(product.costPrice), sale: Number(product.salePrice) },
+      ]),
+    );
+
+    let stockUnits = 0;
+    let stockCostValue = 0;
+    let stockRetailValue = 0;
+    for (const level of levels) {
+      const prices = priceById.get(level.productId);
+      stockUnits += level.quantity;
+      stockCostValue += level.quantity * (prices?.cost ?? 0);
+      stockRetailValue += level.quantity * (prices?.sale ?? 0);
+    }
+
+    const topMap = new Map<string, { quantity: number; revenue: number }>();
+    for (const line of salesLines) {
+      const entry = topMap.get(line.productId) ?? { quantity: 0, revenue: 0 };
+      entry.quantity += line.quantity;
+      entry.revenue += line.quantity * Number(line.unitPrice);
+      topMap.set(line.productId, entry);
+    }
+    const topIds = [...topMap.entries()].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 5);
+    const topProducts = topIds.length
+      ? await prisma.product.findMany({
+          where: { id: { in: topIds.map(([id]) => id) } },
+          select: { id: true, sku: true, name: true },
+        })
+      : [];
+    const topNameById = new Map(topProducts.map((product) => [product.id, product]));
+
+    const series: { date: string; total: number; orders: number }[] = [];
+    for (let i = 6; i >= 0; i -= 1) {
+      const day = new Date(todayStart.getTime() - i * 24 * 60 * 60 * 1000);
+      series.push({ date: dayKey(day), total: 0, orders: 0 });
+    }
+    const seriesByDate = new Map(series.map((point) => [point.date, point]));
+    for (const order of recentOrders) {
+      const point = seriesByDate.get(dayKey(order.orderDate));
+      if (point) {
+        point.total = round2(point.total + Number(order.total));
+        point.orders += 1;
+      }
+    }
+
+    ok(res, {
+      counts: {
+        products: productCount,
+        customers: customerCount,
+        suppliers: supplierCount,
+        warehouses: warehouseCount,
+        lowStock: lowStock.length,
+      },
+      inventory: {
+        units: stockUnits,
+        costValue: round2(stockCostValue),
+        retailValue: round2(stockRetailValue),
+      },
+      sales: {
+        today: round2(Number(salesToday._sum.total ?? 0)),
+        todayOrders: salesToday._count._all,
+        month: round2(Number(salesMonth._sum.total ?? 0)),
+        monthOrders: salesMonth._count._all,
+      },
+      receivables: round2(Number(receivables._sum.balance ?? 0)),
+      payables: round2(Number(payables._sum.balance ?? 0)),
+      lowStock: lowStock.slice(0, 10).map((row) => ({
+        id: row.product.id,
+        sku: row.product.sku,
+        name: row.product.name,
+        quantity: row.quantity,
+        reorderLevel: row.product.reorderLevel,
+        shortage: row.shortage,
+      })),
+      topProducts: topIds.map(([productId, stats]) => ({
+        productId,
+        sku: topNameById.get(productId)?.sku ?? '',
+        name: topNameById.get(productId)?.name ?? '',
+        quantitySold: stats.quantity,
+        revenue: round2(stats.revenue),
+      })),
+      salesSeries: series,
+      recentMovements: recentMovements.map((movement) => ({
+        ...movement,
+        unitCost: Number(movement.unitCost),
+      })),
+    });
+  }),
+);
+
+// GET /reports/sales
+router.get(
+  '/sales',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const groupBy = asString(req.query.groupBy) === 'month' ? 'month' : 'day';
+
+    ok(res, await buildSalesReport(from, to, groupBy));
+  }),
+);
+
+// GET /reports/inventory-valuation
+router.get(
+  '/inventory-valuation',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const warehouseId = asString(req.query.warehouseId);
+    ok(res, await buildInventoryValuation(warehouseId));
+  }),
+);
+
+// GET /reports/top-products
+router.get(
+  '/top-products',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const limit = Number(asString(req.query.limit) ?? 10);
+
+    ok(res, await buildTopProducts(from, to, limit));
+  }),
+);
+
+// GET /reports/customer-balances
+router.get(
+  '/customer-balances',
+  requirePermission('reports.read'),
+  asyncHandler(async (_req, res) => {
+    const customers = await prisma.customer.findMany({
+      where: { balance: { not: 0 } },
+      orderBy: { balance: 'desc' },
+      include: { _count: { select: { invoices: true } } },
+    });
+    ok(
+      res,
+      customers.map((customer) => ({
+        id: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        creditLimit: Number(customer.creditLimit),
+        balance: Number(customer.balance),
+        invoices: customer._count.invoices,
+      })),
+    );
+  }),
+);
+
+// GET /reports/supplier-balances
+router.get(
+  '/supplier-balances',
+  requirePermission('reports.read'),
+  asyncHandler(async (_req, res) => {
+    const suppliers = await prisma.supplier.findMany({
+      where: { balance: { not: 0 } },
+      orderBy: { balance: 'desc' },
+      include: { _count: { select: { purchaseOrders: true } } },
+    });
+    ok(
+      res,
+      suppliers.map((supplier) => ({
+        id: supplier.id,
+        name: supplier.name,
+        email: supplier.email,
+        phone: supplier.phone,
+        balance: Number(supplier.balance),
+        purchaseOrders: supplier._count.purchaseOrders,
+      })),
+    );
+  }),
+);
+
+// GET /reports/receivables-by-salesperson
+router.get(
+  '/receivables-by-salesperson',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const userId = asString(req.query.userId);
+    ok(res, await buildReceivablesBySalesperson(from, to, userId));
+  }),
+);
+
+// GET /reports/supplier-payables
+router.get(
+  '/supplier-payables',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildSupplierPayables(from, to));
+  }),
+);
+
+// GET /reports/stock-balance
+router.get(
+  '/stock-balance',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const warehouseId = asString(req.query.warehouseId);
+    const categoryId = asString(req.query.categoryId);
+    ok(res, await buildStockBalance(warehouseId, categoryId));
+  }),
+);
+
+// GET /reports/item-movement
+router.get(
+  '/item-movement',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const productId = asString(req.query.productId);
+    if (!productId) throw ApiError.badRequest('productId is required', 'PRODUCT_REQUIRED');
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const warehouseId = asString(req.query.warehouseId);
+    ok(res, await buildItemMovement(productId, from, to, warehouseId));
+  }),
+);
+
+// GET /reports/customers/:id/statement
+router.get(
+  '/customers/:id/statement',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildCustomerStatement(req.params.id, from, to));
+  }),
+);
+
+// GET /reports/suppliers/:id/statement
+router.get(
+  '/suppliers/:id/statement',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildSupplierStatement(req.params.id, from, to));
+  }),
+);
+
+export default router;
