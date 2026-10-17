@@ -52,10 +52,10 @@ services:
           envVarKey: RENDER_EXTERNAL_URL
 
   # ------------------------- 2. Flutter web ---------------------------
+  # NOTE: static sites do NOT accept a `region` field (blueprint validation).
   - type: web
     name: erp-web
     runtime: static
-    region: frankfurt
     # The compiled Flutter web app is committed under erp/web
     # (see erp/deploy/build_web.ps1). No build step on Render.
     staticPublishPath: ./erp/web
