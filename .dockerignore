@@ -14,6 +14,13 @@ docs
 # Flutter sources — the built bundle (erp/web) is what we ship
 erp/app
 
+# Vercel-only files (vercel.json, api/, public/): the container ignores them
+api
+vercel.json
+public
+package.json
+package-lock.json
+
 # Never bake local state or secrets into the image
 **/node_modules
 **/dist

@@ -1,0 +1,12 @@
+{
+  "name": "erp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ERP — Flutter web + REST API. Root scripts exist so Vercel (and other hosts) can run the build; the API itself lives in erp/backend.",
+  "scripts": {
+    "build": "node erp/deploy/vercel/build.mjs"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}
