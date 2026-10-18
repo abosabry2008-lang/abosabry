@@ -48,6 +48,10 @@ class OrderLineDraft {
 
   bool get isValid => product != null && product!.id.isNotEmpty && quantity > 0;
 
+  /// True when a priced line sells below the product's recorded cost.
+  bool get priceBelowCost =>
+      product != null && price > 0 && price < product!.costPrice;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
         'productId': product?.id,
         'quantity': quantity,
@@ -57,10 +61,13 @@ class OrderLineDraft {
         'taxRate': taxRate,
       };
 
-  void setProduct(Product value, {bool autoFillPrice = true}) {
+  void setProduct(Product value, {bool preferSalePrice = false}) {
     product = value;
-    if (autoFillPrice && price == 0) {
-      priceController.text = _format(value.costPrice > 0 ? value.costPrice : value.salePrice);
+    if (price == 0) {
+      final suggested = preferSalePrice
+          ? (value.salePrice > 0 ? value.salePrice : value.costPrice)
+          : (value.costPrice > 0 ? value.costPrice : value.salePrice);
+      priceController.text = _format(suggested);
     }
   }
 
@@ -82,6 +89,8 @@ class OrderLinesEditor extends StatelessWidget {
     this.showTax = true,
     this.enabled = true,
     this.priceLabel,
+    this.preferSalePrice = false,
+    this.enforceSalePriceFloor = false,
   });
 
   final List<OrderLineDraft> lines;
@@ -90,6 +99,14 @@ class OrderLinesEditor extends StatelessWidget {
   final bool showTax;
   final bool enabled;
   final String? priceLabel;
+
+  /// When true, picking a product auto-fills its sale price (sales / returns
+  /// documents); when false the cost price is used (purchases).
+  final bool preferSalePrice;
+
+  /// When true, any priced line below the product's cost is highlighted with
+  /// an error message (sales must not sell below cost).
+  final bool enforceSalePriceFloor;
 
   double get subtotal =>
       lines.fold<double>(0, (sum, line) => sum + line.gross);
@@ -131,7 +148,10 @@ class OrderLinesEditor extends StatelessWidget {
                             product: lines[index].product,
                             enabled: enabled,
                             onChanged: (value) {
-                              lines[index].setProduct(value);
+                              lines[index].setProduct(
+                                value,
+                                preferSalePrice: preferSalePrice,
+                              );
                               onChanged();
                             },
                           ),
@@ -172,6 +192,30 @@ class OrderLinesEditor extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (enforceSalePriceFloor && lines[index].priceBelowCost)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(
+                          children: <Widget>[
+                            Icon(
+                              Icons.error_outline,
+                              size: 16,
+                              color: theme.colorScheme.error,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                s.priceBelowCost(
+                                  lines[index].product?.name ?? s.product,
+                                ),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     const SizedBox(height: 8),
                     Row(
                       children: <Widget>[

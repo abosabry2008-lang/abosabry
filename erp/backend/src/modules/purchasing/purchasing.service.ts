@@ -162,6 +162,12 @@ export async function receivePurchaseOrder(id: string, input: ReceivePurchaseOrd
         userId: input.userId,
       });
 
+      // سعر التكلفة يصبح آخر سعر شراء مستلم لهذا المنتج.
+      await tx.product.update({
+        where: { id: line.productId },
+        data: { costPrice: Number(line.unitCost) },
+      });
+
       await tx.purchaseOrderLine.update({
         where: { id: line.id },
         data: { receivedQty: { increment: quantity } },

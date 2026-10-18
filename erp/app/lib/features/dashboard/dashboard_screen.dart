@@ -10,7 +10,6 @@ import '../../state/reports_controller.dart';
 import '../../state/settings_controller.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
-import '../pos/pos_screen.dart';
 import '../products/products_screen.dart';
 
 /// Landing screen with KPIs, recent inventory movements and low-stock alerts.
@@ -22,6 +21,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final ScrollController _scrollController = ScrollController();
   List<Map<String, dynamic>> _lowStock = <Map<String, dynamic>>[];
   bool _loadingLowStock = false;
 
@@ -40,6 +40,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       _loadLowStock();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLowStock() async {
@@ -76,7 +82,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return RefreshIndicator(
       onRefresh: _refresh,
-      child: ListView(
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        child: ListView(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: <Widget>[
@@ -107,23 +117,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 16),
           ],
           if (widgets.contains('quickActions') &&
-              (session.can('pos') || session.can('products'))) ...<Widget>[
+              session.can('products')) ...<Widget>[
             SectionCard(
               title: s.quickActions,
               child: Wrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: <Widget>[
-                  if (session.can('pos'))
-                    FilledButton.tonalIcon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const PosScreen(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.point_of_sale),
-                      label: Text(s.newSale),
-                    ),
                   if (session.can('products'))
                     FilledButton.tonalIcon(
                       onPressed: () => Navigator.of(context).push(
@@ -190,6 +190,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
             ),
         ],
+        ),
       ),
     );
   }

@@ -76,6 +76,13 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
       _snack(context.s.addAtLeastOneCompleteLine);
       return;
     }
+    // لا يُسمح بالبيع بسعر أقل من التكلفة.
+    for (final line in validLines) {
+      if (line.priceBelowCost) {
+        _snack(context.s.priceBelowCost(line.product!.name));
+        return;
+      }
+    }
     setState(() => _saving = true);
     final controller = context.read<SalesOrdersController>();
     try {
@@ -184,6 +191,8 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                 lines: _lines,
                 enabled: !_saving,
                 showDiscount: true,
+                preferSalePrice: true,
+                enforceSalePriceFloor: true,
                 onChanged: () => setState(() {}),
               ),
             ),

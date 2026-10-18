@@ -21,6 +21,7 @@ import 'state/product_catalog.dart';
 import 'state/products_controller.dart';
 import 'state/purchase_orders_controller.dart';
 import 'state/reports_controller.dart';
+import 'state/returns_controller.dart';
 import 'state/sales_orders_controller.dart';
 import 'state/salespeople_controller.dart';
 import 'state/settings_controller.dart';
@@ -62,6 +63,7 @@ class _ErpAppState extends State<ErpApp> {
   late final PaymentsController _payments;
   late final PurchaseOrdersController _purchaseOrders;
   late final SalesOrdersController _salesOrders;
+  late final ReturnsController _returns;
   late final AccountsController _accounts;
   late final JournalController _journal;
   late final SettingsController _settings;
@@ -91,6 +93,7 @@ class _ErpAppState extends State<ErpApp> {
     _payments = PaymentsController(_api);
     _purchaseOrders = PurchaseOrdersController(_api);
     _salesOrders = SalesOrdersController(_api);
+    _returns = ReturnsController(_api);
     _accounts = AccountsController(_api);
     _journal = JournalController(_api);
     _settings = SettingsController(_api);
@@ -132,6 +135,7 @@ class _ErpAppState extends State<ErpApp> {
         ChangeNotifierProvider<SalesOrdersController>.value(
           value: _salesOrders,
         ),
+        ChangeNotifierProvider<ReturnsController>.value(value: _returns),
         ChangeNotifierProvider<AccountsController>.value(value: _accounts),
         ChangeNotifierProvider<JournalController>.value(value: _journal),
         ChangeNotifierProvider<SettingsController>.value(value: _settings),

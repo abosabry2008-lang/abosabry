@@ -181,6 +181,59 @@ class _CompanySettingsTabState extends State<_CompanySettingsTab> {
                     () => _draft = draft.copyWith(companyAddress: value),
                   ),
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: AppTextField(
+                        label: s.commercialRegister,
+                        initialValue: draft.commercialRegisterNo,
+                        onChanged: (value) => setState(
+                          () => _draft =
+                              draft.copyWith(commercialRegisterNo: value),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AppTextField(
+                        label: s.taxCard,
+                        initialValue: draft.taxCardNo,
+                        onChanged: (value) => setState(
+                          () => _draft = draft.copyWith(taxCardNo: value),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                AppTextField(
+                  label: s.logoUrl,
+                  initialValue: draft.logoUrl,
+                  hint: s.logoUrlHint,
+                  keyboardType: TextInputType.url,
+                  onChanged: (value) => setState(
+                    () => _draft = draft.copyWith(logoUrl: value),
+                  ),
+                ),
+                if ((draft.logoUrl ?? '').trim().isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 12),
+                  Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        draft.logoUrl!.trim(),
+                        height: 72,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.broken_image_outlined,
+                          size: 48,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

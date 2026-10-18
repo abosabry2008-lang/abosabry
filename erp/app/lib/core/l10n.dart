@@ -769,6 +769,7 @@ class AppStrings {
     'FULFILLED': 'منفذة',
     'PARTIALLY_FULFILLED': 'منفذة جزئيًا',
     'CANCELLED': 'ملغاة',
+    'POSTED': 'مرحّلة',
     'ACTIVE': 'نشط',
     'INACTIVE': 'غير نشط',
     'OVERDUE': 'متأخرة',
@@ -902,6 +903,67 @@ class AppStrings {
   String get dashQuickActions => _t('Quick actions', 'إجراءات سريعة');
   String get dashLowStock => _t('Low-stock alerts', 'تنبيهات نقص المخزون');
   String get dashRecentMovements => _t('Recent movements', 'أحدث الحركات');
+
+  // ---------------------------------------------------------------------------
+  // Company details (بيانات الشركة)
+  // ---------------------------------------------------------------------------
+  String get logoUrl => _t('Logo URL', 'رابط اللوجو');
+  String get logoUrlHint => _t(
+        'Paste a link to the company logo (PNG/JPG).',
+        'الصق رابط اللوجو الخاص بالشركة (PNG/JPG).',
+      );
+  String get commercialRegister => _t('Commercial register', 'السجل التجاري');
+  String get taxCard => _t('Tax card', 'البطاقة الضريبية');
+  String get companyDetails => _t('Company details', 'بيانات الشركة');
+  String get companyDetailsHint => _t(
+        'Shown on the app header and printed documents.',
+        'تظهر في ترويسة التطبيق والوثائق المطبوعة.',
+      );
+
+  // ---------------------------------------------------------------------------
+  // Returns (المرتجعات)
+  // ---------------------------------------------------------------------------
+  String get returns => _t('Returns', 'المرتجعات');
+  String get searchReturnsHint => _t('Search returns…', 'ابحث في المرتجعات…');
+  String get newReturn => _t('New return', 'مرتجع جديد');
+  String get customerReturns => _t('Customer returns', 'مرتجعات العملاء');
+  String get supplierReturns => _t('Supplier returns', 'مرتجعات الموردين');
+  String get returnOrder => _t('Return order', 'أمر مرتجع');
+  String get returnOrderCreated => _t('Return order created.', 'تم إنشاء أمر المرتجع.');
+  String get returnPosted => _t('Return posted. Stock and balances updated.', 'تم ترحيل المرتجع. تم تحديث المخزون والأرصدة.');
+  String get returnCancelled => _t('Return order cancelled.', 'تم إلغاء أمر المرتجع.');
+  String get postReturn => _t('Post return', 'ترحيل المرتجع');
+  String get cancelReturn => _t('Cancel return', 'إلغاء المرتجع');
+  String get returnLinesHint => _t('Products returned and their quantities.', 'المنتجات المرتجعة والكميات.');
+  String get returnProductsToSell => _t('Returned products', 'المنتجات المرتجعة');
+  String get selectCustomerOrSupplier => _t('Select a customer or supplier first.', 'اختر عميلًا أو موردًا أولًا.');
+  String get addAtLeastOneReturnLine => _t('Add at least one complete return line.', 'أضف سطر مرتجع واحدًا على الأقل.');
+  String get noReturnsYet => _t('No returns yet', 'لا توجد مرتجعات بعد');
+  String get noReturnsHint => _t(
+        'Returns you create for customers or suppliers will appear here.',
+        'ستظهر هنا المرتجعات التي تنشئها للعملاء أو الموردين.',
+      );
+  String get returnType => _t('Return type', 'نوع المرتجع');
+  String get partner => _t('Partner', 'الطرف');
+  String get postReturnQ => _t('Post this return?', 'ترحيل هذا المرتجع؟');
+  String postReturnHint(String number) => _t(
+        '“$number” will update stock, partner balance and the journal. It cannot be undone.',
+        'سيُحدّث «$number» المخزون ورصيد الشريك والدفتر اليومي، ولا يمكن التراجع عن ذلك.',
+      );
+  String get cancelReturnQ => _t('Cancel this return?', 'إلغاء أمر المرتجع؟');
+  String get salePriceBelowCost => _t(
+        'Sale price cannot be lower than the cost price.',
+        'لا يمكن أن يكون سعر البيع أقل من سعر التكلفة.',
+      );
+  String priceBelowCost(String name) => _t(
+        'Price for “$name” is below its cost.',
+        'سعر «$name» أقل من التكلفة.',
+      );
+  String get quickAddProduct => _t('Add new product', 'إضافة منتج جديد');
+  String get quickAddProductHint => _t(
+        'The product does not exist yet — create it and pick it instantly.',
+        'المنتج غير موجود بعد — أنشئه واختره فورًا.',
+      );
 }
 
 /// [LocalizationsDelegate] for [AppStrings] supporting English and Arabic.

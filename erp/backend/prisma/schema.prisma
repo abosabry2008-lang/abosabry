@@ -113,6 +113,7 @@ model User {
   purchaseOrders PurchaseOrder[]
   payments       Payment[]
   journalEntries JournalEntry[]
+  returnOrders   ReturnOrder[]
 
   /// Customers this user is the assigned sales representative for.
   salespersonForCustomers Customer[] @relation("CustomerSalesperson")
@@ -198,6 +199,7 @@ model Product {
   purchaseLines  PurchaseOrderLine[]
   salesLines     SalesOrderLine[]
   invoiceLines   InvoiceLine[]
+  returnLines    ReturnOrderLine[]
 
   @@index([categoryId])
   @@index([active])
@@ -222,6 +224,7 @@ model Warehouse {
   stockLevels    StockLevel[]
   salesOrders    SalesOrder[]
   purchaseOrders PurchaseOrder[]
+  returnOrders   ReturnOrder[]
 }
 
 model Location {
@@ -303,6 +306,7 @@ model Supplier {
 
   purchaseOrders PurchaseOrder[]
   payments       Payment[]
+  returnOrders   ReturnOrder[]
 
   @@index([name])
 }
@@ -376,6 +380,7 @@ model Customer {
   salesOrders SalesOrder[]
   invoices    Invoice[]
   payments    Payment[]
+  returnOrders ReturnOrder[]
 
   @@index([name])
   @@index([salespersonId])
@@ -426,6 +431,65 @@ model SalesOrderLine {
   product    Product    @relation(fields: [productId], references: [id])
 
   @@index([salesOrderId])
+}
+
+// ---------------------------------------------------------------------------
+// Returns (مرتجعات)
+// ---------------------------------------------------------------------------
+
+enum ReturnOrderStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+enum ReturnType {
+  CUSTOMER_RETURN // مرتجع من عميل
+  SUPPLIER_RETURN // مرتجع الى مورد
+}
+
+model ReturnOrder {
+  id           String           @id @default(cuid())
+  number       String           @unique
+  type         ReturnType
+  customerId   String?
+  supplierId   String?
+  warehouseId  String
+  status       ReturnOrderStatus @default(DRAFT)
+  returnDate   DateTime         @default(now())
+  subtotal     Decimal          @default(0) @db.Decimal(14, 2)
+  taxTotal     Decimal          @default(0) @db.Decimal(14, 2)
+  total        Decimal          @default(0) @db.Decimal(14, 2)
+  notes        String?
+  userId       String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  customer  Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  supplier  Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  warehouse Warehouse        @relation(fields: [warehouseId], references: [id])
+  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  lines     ReturnOrderLine[]
+
+  @@index([type])
+  @@index([customerId])
+  @@index([supplierId])
+  @@index([returnDate])
+}
+
+model ReturnOrderLine {
+  id            String      @id @default(cuid())
+  returnOrderId String
+  productId     String
+  quantity      Int
+  unitPrice     Decimal     @db.Decimal(14, 2) // سعر المرتجع (سعر البيع للعميل / التكلفة للمورد)
+  unitCost      Decimal     @default(0) @db.Decimal(14, 2) // تكلفة المنتج وقت الإرجاع
+  taxRate       Decimal     @default(0) @db.Decimal(6, 3)
+
+  returnOrder ReturnOrder @relation(fields: [returnOrderId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id])
+
+  @@index([returnOrderId])
 }
 
 // ---------------------------------------------------------------------------
@@ -571,6 +635,12 @@ model Setting {
   companyEmail        String?
   companyPhone        String?
   companyAddress      String?
+  /// URL of the company logo shown on documents.
+  logoUrl             String?
+  /// رقم السجل التجاري.
+  commercialRegisterNo String?
+  /// رقم البطاقة الضريبية.
+  taxCardNo           String?
   baseCurrencyCode    String   @default("USD")
   defaultTaxRate      Decimal  @default(0) @db.Decimal(6, 3)
   taxEnabled          Boolean  @default(true)

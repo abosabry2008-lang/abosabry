@@ -6,6 +6,9 @@ export interface AppSettings {
   companyEmail: string | null;
   companyPhone: string | null;
   companyAddress: string | null;
+  logoUrl: string | null;
+  commercialRegisterNo: string | null;
+  taxCardNo: string | null;
   baseCurrencyCode: string;
   defaultTaxRate: number;
   taxEnabled: boolean;
@@ -31,6 +34,9 @@ export async function getSettings(client: Client = prisma): Promise<AppSettings>
       companyEmail: existing.companyEmail,
       companyPhone: existing.companyPhone,
       companyAddress: existing.companyAddress,
+      logoUrl: existing.logoUrl,
+      commercialRegisterNo: existing.commercialRegisterNo,
+      taxCardNo: existing.taxCardNo,
       baseCurrencyCode: existing.baseCurrencyCode,
       defaultTaxRate: Number(existing.defaultTaxRate),
       taxEnabled: existing.taxEnabled,
@@ -51,6 +57,9 @@ export async function getSettings(client: Client = prisma): Promise<AppSettings>
     companyEmail: settings.companyEmail,
     companyPhone: settings.companyPhone,
     companyAddress: settings.companyAddress,
+    logoUrl: settings.logoUrl,
+    commercialRegisterNo: settings.commercialRegisterNo,
+    taxCardNo: settings.taxCardNo,
     baseCurrencyCode: settings.baseCurrencyCode,
     defaultTaxRate: Number(settings.defaultTaxRate),
     taxEnabled: settings.taxEnabled,

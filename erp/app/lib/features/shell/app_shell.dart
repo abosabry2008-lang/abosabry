@@ -13,15 +13,16 @@ import '../inventory/inventory_screen.dart';
 import '../inventory/movements_screen.dart';
 import '../invoices/invoices_screen.dart';
 import '../payments/payments_screen.dart';
-import '../pos/pos_screen.dart';
 import '../products/products_screen.dart';
 import '../purchasing/purchase_orders_screen.dart';
 import '../reports/reports_screen.dart';
+import '../returns/returns_screen.dart';
 import '../sales/sales_orders_screen.dart';
 import '../settings/settings_screen.dart';
 import '../settings/users_screen.dart';
 import '../suppliers/suppliers_screen.dart';
 import '../warehouses/warehouses_screen.dart';
+import 'navigation.dart';
 
 /// A navigation entry guarded by a permission key.
 class _Destination {
@@ -30,12 +31,17 @@ class _Destination {
     required this.icon,
     required this.permission,
     required this.builder,
+    this.alternatePermission,
   });
 
   final String Function(AppStrings) label;
   final IconData icon;
   final String permission;
   final Widget Function() builder;
+
+  /// Optional second permission that also grants access (e.g. Returns are
+  /// reachable with either `sales` or `purchases`).
+  final String? alternatePermission;
 }
 
 final List<_Destination> _destinations = <_Destination>[
@@ -45,12 +51,13 @@ final List<_Destination> _destinations = <_Destination>[
     permission: 'dashboard',
     builder: _dashboard,
   ),
-  _Destination(
-    label: (s) => s.pointOfSale,
-    icon: Icons.point_of_sale_outlined,
-    permission: 'pos',
-    builder: _pos,
-  ),
+  // نقطة البيع مخفية مؤقتاً — يمكن إعادتها بفك التعليق عن هذا السطر.
+  // _Destination(
+  //   label: (s) => s.pointOfSale,
+  //   icon: Icons.point_of_sale_outlined,
+  //   permission: 'pos',
+  //   builder: _pos,
+  // ),
   _Destination(
     label: (s) => s.products,
     icon: Icons.inventory_2_outlined,
@@ -106,6 +113,13 @@ final List<_Destination> _destinations = <_Destination>[
     builder: _salesOrders,
   ),
   _Destination(
+    label: (s) => s.returns,
+    icon: Icons.keyboard_return_outlined,
+    permission: 'sales',
+    alternatePermission: 'purchases',
+    builder: _returns,
+  ),
+  _Destination(
     label: (s) => s.invoices,
     icon: Icons.description_outlined,
     permission: 'invoices',
@@ -135,12 +149,7 @@ final List<_Destination> _destinations = <_Destination>[
     permission: 'accounting',
     builder: _journal,
   ),
-  _Destination(
-    label: (s) => s.settings,
-    icon: Icons.settings_outlined,
-    permission: 'settings',
-    builder: _settings,
-  ),
+  // الإعدادات انتقلت إلى شريط الأعلى بجانب زر تغيير اللغة.
   _Destination(
     label: (s) => s.users,
     icon: Icons.manage_accounts_outlined,
@@ -150,7 +159,7 @@ final List<_Destination> _destinations = <_Destination>[
 ];
 
 Widget _dashboard() => const DashboardScreen();
-Widget _pos() => const PosScreen();
+// Widget _pos() => const PosScreen(); // نقطة البيع مخفية مؤقتاً
 Widget _products() => const ProductsScreen();
 Widget _categories() => const CategoriesScreen();
 Widget _inventory() => const InventoryScreen();
@@ -160,12 +169,13 @@ Widget _suppliers() => const SuppliersScreen();
 Widget _purchases() => const PurchaseOrdersScreen();
 Widget _customers() => const CustomersScreen();
 Widget _salesOrders() => const SalesOrdersScreen();
+Widget _returns() => const ReturnsScreen();
 Widget _invoices() => const InvoicesScreen();
 Widget _payments() => const PaymentsScreen();
 Widget _reports() => const ReportsScreen();
 Widget _accounts() => const AccountsScreen();
 Widget _journal() => const JournalScreen();
-Widget _settings() => const SettingsScreen();
+// Widget _settings() => const SettingsScreen(); // الإعدادات في شريط الأعلى الآن
 Widget _users() => const UsersScreen();
 
 /// Responsive application shell: a [NavigationRail] on wide layouts and a
@@ -198,7 +208,12 @@ class _AppShellState extends State<AppShell> {
     final s = context.s;
     final session = context.watch<Session>();
     final destinations = _destinations
-        .where((destination) => session.can(destination.permission))
+        .where(
+          (destination) =>
+              session.can(destination.permission) ||
+              (destination.alternatePermission != null &&
+                  session.can(destination.alternatePermission!)),
+        )
         .toList();
 
     if (destinations.isEmpty) {
@@ -206,6 +221,7 @@ class _AppShellState extends State<AppShell> {
         appBar: AppBar(
           title: Text(s.appName),
           actions: <Widget>[
+            if (session.can('settings')) const _SettingsButton(),
             const _LanguageButton(),
             const SizedBox(width: 8),
           ],
@@ -232,6 +248,7 @@ class _AppShellState extends State<AppShell> {
       appBar: AppBar(
         title: Text(destination.label(s)),
         actions: <Widget>[
+          if (session.can('settings')) const _SettingsButton(),
           const _LanguageButton(),
           _UserMenu(session: session),
           const SizedBox(width: 8),
@@ -275,6 +292,24 @@ class _AppShellState extends State<AppShell> {
           if (isWide) const VerticalDivider(width: 1),
           Expanded(child: destination.builder()),
         ],
+      ),
+    );
+  }
+}
+
+/// AppBar action that opens the settings screen (next to the language button).
+class _SettingsButton extends StatelessWidget {
+  const _SettingsButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.settings_outlined),
+      tooltip: context.s.settings,
+      onPressed: () => pushScreen(
+        context,
+        context.s.settings,
+        const SettingsScreen(),
       ),
     );
   }

@@ -45,10 +45,20 @@ async function resolveLines(
   return lines.map((line) => {
     const product = byId.get(line.productId);
     if (!product) throw ApiError.badRequest(`Product ${line.productId} not found`, 'PRODUCT_NOT_FOUND');
+    const unitPrice = line.unitPrice ?? Number(product.salePrice);
+    // لا يُسمح بالبيع بسعر أقل من التكلفة.
+    const costPrice = Number(product.costPrice);
+    if (unitPrice < costPrice) {
+      throw ApiError.badRequest(
+        `Selling price for "${product.name}" (${unitPrice}) is below its cost price (${costPrice})`,
+        'BELOW_COST',
+        { productId: product.id, unitPrice, costPrice },
+      );
+    }
     return {
       productId: line.productId,
       quantity: line.quantity,
-      unitPrice: line.unitPrice ?? Number(product.salePrice),
+      unitPrice,
       discount: line.discount ?? 0,
       taxRate: taxEnabled ? line.taxRate ?? Number(product.taxRate) : 0,
     };

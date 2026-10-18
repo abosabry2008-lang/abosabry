@@ -44,6 +44,9 @@ class AppSettings {
     this.companyEmail,
     this.companyPhone,
     this.companyAddress,
+    this.logoUrl,
+    this.commercialRegisterNo,
+    this.taxCardNo,
     this.baseCurrencyCode = 'USD',
     this.defaultTaxRate = 0,
     this.invoicePrefix = 'INV',
@@ -60,6 +63,9 @@ class AppSettings {
   final String? companyEmail;
   final String? companyPhone;
   final String? companyAddress;
+  final String? logoUrl;
+  final String? commercialRegisterNo;
+  final String? taxCardNo;
   final String baseCurrencyCode;
   final double defaultTaxRate;
   final String invoicePrefix;
@@ -76,6 +82,9 @@ class AppSettings {
         companyEmail: asStringOrNull(json['companyEmail']),
         companyPhone: asStringOrNull(json['companyPhone']),
         companyAddress: asStringOrNull(json['companyAddress']),
+        logoUrl: asStringOrNull(json['logoUrl']),
+        commercialRegisterNo: asStringOrNull(json['commercialRegisterNo']),
+        taxCardNo: asStringOrNull(json['taxCardNo']),
         baseCurrencyCode:
             asString(json['baseCurrencyCode'], fallback: 'USD'),
         defaultTaxRate: asDouble(json['defaultTaxRate']),
@@ -95,6 +104,9 @@ class AppSettings {
         'companyEmail': companyEmail,
         'companyPhone': companyPhone,
         'companyAddress': companyAddress,
+        'logoUrl': logoUrl,
+        'commercialRegisterNo': commercialRegisterNo,
+        'taxCardNo': taxCardNo,
         'baseCurrencyCode': baseCurrencyCode,
         'defaultTaxRate': defaultTaxRate,
         'invoicePrefix': invoicePrefix,
@@ -112,6 +124,9 @@ class AppSettings {
     String? companyEmail,
     String? companyPhone,
     String? companyAddress,
+    String? logoUrl,
+    String? commercialRegisterNo,
+    String? taxCardNo,
     String? baseCurrencyCode,
     double? defaultTaxRate,
     String? invoicePrefix,
@@ -128,6 +143,9 @@ class AppSettings {
         companyEmail: companyEmail ?? this.companyEmail,
         companyPhone: companyPhone ?? this.companyPhone,
         companyAddress: companyAddress ?? this.companyAddress,
+        logoUrl: logoUrl ?? this.logoUrl,
+        commercialRegisterNo: commercialRegisterNo ?? this.commercialRegisterNo,
+        taxCardNo: taxCardNo ?? this.taxCardNo,
         baseCurrencyCode: baseCurrencyCode ?? this.baseCurrencyCode,
         defaultTaxRate: defaultTaxRate ?? this.defaultTaxRate,
         invoicePrefix: invoicePrefix ?? this.invoicePrefix,
