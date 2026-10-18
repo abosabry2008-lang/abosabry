@@ -407,9 +407,13 @@ Key invariants:
 
 ## 9. Deploying
 
-> 🚀 **المسار الموصى به:** [`erp/DEPLOY-DOCKER.md`](DEPLOY-DOCKER.md) — صورة **Docker واحدة** فيها
-> الـ API + موقع Flutter معًا (**رابط واحد**، من غير CORS) على Koyeb / Hugging Face / Railway،
-> مع قاعدة بيانات مجانية على Neon. خطوات بالعربي + استكشاف أخطاء.
+> ⚡ **المسار الموصى به (الفعّال الآن):** [`erp/DEPLOY-VERCEL.md`](DEPLOY-VERCEL.md) —
+> **Vercel (مجاني، من غير بطاقة بنكية)** يستضيف الـ API كـ serverless function والـ Flutter Web
+> كملفات ثابتة **على رابط واحد**، مع قاعدة بيانات **Neon** المجانية. خطوات بالعربي.
+>
+> 🐳 [`erp/DEPLOY-DOCKER.md`](DEPLOY-DOCKER.md) — صورة **Docker واحدة** فيها
+> الـ API + موقع Flutter معًا (**رابط واحد**، من غير CORS) على Koyeb / Railway،
+> مع قاعدة بيانات مجانية على Neon.
 >
 > 🔙 [`erp/DEPLOY.md`](DEPLOY.md) — البديل: Render + Neon (ملف `render.yaml` في جذر الريبو).
 
