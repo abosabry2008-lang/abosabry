@@ -165,16 +165,26 @@ class ApiClient {
     }
 
     if (response.statusCode == 401 && retry) {
-      final refreshed = await _refreshOnce();
-      if (refreshed) {
-        return send(method, path, query: query, body: body, retry: false);
+      // A 401 from /auth/login or /auth/refresh means the credentials (or the
+      // refresh token) were rejected — that is NOT an expired session. Surface
+      // the server's real message (e.g. "Invalid email or password") instead
+      // of masking it with the generic "session expired" one.
+      final isCredentialPath = path.startsWith('/auth/login') ||
+          path.startsWith('/auth/refresh');
+      final hasAccessToken = accessToken != null && accessToken!.isNotEmpty;
+      if (!isCredentialPath && hasAccessToken) {
+        final refreshed = await _refreshOnce();
+        if (refreshed) {
+          return send(method, path, query: query, body: body, retry: false);
+        }
+        onSessionExpired?.call();
+        throw ApiException(
+          'Your session has expired. Please sign in again.',
+          statusCode: 401,
+          code: 'UNAUTHORIZED',
+        );
       }
-      onSessionExpired?.call();
-      throw ApiException(
-        'Your session has expired. Please sign in again.',
-        statusCode: 401,
-        code: 'UNAUTHORIZED',
-      );
+      throw _buildError(response);
     }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
