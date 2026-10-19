@@ -1083,6 +1083,123 @@ class AppStrings {
         'The product does not exist yet — create it and pick it instantly.',
         'المنتج غير موجود بعد — أنشئه واختره فورًا.',
       );
+
+  // ---------------------------------------------------------------------------
+  // Collection receipt — per-line cash box (خزنة السطر)
+  // ---------------------------------------------------------------------------
+  String get receiptBox => _t('Receipt box', 'خزنة الإيصال');
+  String get lineCashBox => _t('Cash box (optional)', 'الخزنة (اختيارية)');
+  String useBox(String name) =>
+      _t('Receipt box: $name', 'خزنة الإيصال: $name');
+
+  // ---------------------------------------------------------------------------
+  // Reports tree (شجرة التقارير)
+  // ---------------------------------------------------------------------------
+  String get reportTreeHint => _t(
+        'Open a branch, then pick the report you need.',
+        'افتح فرعًا ثم اختر التقرير الذي تحتاجه.',
+      );
+  String get accounting => _t('Accounting', 'المحاسبة');
+  String get purchasesReport => _t('Purchases report', 'تقرير المشتريات');
+  String get purchasesReportHint => _t(
+        'Purchase order totals grouped by day or month.',
+        'إجماليات أوامر الشراء مجمّعة يوميًا أو شهريًا.',
+      );
+  String get salesProfit => _t('Sales profit', 'أرباح المبيعات');
+  String get salesProfitHint => _t(
+        'Revenue minus the cost of the goods sold.',
+        'الإيرادات ناقص تكلفة البضاعة المباعة.',
+      );
+  String get taxReport => _t('Tax report', 'تقرير الضريبة');
+  String get taxReportHint => _t(
+        'Output tax on sales minus input tax on purchases.',
+        'ضريبة المخرجات على المبيعات ناقص ضريبة المدخلات على المشتريات.',
+      );
+  String get receivablesAging => _t('Receivables aging', 'أعمار ديون العملاء');
+  String get receivablesAgingHint => _t(
+        'Outstanding invoices split by how overdue they are.',
+        'الفواتير المستحقة مقسّمة حسب تأخر سدادها.',
+      );
+  String get payablesAging => _t('Payables aging', 'أعمار التزامات الموردين');
+  String get payablesAgingHint => _t(
+        'Balances owed to suppliers, grouped by age.',
+        'الأرصدة المستحقة للموردين مجمّعة حسب الأعمار.',
+      );
+  String get boxBalances => _t('Cash box balances', 'أرصدة الخزائن');
+  String get boxBalancesHint => _t(
+        'Opening balance and movements for every cash box.',
+        'الرصيد الافتتاحي والحركات لكل خزنة نقدية.',
+      );
+  String get trialBalance => _t('Trial balance', 'ميزان المراجعة');
+  String get trialBalanceHint => _t(
+        'Debit and credit totals for every account.',
+        'إجمالي المدين والدائن لكل حساب.',
+      );
+  String get incomeStatement => _t('Income statement', 'قائمة الدخل');
+  String get incomeStatementHint => _t(
+        'Revenue minus expenses for a period.',
+        'الإيرادات ناقص المصروفات خلال فترة.',
+      );
+  String get balanceSheet => _t('Balance sheet', 'الميزانية العمومية');
+  String get balanceSheetHint => _t(
+        'Assets, liabilities and equity as of a date.',
+        'الأصول والخصوم وحقوق الملكية حتى تاريخ.',
+      );
+  String get revenue => _t('Revenue', 'الإيرادات');
+  String get expenses => _t('Expenses', 'المصروفات');
+  String get assets => _t('Assets', 'الأصول');
+  String get liabilities => _t('Liabilities', 'الخصوم');
+  String get equity => _t('Equity', 'حقوق الملكية');
+  String get netProfit => _t('Net profit', 'صافي الربح');
+  String get costOfSales => _t('Cost of sales', 'تكلفة المبيعات');
+  String get marginPercent => _t('Margin %', 'الهامش %');
+  String get outputTax => _t('Output tax (sales)', 'ضريبة المخرجات (المبيعات)');
+  String get inputTax =>
+      _t('Input tax (purchases)', 'ضريبة المدخلات (المشتريات)');
+  String get netTax => _t('Net tax payable', 'صافي الضريبة المستحقة');
+  String get taxableSales => _t('Taxable sales', 'المبيعات الخاضعة');
+  String get taxablePurchases =>
+      _t('Taxable purchases', 'المشتريات الخاضعة');
+  String get notYetDue => _t('Not yet due', 'غير مستحق');
+  String get days1To30 => _t('1–30 days', '1–30 يوم');
+  String get days31To60 => _t('31–60 days', '31–60 يوم');
+  String get days61To90 => _t('61–90 days', '61–90 يوم');
+  String get over90Days => _t('Over 90 days', 'أكثر من 90 يوم');
+  String get asOf => _t('As of', 'حتى تاريخ');
+  String get balanced => _t('Balanced', 'متوازن');
+  String get notBalanced => _t('Not balanced', 'غير متوازن');
+  String get reportNotFound => _t('Report not found', 'التقرير غير موجود');
+  String get byDay => _t('By day', 'يوميًا');
+  String get byMonth => _t('By month', 'شهريًا');
+  String orderCountLabel(String count) => _t('$count order(s)', '$count أمر');
+  String get orders => _t('Orders', 'الأوامر');
+  String boxCountLabel(String count) => _t('$count box(es)', '$count خزنة');
+  String get oldestDueDate => _t('Oldest due date', 'أقدم تاريخ استحقاق');
+
+  // ---------------------------------------------------------------------------
+  // Manual journal entry (القيد المحاسبي اليدوي)
+  // ---------------------------------------------------------------------------
+  String get newJournalEntry => _t('New journal entry', 'قيد يومية جديد');
+  String get manualEntry => _t('Manual entry', 'قيد يدوي');
+  String get entryDate => _t('Entry date', 'تاريخ القيد');
+  String get memo => _t('Memo', 'البيان');
+  String get journalSaved => _t('Journal entry saved.', 'تم حفظ القيد.');
+  String get reverseEntry => _t('Reverse entry', 'عكس القيد');
+  String get reverseEntryQ => _t(
+        'Reverse this journal entry? A matching opposite entry will be created.',
+        'هل تريد عكس هذا القيد؟ سيُنشأ قيد معاكس مماثل.',
+      );
+  String get entryReversed => _t('Entry reversed.', 'تم عكس القيد.');
+  String get lineNeedsAccount => _t('Choose an account', 'اختر حسابًا');
+  String get loadingAccounts => _t('Loading accounts…', 'جارٍ تحميل الحسابات…');
+  String get lineNeedsAmountSide => _t(
+        'Enter a debit or a credit',
+        'أدخل مبلغاً مديناً أو دائناً',
+      );
+  String get journalEntriesHint => _t(
+        'Every posting of the ledger. Open an entry to review its lines.',
+        'كل قيود الدفتر. افتح القيد لمراجعة سطوره.',
+      );
 }
 
 /// [LocalizationsDelegate] for [AppStrings] supporting English and Arabic.

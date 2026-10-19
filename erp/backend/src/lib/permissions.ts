@@ -18,6 +18,7 @@ export const ALL_PERMISSIONS = [
   'customers.write',
   'sales.read',
   'sales.write',
+  'sales.cancel',
   'pos.use',
   'invoices.read',
   'invoices.write',
@@ -51,6 +52,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
         'invoices.edit',
         'treasury.write',
         'purchases.cancel',
+        'sales.cancel',
       ].includes(p),
   ),
   SALES: [

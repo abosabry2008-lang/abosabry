@@ -214,6 +214,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                                 <String>[
                                   if (line.invoiceNumber != null)
                                     '${s.invoice} ${line.invoiceNumber}',
+                                  if (line.cashBoxName.isNotEmpty)
+                                    '${s.cashBox}: ${line.cashBoxName}',
                                   if (line.note != null) line.note!,
                                 ].join(' · '),
                                 style: theme.textTheme.bodySmall

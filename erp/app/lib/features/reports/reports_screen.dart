@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,115 +13,282 @@ import '../../models/warehouse.dart';
 import '../../state/reports_controller.dart';
 import '../../state/salespeople_controller.dart';
 import '../../widgets/date_range_button.dart';
-import '../../widgets/empty_state.dart';
-import '../../widgets/error_view.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../customers/customer_statement_screen.dart';
 import '../shell/navigation.dart';
 import '../suppliers/supplier_statement_screen.dart';
+import 'financial_reports_screen.dart';
 import 'item_movement_screen.dart';
+import 'operations_reports_screen.dart';
+import 'report_widgets.dart';
 import 'statement_hub_screen.dart';
 
-/// Read-only reports: sales, top products, inventory valuation and customer
-/// balances.
-class ReportsScreen extends StatefulWidget {
+/// Every report, organised as a branch tree: pick a category, then a report.
+class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
-
-  @override
-  State<ReportsScreen> createState() => _ReportsScreenState();
-}
-
-class _ReportsScreenState extends State<ReportsScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final controller = context.read<ReportsController>();
-      controller.loadSales(groupBy: 'day');
-      controller.loadTopProducts();
-      controller.loadValuation();
-      controller.loadCustomerBalances();
-      controller.loadSupplierBalances();
-      controller.loadReceivables();
-      controller.loadSupplierPayables();
-      controller.loadStockBalance();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     final s = context.s;
-    return DefaultTabController(
-      length: 9,
-      child: Column(
-        children: <Widget>[
-          TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: <Widget>[
-              Tab(text: s.sales),
-              Tab(text: s.topProducts),
-              Tab(text: s.valuation),
-              Tab(text: s.customerBalances),
-              Tab(text: s.supplierBalances),
-              Tab(text: s.receivablesBySalesperson),
-              Tab(text: s.supplierPayables),
-              Tab(text: s.stockBalance),
-              Tab(text: s.statements),
+    final session = context.watch<Session>();
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: <Widget>[
+        SectionCard(
+          title: s.reports,
+          subtitle: s.reportTreeHint,
+          child: Column(
+            children: <Widget>[
+              // --- Sales -------------------------------------------------
+              _ReportBranch(
+                icon: Icons.point_of_sale_outlined,
+                title: s.sales,
+                children: <Widget>[
+                  _ReportLeaf(
+                    icon: Icons.show_chart_outlined,
+                    title: s.sales,
+                    onOpen: (controller) => controller.loadSales(groupBy: 'day'),
+                    builder: (_) => const SalesReportScreen(),
+                  ),
+                  _ReportLeaf(
+                    icon: Icons.leaderboard_outlined,
+                    title: s.topProducts,
+                    onOpen: (controller) => controller.loadTopProducts(),
+                    builder: (_) => const _TopProductsTab(),
+                  ),
+                  _ReportLeaf(
+                    icon: Icons.savings_outlined,
+                    title: s.salesProfit,
+                    onOpen: (controller) => controller.loadProfitReport(),
+                    builder: (_) => const ProfitReportScreen(),
+                  ),
+                  _ReportLeaf(
+                    icon: Icons.support_agent_outlined,
+                    title: s.receivablesBySalesperson,
+                    onOpen: (controller) => controller.loadReceivables(),
+                    builder: (_) => const _ReceivablesTab(),
+                  ),
+                ],
+              ),
+              // --- Purchases ---------------------------------------------
+              if (session.can('purchases'))
+                _ReportBranch(
+                  icon: Icons.shopping_cart_outlined,
+                  title: s.purchases,
+                  children: <Widget>[
+                    _ReportLeaf(
+                      icon: Icons.receipt_long_outlined,
+                      title: s.purchasesReport,
+                      onOpen: (controller) =>
+                          controller.loadPurchasesReport(groupBy: 'day'),
+                      builder: (_) => const PurchasesReportScreen(),
+                    ),
+                    _ReportLeaf(
+                      icon: Icons.local_shipping_outlined,
+                      title: s.supplierPayables,
+                      onOpen: (controller) => controller.loadSupplierPayables(),
+                      builder: (_) => const _SupplierPayablesTab(),
+                    ),
+                  ],
+                ),
+              // --- Customers ---------------------------------------------
+              if (session.can('customers'))
+                _ReportBranch(
+                  icon: Icons.people_outline,
+                  title: s.customers,
+                  children: <Widget>[
+                    _ReportLeaf(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: s.customerBalances,
+                      onOpen: (controller) =>
+                          controller.loadCustomerBalances(),
+                      builder: (_) => const _CustomerBalancesTab(),
+                    ),
+                    _ReportLeaf(
+                      icon: Icons.hourglass_bottom_outlined,
+                      title: s.receivablesAging,
+                      onOpen: (controller) =>
+                          controller.loadReceivablesAging(),
+                      builder: (_) =>
+                          const AgingReportScreen(side: 'receivable'),
+                    ),
+                    _ReportLeaf(
+                      icon: Icons.list_alt_outlined,
+                      title: s.customerStatement,
+                      builder: (_) => const StatementHubScreen(
+                        startWith: StatementKind.customer,
+                      ),
+                    ),
+                  ],
+                ),
+              // --- Suppliers ---------------------------------------------
+              if (session.can('suppliers'))
+                _ReportBranch(
+                  icon: Icons.handshake_outlined,
+                  title: s.suppliers,
+                  children: <Widget>[
+                    _ReportLeaf(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: s.supplierBalances,
+                      onOpen: (controller) =>
+                          controller.loadSupplierBalances(),
+                      builder: (_) => const _SupplierBalancesTab(),
+                    ),
+                    _ReportLeaf(
+                      icon: Icons.hourglass_top_outlined,
+                      title: s.payablesAging,
+                      onOpen: (controller) => controller.loadPayablesAging(),
+                      builder: (_) =>
+                          const AgingReportScreen(side: 'payable'),
+                    ),
+                    _ReportLeaf(
+                      icon: Icons.local_shipping_outlined,
+                      title: s.supplierStatement,
+                      builder: (_) => const StatementHubScreen(
+                        startWith: StatementKind.supplier,
+                      ),
+                    ),
+                  ],
+                ),
+              // --- Inventory ---------------------------------------------
+              if (session.can('inventory'))
+                _ReportBranch(
+                  icon: Icons.inventory_2_outlined,
+                  title: s.inventory,
+                  children: <Widget>[
+                    _ReportLeaf(
+                      icon: Icons.price_change_outlined,
+                      title: s.valuation,
+                      onOpen: (controller) => controller.loadValuation(),
+                      builder: (_) => const _ValuationTab(),
+                    ),
+                    _ReportLeaf(
+                      icon: Icons.warehouse_outlined,
+                      title: s.stockBalance,
+                      onOpen: (controller) => controller.loadStockBalance(),
+                      builder: (_) => const _StockBalanceTab(),
+                    ),
+                    _ReportLeaf(
+                      icon: Icons.timeline_outlined,
+                      title: s.itemMovement,
+                      builder: (_) => const ItemMovementScreen(),
+                    ),
+                    _ReportLeaf(
+                      icon: Icons.production_quantity_limits_outlined,
+                      title: s.lowStockItems,
+                      onOpen: (controller) => controller.loadLowStockReport(),
+                      builder: (_) => const LowStockReportScreen(),
+                    ),
+                  ],
+                ),
+              // --- Treasury ----------------------------------------------
+              if (session.can('treasury'))
+                _ReportBranch(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: s.treasury,
+                  children: <Widget>[
+                    _ReportLeaf(
+                      icon: Icons.account_balance_outlined,
+                      title: s.boxBalances,
+                      onOpen: (controller) => controller.loadBoxes(),
+                      builder: (_) => const BoxBalancesReportScreen(),
+                    ),
+                  ],
+                ),
+              // --- Accounting --------------------------------------------
+              if (session.can('accounting'))
+                _ReportBranch(
+                  icon: Icons.calculate_outlined,
+                  title: s.accounting,
+                  children: <Widget>[
+                    _ReportLeaf(
+                      icon: Icons.balance_outlined,
+                      title: s.trialBalance,
+                      onOpen: (controller) => controller.loadTrialBalance(),
+                      builder: (_) => const TrialBalanceReportScreen(),
+                    ),
+                    _ReportLeaf(
+                      icon: Icons.trending_up_outlined,
+                      title: s.incomeStatement,
+                      onOpen: (controller) =>
+                          controller.loadIncomeStatement(),
+                      builder: (_) => const IncomeStatementReportScreen(),
+                    ),
+                    _ReportLeaf(
+                      icon: Icons.account_balance_outlined,
+                      title: s.balanceSheet,
+                      onOpen: (controller) => controller.loadBalanceSheet(),
+                      builder: (_) => const BalanceSheetReportScreen(),
+                    ),
+                  ],
+                ),
             ],
           ),
-          Expanded(
-            child: TabBarView(
-              children: <Widget>[
-                const _SalesTab(),
-                const _TopProductsTab(),
-                const _ValuationTab(),
-                const _CustomerBalancesTab(),
-                const _SupplierBalancesTab(),
-                const _ReceivablesTab(),
-                const _SupplierPayablesTab(),
-                const _StockBalanceTab(),
-                const _StatementsTab(),
-              ],
-            ),
-          ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+/// One expandable category of reports.
+class _ReportBranch extends StatelessWidget {
+  const _ReportBranch({
+    required this.icon,
+    required this.title,
+    required this.children,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        leading: Icon(icon),
+        title: Text(title),
+        tilePadding: const EdgeInsetsDirectional.only(start: 8, end: 8),
+        childrenPadding: EdgeInsets.zero,
+        children: children,
       ),
     );
   }
 }
 
-class _SalesTab extends StatelessWidget {
-  const _SalesTab();
+/// One report inside a branch; opens full-screen and loads its data.
+class _ReportLeaf extends StatelessWidget {
+  const _ReportLeaf({
+    required this.icon,
+    required this.title,
+    required this.builder,
+    this.onOpen,
+  });
+
+  final IconData icon;
+  final String title;
+  final WidgetBuilder builder;
+
+  /// Loads the report data; runs as the report opens.
+  final Future<void> Function(ReportsController controller)? onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<ReportsController>();
-    final s = context.s;
-    return _AsyncSection(
-      loading: controller.loadingSales,
-      error: controller.salesError,
-      isEmpty: controller.salesSeries.isEmpty,
-      emptyTitle: s.noSalesInPeriod,
-      onRetry: () => controller.loadSales(groupBy: 'day'),
-      header: _PrintBar(
-        onPrint: () => PrintService.printSalesReport(context, groupBy: 'day'),
-      ),
-      children: <Widget>[
-        SectionCard(
-          title: s.salesByDay,
-          subtitle: s.revenuePerDay,
-          child: Column(
-            children: <Widget>[
-              for (final point in controller.salesSeries)
-                _SeriesRow(point: point),
-            ],
-          ),
-        ),
-      ],
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsetsDirectional.only(start: 32, end: 8),
+      leading: Icon(icon, size: 20),
+      title: Text(title),
+      trailing: const Icon(Icons.chevron_right, size: 18),
+      onTap: () {
+        final controller = context.read<ReportsController>();
+        final onOpen = this.onOpen;
+        if (onOpen != null) unawaited(onOpen(controller));
+        pushScreen<void>(context, title, builder(context));
+      },
     );
   }
 }
@@ -131,13 +300,13 @@ class _TopProductsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ReportsController>();
     final s = context.s;
-    return _AsyncSection(
+    return ReportAsyncSection(
       loading: controller.loadingTopProducts,
       error: controller.topProductsError,
       isEmpty: controller.topProducts.isEmpty,
       emptyTitle: s.noProductSalesYet,
       onRetry: controller.loadTopProducts,
-      header: _PrintBar(
+      header: ReportPrintBar(
         onPrint: () => PrintService.printTopProducts(context, limit: 10),
       ),
       children: <Widget>[
@@ -147,7 +316,7 @@ class _TopProductsTab extends StatelessWidget {
           child: Column(
             children: <Widget>[
               for (final point in controller.topProducts)
-                _SeriesRow(point: point, showQuantity: true),
+                SalesSeriesRow(point: point, showQuantity: true),
             ],
           ),
         ),
@@ -171,13 +340,13 @@ class _ValuationTab extends StatelessWidget {
             .map((row) => row.cast<String, dynamic>())
             .toList()
         : <Map<String, dynamic>>[];
-    return _AsyncSection(
+    return ReportAsyncSection(
       loading: controller.loadingValuation,
       error: controller.valuationError,
       isEmpty: rows.isEmpty && valuation.isEmpty,
       emptyTitle: s.noStockToValuate,
       onRetry: controller.loadValuation,
-      header: _PrintBar(
+      header: ReportPrintBar(
         onPrint: () => PrintService.printInventoryValuation(context),
       ),
       children: <Widget>[
@@ -186,21 +355,21 @@ class _ValuationTab extends StatelessWidget {
             title: s.totals,
             child: Column(
               children: <Widget>[
-                _KeyValueRow(
+                ReportKeyValueRow(
                   label: s.stockLines,
-                  value: Formatters.integer(_num(totals['lines'])),
+                  value: Formatters.integer(asDouble(totals['lines'])),
                 ),
-                _KeyValueRow(
+                ReportKeyValueRow(
                   label: s.units,
-                  value: Formatters.integer(_num(totals['units'])),
+                  value: Formatters.integer(asDouble(totals['units'])),
                 ),
-                _KeyValueRow(
+                ReportKeyValueRow(
                   label: s.costValue,
-                  amount: _num(totals['costValue']),
+                  amount: asDouble(totals['costValue']),
                 ),
-                _KeyValueRow(
+                ReportKeyValueRow(
                   label: s.retailValue,
-                  amount: _num(totals['retailValue']),
+                  amount: asDouble(totals['retailValue']),
                 ),
               ],
             ),
@@ -219,10 +388,10 @@ class _ValuationTab extends StatelessWidget {
                   subtitle: Text(
                     s.lineWithQty(
                       '${row['sku'] ?? ''}',
-                      Formatters.integer(_num(row['quantity'])),
+                      Formatters.integer(asDouble(row['quantity'])),
                     ),
                   ),
-                  trailing: MoneyText(_num(row['costValue'])),
+                  trailing: MoneyText(asDouble(row['costValue'])),
                 ),
             ],
           ),
@@ -239,7 +408,7 @@ class _CustomerBalancesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ReportsController>();
     final s = context.s;
-    return _AsyncSection(
+    return ReportAsyncSection(
       loading: controller.loadingCustomerBalances,
       error: controller.customerBalancesError,
       isEmpty: controller.customerBalances.isEmpty,
@@ -268,7 +437,7 @@ class _SupplierBalancesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ReportsController>();
     final s = context.s;
-    return _AsyncSection(
+    return ReportAsyncSection(
       loading: controller.loadingSupplierBalances,
       error: controller.supplierBalancesError,
       isEmpty: controller.supplierBalances.isEmpty,
@@ -323,13 +492,13 @@ class _ReceivablesTabState extends State<_ReceivablesTab> {
     final controller = context.watch<ReportsController>();
     final salespeople = context.watch<SalespeopleController>().salespeople;
     final totals = controller.receivablesTotals;
-    return _AsyncSection(
+    return ReportAsyncSection(
       loading: controller.loadingReceivables,
       error: controller.receivablesError,
       isEmpty: controller.receivables.isEmpty,
       emptyTitle: s.noDataForFilters,
       onRetry: _reload,
-      header: _ReportHeader(
+      header: ReportHeader(
         onPrint: () => PrintService.printReceivablesBySalesperson(
           context,
           from: _from,
@@ -370,17 +539,17 @@ class _ReceivablesTabState extends State<_ReceivablesTab> {
           title: s.totals,
           child: Column(
             children: <Widget>[
-              _KeyValueRow(
+              ReportKeyValueRow(
                 label: s.total,
-                amount: _num(totals['total']),
+                amount: asDouble(totals['total']),
               ),
-              _KeyValueRow(
+              ReportKeyValueRow(
                 label: s.paid,
-                amount: _num(totals['paid']),
+                amount: asDouble(totals['paid']),
               ),
-              _KeyValueRow(
+              ReportKeyValueRow(
                 label: s.balance,
-                amount: _num(totals['balance']),
+                amount: asDouble(totals['balance']),
               ),
             ],
           ),
@@ -416,9 +585,9 @@ class _ReceivableTile extends StatelessWidget {
       title: Text(asString(row['customer'], fallback: s.customer)),
       subtitle: Text(
         '$salesperson · '
-        '${s.invoiceCountLabel(Formatters.integer(_num(row['invoices'])))}',
+        '${s.invoiceCountLabel(Formatters.integer(asDouble(row['invoices'])))}',
       ),
-      trailing: MoneyText(_num(row['balance']), colorNegative: true),
+      trailing: MoneyText(asDouble(row['balance']), colorNegative: true),
     );
   }
 }
@@ -439,14 +608,14 @@ class _SupplierPayablesTabState extends State<_SupplierPayablesTab> {
     final controller = context.watch<ReportsController>();
     final s = context.s;
     final totals = controller.supplierPayablesTotals;
-    return _AsyncSection(
+    return ReportAsyncSection(
       loading: controller.loadingSupplierPayables,
       error: controller.supplierPayablesError,
       isEmpty: controller.supplierPayables.isEmpty,
       emptyTitle: s.noDataForFilters,
       onRetry: () =>
           controller.loadSupplierPayables(from: _from, to: _to),
-      header: _ReportHeader(
+      header: ReportHeader(
         onPrint: () => PrintService.printSupplierPayables(
           context,
           from: _from,
@@ -471,17 +640,17 @@ class _SupplierPayablesTabState extends State<_SupplierPayablesTab> {
           title: s.totals,
           child: Column(
             children: <Widget>[
-              _KeyValueRow(
+              ReportKeyValueRow(
                 label: s.purchases,
-                amount: _num(totals['purchases']),
+                amount: asDouble(totals['purchases']),
               ),
-              _KeyValueRow(
+              ReportKeyValueRow(
                 label: s.paid,
-                amount: _num(totals['paid']),
+                amount: asDouble(totals['paid']),
               ),
-              _KeyValueRow(
+              ReportKeyValueRow(
                 label: s.balance,
-                amount: _num(totals['balance']),
+                amount: asDouble(totals['balance']),
               ),
             ],
           ),
@@ -512,14 +681,14 @@ class _SupplierPayableTile extends StatelessWidget {
     final s = context.s;
     final phone = asStringOrNull(row['phone']);
     final orders = s.poCountLabel(
-      Formatters.integer(_num(row['purchaseOrders'])),
+      Formatters.integer(asDouble(row['purchaseOrders'])),
     );
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
       title: Text(asString(row['supplier'], fallback: s.supplier)),
       subtitle: Text(phone == null ? orders : '$phone · $orders'),
-      trailing: MoneyText(_num(row['balance']), colorNegative: true),
+      trailing: MoneyText(asDouble(row['balance']), colorNegative: true),
     );
   }
 }
@@ -564,13 +733,13 @@ class _StockBalanceTabState extends State<_StockBalanceTab> {
     final controller = context.watch<ReportsController>();
     final s = context.s;
     final totals = controller.stockBalanceTotals;
-    return _AsyncSection(
+    return ReportAsyncSection(
       loading: controller.loadingStockBalance,
       error: controller.stockBalanceError,
       isEmpty: controller.stockBalance.isEmpty,
       emptyTitle: s.noDataForFilters,
       onRetry: _reload,
-      header: _ReportHeader(
+      header: ReportHeader(
         onPrint: () => PrintService.printStockBalance(
           context,
           warehouseId: _warehouseId,
@@ -614,21 +783,21 @@ class _StockBalanceTabState extends State<_StockBalanceTab> {
           title: s.totals,
           child: Column(
             children: <Widget>[
-              _KeyValueRow(
+              ReportKeyValueRow(
                 label: s.stockLines,
                 value: Formatters.integer(controller.stockBalance.length),
               ),
-              _KeyValueRow(
+              ReportKeyValueRow(
                 label: s.quantity,
-                value: Formatters.integer(_num(totals['quantity'])),
+                value: Formatters.integer(asDouble(totals['quantity'])),
               ),
-              _KeyValueRow(
+              ReportKeyValueRow(
                 label: s.costValue,
-                amount: _num(totals['costValue']),
+                amount: asDouble(totals['costValue']),
               ),
-              _KeyValueRow(
+              ReportKeyValueRow(
                 label: s.retailValue,
-                amount: _num(totals['retailValue']),
+                amount: asDouble(totals['retailValue']),
               ),
             ],
           ),
@@ -659,8 +828,8 @@ class _StockBalanceTile extends StatelessWidget {
     final s = context.s;
     final sku = asString(row['sku']);
     final warehouse = asString(row['warehouse']);
-    final quantity = Formatters.integer(_num(row['quantity']));
-    final available = Formatters.integer(_num(row['available']));
+    final quantity = Formatters.integer(asDouble(row['quantity']));
+    final available = Formatters.integer(asDouble(row['available']));
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
@@ -671,161 +840,7 @@ class _StockBalanceTile extends StatelessWidget {
         '$sku · $warehouse · ${s.quantity}: $quantity · '
         '${s.available}: $available',
       ),
-      trailing: MoneyText(_num(row['costValue'])),
-    );
-  }
-}
-
-class _StatementsTab extends StatelessWidget {
-  const _StatementsTab();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: <Widget>[
-        SectionCard(
-          title: s.statements,
-          subtitle: s.statementsHint,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              FilledButton.tonalIcon(
-                onPressed: () => pushScreen<void>(
-                  context,
-                  s.statements,
-                  const StatementHubScreen(
-                    startWith: StatementKind.customer,
-                  ),
-                ),
-                icon: const Icon(Icons.receipt_long_outlined),
-                label: Text(s.customerStatement),
-              ),
-              const SizedBox(height: 8),
-              FilledButton.tonalIcon(
-                onPressed: () => pushScreen<void>(
-                  context,
-                  s.statements,
-                  const StatementHubScreen(startWith: StatementKind.supplier),
-                ),
-                icon: const Icon(Icons.local_shipping_outlined),
-                label: Text(s.supplierStatement),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// A print bar plus an optional row of filter controls.
-class _ReportHeader extends StatelessWidget {
-  const _ReportHeader({required this.onPrint, this.filters = const <Widget>[]});
-
-  final VoidCallback onPrint;
-  final List<Widget> filters;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        _PrintBar(onPrint: onPrint),
-        if (filters.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: filters,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _AsyncSection extends StatelessWidget {
-  const _AsyncSection({
-    required this.loading,
-    required this.error,
-    required this.isEmpty,
-    required this.emptyTitle,
-    required this.onRetry,
-    required this.children,
-    this.header,
-  });
-
-  final bool loading;
-  final String? error;
-  final bool isEmpty;
-  final String emptyTitle;
-  final Future<void> Function() onRetry;
-  final List<Widget> children;
-  final Widget? header;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        if (header != null) header!,
-        Expanded(child: _body(context)),
-      ],
-    );
-  }
-
-  Widget _body(BuildContext context) {
-    if (loading && isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (error != null && isEmpty) {
-      return ErrorView(message: error!, onRetry: onRetry);
-    }
-    if (isEmpty) {
-      return RefreshIndicator(
-        onRefresh: onRetry,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: <Widget>[
-            SizedBox(height: MediaQuery.sizeOf(context).height * 0.15),
-            EmptyState(icon: Icons.insights_outlined, title: emptyTitle),
-          ],
-        ),
-      );
-    }
-    return RefreshIndicator(
-      onRefresh: onRetry,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12),
-        children: children,
-      ),
-    );
-  }
-}
-
-class _PrintBar extends StatelessWidget {
-  const _PrintBar({required this.onPrint});
-
-  final VoidCallback onPrint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: Row(
-        children: <Widget>[
-          const Spacer(),
-          OutlinedButton.icon(
-            onPressed: onPrint,
-            icon: const Icon(Icons.print_outlined),
-            label: Text(context.s.print),
-          ),
-        ],
-      ),
+      trailing: MoneyText(asDouble(row['costValue'])),
     );
   }
 }
@@ -848,7 +863,7 @@ class _CustomerBalanceTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          MoneyText(_num(row['balance']), colorNegative: true),
+          MoneyText(asDouble(row['balance']), colorNegative: true),
           if (id != null) ...<Widget>[
             const SizedBox(width: 4),
             IconButton(
@@ -894,7 +909,7 @@ class _SupplierBalanceTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          MoneyText(_num(row['balance']), colorNegative: true),
+          MoneyText(asDouble(row['balance']), colorNegative: true),
           if (id != null) ...<Widget>[
             const SizedBox(width: 4),
             IconButton(
@@ -920,8 +935,8 @@ class _SupplierBalanceTile extends StatelessWidget {
   }
 }
 
-class _SeriesRow extends StatelessWidget {
-  const _SeriesRow({required this.point, this.showQuantity = false});
+class SalesSeriesRow extends StatelessWidget {
+  const SalesSeriesRow({super.key, required this.point, this.showQuantity = false});
 
   final SalesPoint point;
   final bool showQuantity;
@@ -952,33 +967,4 @@ class _SeriesRow extends StatelessWidget {
   }
 }
 
-class _KeyValueRow extends StatelessWidget {
-  const _KeyValueRow({required this.label, this.value, this.amount});
-
-  final String label;
-  final String? value;
-  final double? amount;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: <Widget>[
-          Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
-          if (value != null)
-            Text(value!, style: theme.textTheme.bodyMedium)
-          else
-            MoneyText(amount, style: theme.textTheme.bodyMedium),
-        ],
-      ),
-    );
-  }
-}
-
-double _num(dynamic value) {
-  if (value is num) return value.toDouble();
-  if (value is String) return double.tryParse(value) ?? 0;
-  return 0;
-}
+// (key/value rows live in report_widgets.dart)

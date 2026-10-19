@@ -198,3 +198,174 @@ export async function trialBalance(tx: Tx): Promise<TrialBalanceRow[]> {
     };
   });
 }
+
+/** Like [trialBalance] but limited to an optional entry-date range. */
+export async function accountBalances(
+  tx: Tx,
+  from?: Date,
+  to?: Date,
+): Promise<TrialBalanceRow[]> {
+  const accounts = await tx.account.findMany({ orderBy: { code: 'asc' } });
+  const grouped = await tx.journalLine.groupBy({
+    by: ['accountId'],
+    where:
+      from || to
+        ? {
+            journalEntry: {
+              entryDate: {
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {}),
+              },
+            },
+          }
+        : {},
+    _sum: { debit: true, credit: true },
+  });
+  const byAccount = new Map(
+    grouped.map((row) => [
+      row.accountId,
+      { debit: Number(row._sum.debit ?? 0), credit: Number(row._sum.credit ?? 0) },
+    ]),
+  );
+
+  return accounts.map((account) => {
+    const sums = byAccount.get(account.id) ?? { debit: 0, credit: 0 };
+    return {
+      accountId: account.id,
+      code: account.code,
+      name: account.name,
+      type: account.type,
+      debit: round2(sums.debit),
+      credit: round2(sums.credit),
+    };
+  });
+}
+
+export interface StatementRow {
+  accountId: string;
+  code: string;
+  name: string;
+  amount: number;
+}
+
+export interface IncomeStatementReport {
+  from: string | null;
+  to: string | null;
+  revenue: StatementRow[];
+  expenses: StatementRow[];
+  totals: { revenue: number; expenses: number; netProfit: number };
+}
+
+/** Revenue minus expenses over a period, straight from the ledger. */
+export async function buildIncomeStatement(
+  tx: Tx,
+  from?: Date,
+  to?: Date,
+): Promise<IncomeStatementReport> {
+  const rows = await accountBalances(tx, from, to);
+
+  const revenue = rows
+    .filter((row) => row.type === 'REVENUE')
+    .map((row) => ({
+      accountId: row.accountId,
+      code: row.code,
+      name: row.name,
+      amount: round2(row.credit - row.debit),
+    }))
+    .filter((row) => row.amount !== 0);
+
+  const expenses = rows
+    .filter((row) => row.type === 'EXPENSE')
+    .map((row) => ({
+      accountId: row.accountId,
+      code: row.code,
+      name: row.name,
+      amount: round2(row.debit - row.credit),
+    }))
+    .filter((row) => row.amount !== 0);
+
+  const revenueTotal = round2(revenue.reduce((sum, row) => sum + row.amount, 0));
+  const expenseTotal = round2(expenses.reduce((sum, row) => sum + row.amount, 0));
+
+  return {
+    from: from ? from.toISOString() : null,
+    to: to ? to.toISOString() : null,
+    revenue,
+    expenses,
+    totals: {
+      revenue: revenueTotal,
+      expenses: expenseTotal,
+      netProfit: round2(revenueTotal - expenseTotal),
+    },
+  };
+}
+
+export interface BalanceSheetReport {
+  asOf: string | null;
+  assets: StatementRow[];
+  liabilities: StatementRow[];
+  equity: StatementRow[];
+  totals: {
+    assets: number;
+    liabilities: number;
+    equity: number;
+    netProfit: number;
+    liabilitiesAndEquity: number;
+    balanced: boolean;
+  };
+}
+
+/**
+ * Assets / liabilities / equity balances as of a date. Retained earnings are
+ * the cumulative revenue minus expenses, so the sheet always balances.
+ */
+export async function buildBalanceSheet(tx: Tx, asOf?: Date): Promise<BalanceSheetReport> {
+  const rows = await accountBalances(tx, undefined, asOf);
+
+  const toRows = (type: AccountType, debitPositive: boolean): StatementRow[] =>
+    rows
+      .filter((row) => row.type === type)
+      .map((row) => ({
+        accountId: row.accountId,
+        code: row.code,
+        name: row.name,
+        amount: round2(debitPositive ? row.debit - row.credit : row.credit - row.debit),
+      }))
+      .filter((row) => row.amount !== 0);
+
+  const assets = toRows('ASSET', true);
+  const liabilities = toRows('LIABILITY', false);
+  const equity = toRows('EQUITY', false);
+
+  const assetsTotal = round2(assets.reduce((sum, row) => sum + row.amount, 0));
+  const liabilitiesTotal = round2(liabilities.reduce((sum, row) => sum + row.amount, 0));
+  const equityTotal = round2(equity.reduce((sum, row) => sum + row.amount, 0));
+
+  const revenueTotal = round2(
+    rows
+      .filter((row) => row.type === 'REVENUE')
+      .reduce((sum, row) => sum + (row.credit - row.debit), 0),
+  );
+  const expenseTotal = round2(
+    rows
+      .filter((row) => row.type === 'EXPENSE')
+      .reduce((sum, row) => sum + (row.debit - row.credit), 0),
+  );
+  const netProfit = round2(revenueTotal - expenseTotal);
+  const liabilitiesAndEquity = round2(liabilitiesTotal + equityTotal + netProfit);
+
+  return {
+    asOf: asOf ? asOf.toISOString() : null,
+    assets,
+    liabilities,
+    equity,
+    totals: {
+      assets: assetsTotal,
+      liabilities: liabilitiesTotal,
+      equity: equityTotal,
+      netProfit,
+      liabilitiesAndEquity,
+      balanced: Math.abs(assetsTotal - liabilitiesAndEquity) < 0.01,
+    },
+  };
+}

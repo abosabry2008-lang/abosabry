@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/api_client.dart';
 import '../core/api_exception.dart';
+import '../models/cash_box.dart';
 import '../models/dashboard_summary.dart';
 import '../models/sales_point.dart';
 import '../models/stock_movement.dart';
@@ -97,6 +98,48 @@ class ReportsController extends ChangeNotifier {
   Map<String, dynamic> itemMovement = <String, dynamic>{};
   bool loadingItemMovement = false;
   String? itemMovementError;
+
+  // --- extended report suite (branch tree) -----------------------------------
+
+  Map<String, dynamic> purchasesReport = <String, dynamic>{};
+  bool loadingPurchasesReport = false;
+  String? purchasesReportError;
+
+  Map<String, dynamic> profitReport = <String, dynamic>{};
+  bool loadingProfitReport = false;
+  String? profitReportError;
+
+  Map<String, dynamic> taxReport = <String, dynamic>{};
+  bool loadingTaxReport = false;
+  String? taxReportError;
+
+  Map<String, dynamic> receivablesAging = <String, dynamic>{};
+  bool loadingReceivablesAging = false;
+  String? receivablesAgingError;
+
+  Map<String, dynamic> payablesAging = <String, dynamic>{};
+  bool loadingPayablesAging = false;
+  String? payablesAgingError;
+
+  List<Map<String, dynamic>> lowStock = <Map<String, dynamic>>[];
+  bool loadingLowStock = false;
+  String? lowStockError;
+
+  List<CashBox> boxes = <CashBox>[];
+  bool loadingBoxes = false;
+  String? boxesError;
+
+  Map<String, dynamic> trialBalanceReport = <String, dynamic>{};
+  bool loadingTrialBalance = false;
+  String? trialBalanceError;
+
+  Map<String, dynamic> incomeStatement = <String, dynamic>{};
+  bool loadingIncomeStatement = false;
+  String? incomeStatementError;
+
+  Map<String, dynamic> balanceSheet = <String, dynamic>{};
+  bool loadingBalanceSheet = false;
+  String? balanceSheetError;
 
   Future<void> loadDashboard() async {
     loadingDashboard = true;
@@ -348,6 +391,197 @@ class ReportsController extends ChangeNotifier {
       itemMovementError = 'Could not load the item movement.';
     } finally {
       loadingItemMovement = false;
+      notifyListeners();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Extended reports
+  // ---------------------------------------------------------------------------
+
+  Future<void> loadPurchasesReport({
+    DateTime? from,
+    DateTime? to,
+    String groupBy = 'day',
+  }) =>
+      _loadSection(
+        path: '/reports/purchases',
+        query: <String, dynamic>{
+          'groupBy': groupBy,
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+        },
+        setStatus: (loading, error) {
+          loadingPurchasesReport = loading;
+          purchasesReportError = error;
+        },
+        setData: (data) => purchasesReport = data,
+        errorMessage: 'Could not load the purchases report',
+      );
+
+  Future<void> loadProfitReport({DateTime? from, DateTime? to}) => _loadSection(
+        path: '/reports/profit',
+        query: <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+        },
+        setStatus: (loading, error) {
+          loadingProfitReport = loading;
+          profitReportError = error;
+        },
+        setData: (data) => profitReport = data,
+        errorMessage: 'Could not load the sales profit report',
+      );
+
+  Future<void> loadTaxReport({DateTime? from, DateTime? to}) => _loadSection(
+        path: '/reports/tax',
+        query: <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+        },
+        setStatus: (loading, error) {
+          loadingTaxReport = loading;
+          taxReportError = error;
+        },
+        setData: (data) => taxReport = data,
+        errorMessage: 'Could not load the tax report',
+      );
+
+  Future<void> loadReceivablesAging({DateTime? asOf}) => _loadSection(
+        path: '/reports/aging',
+        query: <String, dynamic>{
+          'side': 'receivable',
+          if (asOf != null) 'asOf': asOf.toIso8601String(),
+        },
+        setStatus: (loading, error) {
+          loadingReceivablesAging = loading;
+          receivablesAgingError = error;
+        },
+        setData: (data) => receivablesAging = data,
+        errorMessage: 'Could not load the receivables aging report',
+      );
+
+  Future<void> loadPayablesAging({DateTime? asOf}) => _loadSection(
+        path: '/reports/aging',
+        query: <String, dynamic>{
+          'side': 'payable',
+          if (asOf != null) 'asOf': asOf.toIso8601String(),
+        },
+        setStatus: (loading, error) {
+          loadingPayablesAging = loading;
+          payablesAgingError = error;
+        },
+        setData: (data) => payablesAging = data,
+        errorMessage: 'Could not load the payables aging report',
+      );
+
+  Future<void> loadLowStockReport({String? warehouseId}) async {
+    loadingLowStock = true;
+    lowStockError = null;
+    notifyListeners();
+    try {
+      final json = await api.get(
+        '/reports/low-stock',
+        query: <String, dynamic>{
+          if (warehouseId != null && warehouseId.isNotEmpty)
+            'warehouseId': warehouseId,
+        },
+      );
+      final data = asMap(json)['data'];
+      lowStock = data is List
+          ? asMapList(data)
+          : asMapList(asMap(data)['items']);
+    } on ApiException catch (exception) {
+      lowStockError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadLowStockReport failed: $exception');
+      lowStockError = 'Could not load the low stock report.';
+    } finally {
+      loadingLowStock = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadBoxes() async {
+    loadingBoxes = true;
+    boxesError = null;
+    notifyListeners();
+    try {
+      final json = await api.get('/treasury/boxes');
+      final data = asMap(json)['data'];
+      boxes = (data is List
+              ? asMapList(data)
+              : asMapList(asMap(data)['items']))
+          .map(CashBox.fromJson)
+          .toList();
+    } on ApiException catch (exception) {
+      boxesError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadBoxes failed: $exception');
+      boxesError = 'Could not load the cash boxes.';
+    } finally {
+      loadingBoxes = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadTrialBalance() => _loadSection(
+        path: '/accounting/trial-balance',
+        setStatus: (loading, error) {
+          loadingTrialBalance = loading;
+          trialBalanceError = error;
+        },
+        setData: (data) => trialBalanceReport = data,
+        errorMessage: 'Could not load the trial balance',
+      );
+
+  Future<void> loadIncomeStatement({DateTime? from, DateTime? to}) =>
+      _loadSection(
+        path: '/accounting/income-statement',
+        query: <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+        },
+        setStatus: (loading, error) {
+          loadingIncomeStatement = loading;
+          incomeStatementError = error;
+        },
+        setData: (data) => incomeStatement = data,
+        errorMessage: 'Could not load the income statement',
+      );
+
+  Future<void> loadBalanceSheet({DateTime? asOf}) => _loadSection(
+        path: '/accounting/balance-sheet',
+        query: <String, dynamic>{
+          if (asOf != null) 'asOf': asOf.toIso8601String(),
+        },
+        setStatus: (loading, error) {
+          loadingBalanceSheet = loading;
+          balanceSheetError = error;
+        },
+        setData: (data) => balanceSheet = data,
+        errorMessage: 'Could not load the balance sheet',
+      );
+
+  /// Shared loader for reports whose `data` is an object.
+  Future<void> _loadSection({
+    required String path,
+    Map<String, dynamic>? query,
+    required void Function(bool loading, String? error) setStatus,
+    required void Function(Map<String, dynamic> data) setData,
+    required String errorMessage,
+  }) async {
+    setStatus(true, null);
+    notifyListeners();
+    try {
+      setData(await _fetchReport(path, query));
+      setStatus(false, null);
+    } on ApiException catch (exception) {
+      setStatus(false, exception.message);
+    } catch (exception) {
+      debugPrint('ReportsController._loadSection($path) failed: $exception');
+      setStatus(false, '$errorMessage.');
+    } finally {
       notifyListeners();
     }
   }

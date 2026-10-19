@@ -214,3 +214,259 @@ export async function buildTopProducts(
     })),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Purchases (تقرير المشتريات حسب الفترة)
+// ---------------------------------------------------------------------------
+
+export interface PurchasesReportBucket {
+  period: string;
+  orders: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+}
+
+export interface PurchasesReport {
+  from: string;
+  to: string;
+  groupBy: SalesGroupBy;
+  totals: { orders: number; subtotal: number; tax: number; total: number };
+  series: PurchasesReportBucket[];
+}
+
+/** Purchase order totals grouped by day or month. Defaults to the current year. */
+export async function buildPurchasesReport(
+  fromInput?: Date,
+  toInput?: Date,
+  groupBy: SalesGroupBy = 'day',
+): Promise<PurchasesReport> {
+  const now = new Date();
+  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const to = toInput ?? now;
+
+  const orders = await prisma.purchaseOrder.findMany({
+    where: { orderDate: { gte: from, lte: to }, status: { not: 'CANCELLED' } },
+    select: { orderDate: true, subtotal: true, taxTotal: true, total: true },
+  });
+
+  const buckets = new Map<string, PurchasesReportBucket>();
+  let subtotal = 0;
+  let tax = 0;
+  let total = 0;
+
+  for (const order of orders) {
+    const key = groupBy === 'month' ? monthKey(order.orderDate) : dayKey(order.orderDate);
+    const bucket = buckets.get(key) ?? { period: key, orders: 0, subtotal: 0, tax: 0, total: 0 };
+    bucket.orders += 1;
+    bucket.subtotal = round2(bucket.subtotal + Number(order.subtotal));
+    bucket.tax = round2(bucket.tax + Number(order.taxTotal));
+    bucket.total = round2(bucket.total + Number(order.total));
+    buckets.set(key, bucket);
+
+    subtotal += Number(order.subtotal);
+    tax += Number(order.taxTotal);
+    total += Number(order.total);
+  }
+
+  return {
+    from: dayKey(from),
+    to: dayKey(to),
+    groupBy,
+    totals: {
+      orders: orders.length,
+      subtotal: round2(subtotal),
+      tax: round2(tax),
+      total: round2(total),
+    },
+    series: [...buckets.values()].sort((a, b) => a.period.localeCompare(b.period)),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Sales profit (أرباح المبيعات)
+// ---------------------------------------------------------------------------
+
+export interface ProfitRow {
+  productId: string;
+  sku: string;
+  name: string;
+  quantity: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+}
+
+export interface ProfitReport {
+  from: string;
+  to: string;
+  totals: {
+    invoices: number;
+    revenue: number;
+    cost: number;
+    profit: number;
+    margin: number;
+  };
+  rows: ProfitRow[];
+}
+
+/** Revenue (net of tax) minus product cost for issued invoices in a period. */
+export async function buildProfitReport(
+  fromInput?: Date,
+  toInput?: Date,
+): Promise<ProfitReport> {
+  const now = new Date();
+  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const to = toInput ?? now;
+
+  const invoices = await prisma.invoice.findMany({
+    where: { status: { notIn: ['DRAFT', 'VOID'] }, issueDate: { gte: from, lte: to } },
+    select: {
+      id: true,
+      lines: {
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          discount: true,
+          product: { select: { sku: true, name: true, costPrice: true } },
+        },
+      },
+    },
+  });
+
+  const byProduct = new Map<string, ProfitRow & { name: string }>();
+  let revenue = 0;
+  let cost = 0;
+
+  for (const invoice of invoices) {
+    for (const line of invoice.lines) {
+      const net = Math.max(0, round2(line.quantity * Number(line.unitPrice) - Number(line.discount)));
+      const unitCost = line.product ? Number(line.product.costPrice) : 0;
+      const lineCost = round2(line.quantity * unitCost);
+      revenue += net;
+      cost += lineCost;
+
+      if (!line.productId || !line.product) continue;
+      const row = byProduct.get(line.productId) ?? {
+        productId: line.productId,
+        sku: line.product.sku,
+        name: line.product.name,
+        quantity: 0,
+        revenue: 0,
+        cost: 0,
+        profit: 0,
+      };
+      row.quantity += line.quantity;
+      row.revenue = round2(row.revenue + net);
+      row.cost = round2(row.cost + lineCost);
+      byProduct.set(line.productId, row);
+    }
+  }
+
+  const rows = [...byProduct.values()]
+    .map((row) => ({ ...row, profit: round2(row.revenue - row.cost) }))
+    .sort((a, b) => b.profit - a.profit);
+
+  const profit = round2(revenue - cost);
+  return {
+    from: dayKey(from),
+    to: dayKey(to),
+    totals: {
+      invoices: invoices.length,
+      revenue: round2(revenue),
+      cost: round2(cost),
+      profit,
+      margin: revenue > 0 ? round2((profit / revenue) * 100) : 0,
+    },
+    rows,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tax summary (تقرير ضريبة القيمة المضافة)
+// ---------------------------------------------------------------------------
+
+export interface TaxReportBucket {
+  period: string;
+  salesTax: number;
+  purchaseTax: number;
+  netTax: number;
+}
+
+export interface TaxReport {
+  from: string;
+  to: string;
+  totals: {
+    salesTax: number;
+    purchaseTax: number;
+    netTax: number;
+    taxableSales: number;
+    taxablePurchases: number;
+  };
+  series: TaxReportBucket[];
+}
+
+/** Output tax charged on invoices minus input tax on purchase orders. */
+export async function buildTaxReport(fromInput?: Date, toInput?: Date): Promise<TaxReport> {
+  const now = new Date();
+  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const to = toInput ?? now;
+
+  const [invoices, purchaseOrders] = await Promise.all([
+    prisma.invoice.findMany({
+      where: { status: { notIn: ['DRAFT', 'VOID'] }, issueDate: { gte: from, lte: to } },
+      select: { issueDate: true, taxTotal: true, total: true },
+    }),
+    prisma.purchaseOrder.findMany({
+      where: { status: { not: 'CANCELLED' }, orderDate: { gte: from, lte: to } },
+      select: { orderDate: true, taxTotal: true, total: true },
+    }),
+  ]);
+
+  const buckets = new Map<string, TaxReportBucket>();
+  let salesTax = 0;
+  let purchaseTax = 0;
+  let taxableSales = 0;
+  let taxablePurchases = 0;
+
+  const bucketFor = (key: string): TaxReportBucket => {
+    const existing = buckets.get(key);
+    if (existing) return existing;
+    const created: TaxReportBucket = { period: key, salesTax: 0, purchaseTax: 0, netTax: 0 };
+    buckets.set(key, created);
+    return created;
+  };
+
+  for (const invoice of invoices) {
+    const amount = Number(invoice.taxTotal);
+    salesTax += amount;
+    taxableSales += Number(invoice.total);
+    const bucket = bucketFor(monthKey(invoice.issueDate));
+    bucket.salesTax = round2(bucket.salesTax + amount);
+  }
+  for (const order of purchaseOrders) {
+    const amount = Number(order.taxTotal);
+    purchaseTax += amount;
+    taxablePurchases += Number(order.total);
+    const bucket = bucketFor(monthKey(order.orderDate));
+    bucket.purchaseTax = round2(bucket.purchaseTax + amount);
+  }
+
+  const series = [...buckets.values()]
+    .map((bucket) => ({ ...bucket, netTax: round2(bucket.salesTax - bucket.purchaseTax) }))
+    .sort((a, b) => a.period.localeCompare(b.period));
+
+  return {
+    from: dayKey(from),
+    to: dayKey(to),
+    totals: {
+      salesTax: round2(salesTax),
+      purchaseTax: round2(purchaseTax),
+      netTax: round2(salesTax - purchaseTax),
+      taxableSales: round2(taxableSales),
+      taxablePurchases: round2(taxablePurchases),
+    },
+    series,
+  };
+}

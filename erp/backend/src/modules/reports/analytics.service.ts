@@ -475,3 +475,128 @@ export async function buildItemMovement(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Aging buckets (أعمار الديون والالتزامات)
+// ---------------------------------------------------------------------------
+
+export interface AgingRow {
+  id: string;
+  name: string;
+  phone: string | null;
+  invoices: number;
+  current: number;
+  d1_30: number;
+  d31_60: number;
+  d61_90: number;
+  d90_plus: number;
+  total: number;
+  oldestDueDate: string | null;
+}
+
+export interface AgingReport {
+  side: 'receivable' | 'payable';
+  asOf: string;
+  rows: AgingRow[];
+  totals: {
+    invoices: number;
+    current: number;
+    d1_30: number;
+    d31_60: number;
+    d61_90: number;
+    d90_plus: number;
+    total: number;
+  };
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function emptyBuckets(): Pick<
+  AgingRow,
+  'current' | 'd1_30' | 'd31_60' | 'd61_90' | 'd90_plus' | 'total'
+> {
+  return { current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0, total: 0 };
+}
+
+/**
+ * Outstanding balances split by how overdue they are.
+ * Receivables age by invoice due date; payables (no due dates are recorded on
+ * purchase orders) are reported as not yet due.
+ */
+export async function buildAgingReport(
+  side: 'receivable' | 'payable',
+  asOfInput?: Date,
+): Promise<AgingReport> {
+  const asOf = asOfInput ?? new Date();
+  const map = new Map<string, AgingRow>();
+
+  const rowFor = (id: string, name: string, phone: string | null): AgingRow => {
+    const existing = map.get(id);
+    if (existing) return existing;
+    const row: AgingRow = { id, name, phone, invoices: 0, oldestDueDate: null, ...emptyBuckets() };
+    map.set(id, row);
+    return row;
+  };
+
+  const addToBucket = (row: AgingRow, daysOverdue: number, amount: number) => {
+    if (daysOverdue <= 0) row.current = round2(row.current + amount);
+    else if (daysOverdue <= 30) row.d1_30 = round2(row.d1_30 + amount);
+    else if (daysOverdue <= 60) row.d31_60 = round2(row.d31_60 + amount);
+    else if (daysOverdue <= 90) row.d61_90 = round2(row.d61_90 + amount);
+    else row.d90_plus = round2(row.d90_plus + amount);
+    row.total = round2(row.total + amount);
+  };
+
+  if (side === 'receivable') {
+    const invoices = await prisma.invoice.findMany({
+      where: { status: { in: ['ISSUED', 'PARTIALLY_PAID'] }, balance: { not: 0 } },
+      select: {
+        number: true,
+        dueDate: true,
+        balance: true,
+        customer: { select: { id: true, name: true, phone: true } },
+      },
+    });
+
+    for (const invoice of invoices) {
+      const customer = invoice.customer;
+      const row = rowFor(customer?.id ?? 'walk-in', customer?.name ?? '—', customer?.phone ?? null);
+      const dueDate = invoice.dueDate;
+      const daysOverdue = dueDate ? Math.floor((asOf.getTime() - dueDate.getTime()) / DAY_MS) : 0;
+      addToBucket(row, daysOverdue, Number(invoice.balance));
+      row.invoices += 1;
+      if (dueDate) {
+        const iso = dueDate.toISOString();
+        if (row.oldestDueDate == null || iso < row.oldestDueDate) row.oldestDueDate = iso;
+      }
+    }
+  } else {
+    const suppliers = await prisma.supplier.findMany({
+      where: { balance: { not: 0 } },
+      select: { id: true, name: true, phone: true, balance: true },
+    });
+    for (const supplier of suppliers) {
+      const row = rowFor(supplier.id, supplier.name, supplier.phone);
+      addToBucket(row, 0, Number(supplier.balance));
+    }
+  }
+
+  const rows = [...map.values()]
+    .filter((row) => row.total !== 0)
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+
+  const totals = rows.reduce(
+    (acc, row) => ({
+      invoices: acc.invoices + row.invoices,
+      current: round2(acc.current + row.current),
+      d1_30: round2(acc.d1_30 + row.d1_30),
+      d31_60: round2(acc.d31_60 + row.d31_60),
+      d61_90: round2(acc.d61_90 + row.d61_90),
+      d90_plus: round2(acc.d90_plus + row.d90_plus),
+      total: round2(acc.total + row.total),
+    }),
+    { invoices: 0, current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0, total: 0 },
+  );
+
+  return { side, asOf: asOf.toISOString(), rows, totals };
+}

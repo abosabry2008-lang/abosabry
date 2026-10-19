@@ -658,10 +658,11 @@ model CashBox {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  payments     Payment[]
-  transfersOut CashTransfer[]      @relation("CashTransferFrom")
-  transfersIn  CashTransfer[]      @relation("CashTransferTo")
-  collections  CollectionVoucher[]
+  payments       Payment[]
+  transfersOut   CashTransfer[]      @relation("CashTransferFrom")
+  transfersIn    CashTransfer[]      @relation("CashTransferTo")
+  collections    CollectionVoucher[]
+  collectionLine CollectionLine[]
 }
 
 model CashTransfer {
@@ -713,14 +714,18 @@ model CollectionLine {
   collectionVoucherId String
   customerId          String?
   invoiceId           String?
+  /// الخزنة الخاصة بالسطر — تُهمل القيمة فتُستخدم خزنة الإيصال.
+  cashBoxId           String?
   amount              Decimal @db.Decimal(14, 2)
   note                String?
 
   collection CollectionVoucher @relation(fields: [collectionVoucherId], references: [id], onDelete: Cascade)
   customer   Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
   invoice    Invoice?          @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  cashBox    CashBox?          @relation(fields: [cashBoxId], references: [id], onDelete: SetNull)
 
   @@index([collectionVoucherId])
+  @@index([cashBoxId])
 }
 
 // ---------------------------------------------------------------------------

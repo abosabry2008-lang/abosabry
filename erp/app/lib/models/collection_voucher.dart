@@ -8,6 +8,8 @@ class CollectionLine {
     this.customerName = '',
     this.invoiceId,
     this.invoiceNumber,
+    this.cashBoxId,
+    this.cashBoxName = '',
     this.amount = 0,
     this.note,
   });
@@ -17,18 +19,24 @@ class CollectionLine {
   final String customerName;
   final String? invoiceId;
   final String? invoiceNumber;
+  final String? cashBoxId;
+  final String cashBoxName;
   final double amount;
   final String? note;
 
   factory CollectionLine.fromJson(Map<String, dynamic> json) {
     final customer = asMapOrNull(json['customer']);
     final invoice = asMapOrNull(json['invoice']);
+    final box = asMapOrNull(json['cashBox']);
     return CollectionLine(
       id: asString(json['id']),
       customerId: asStringOrNull(json['customerId']),
       customerName: customer == null ? '' : asString(customer['name']),
       invoiceId: asStringOrNull(json['invoiceId']),
       invoiceNumber: invoice == null ? null : asStringOrNull(invoice['number']),
+      cashBoxId: asStringOrNull(json['cashBoxId']) ??
+          (box == null ? null : asStringOrNull(box['id'])),
+      cashBoxName: box == null ? '' : asString(box['name']),
       amount: asDouble(json['amount']),
       note: asStringOrNull(json['note']),
     );

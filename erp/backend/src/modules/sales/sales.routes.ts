@@ -172,7 +172,7 @@ router.post(
 
 router.post(
   '/:id/cancel',
-  requirePermission('sales.write'),
+  requirePermission('sales.cancel'),
   asyncHandler(async (req, res) => {
     const order = await cancelSalesOrder(req.params.id);
     ok(res, serialize(order));

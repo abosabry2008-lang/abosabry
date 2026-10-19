@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_exception.dart';
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
+import '../../core/session.dart';
 import '../../models/journal_entry.dart';
 import '../../state/accounting_controller.dart';
 import '../../widgets/async_list_view.dart';
+import '../../widgets/confirm_dialog.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
+import '../shell/navigation.dart';
+import 'journal_entry_form_screen.dart';
 
-/// Journal entry list with search and a detail sheet.
+/// Journal entry list with search, a manual-entry form and a detail sheet.
 class JournalScreen extends StatelessWidget {
   const JournalScreen({super.key});
 
@@ -18,6 +23,7 @@ class JournalScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.s;
     final controller = context.watch<JournalController>();
+    final canWrite = context.watch<Session>().can('accounting');
     return Scaffold(
       body: Column(
         children: <Widget>[
@@ -29,6 +35,18 @@ class JournalScreen extends StatelessWidget {
               onChanged: controller.searchWith,
             ),
           ),
+          if (canWrite)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => openJournalEntryForm(context),
+                  icon: const Icon(Icons.post_add_outlined),
+                  label: Text(s.newJournalEntry),
+                ),
+              ),
+            ),
           const SizedBox(height: 8),
           Expanded(
             child: AsyncListView<JournalEntry>(
@@ -49,7 +67,7 @@ class JournalScreen extends StatelessWidget {
                     entry.debitTotal,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  onTap: () => _showEntry(context, entry),
+                  onTap: () => _showEntry(context, entry, refresh: controller.refresh),
                 ),
               ),
             ),
@@ -59,8 +77,14 @@ class JournalScreen extends StatelessWidget {
     );
   }
 
-  void _showEntry(BuildContext context, JournalEntry entry) {
+  void _showEntry(
+    BuildContext context,
+    JournalEntry entry, {
+    Future<void> Function()? refresh,
+  }) {
     final s = context.s;
+    final canReverse = context.read<Session>().can('accounting') &&
+        entry.sourceType == 'MANUAL';
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -134,9 +158,54 @@ class JournalScreen extends StatelessWidget {
                   ),
                 ],
               ),
+            if (canReverse) ...<Widget>[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () => _reverse(context, entry, refresh),
+                icon: const Icon(Icons.undo_outlined),
+                label: Text(s.reverseEntry),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+
+  Future<void> _reverse(
+    BuildContext context,
+    JournalEntry entry,
+    Future<void> Function()? refresh,
+  ) async {
+    final s = context.s;
+    final confirmed = await confirmDialog(
+      context,
+      title: s.reverseEntryQ,
+      confirmLabel: s.reverseEntry,
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+    final api = context.read<Session>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    try {
+      await api.postObject('/accounting/journal/${entry.id}/reverse');
+      messenger.showSnackBar(SnackBar(content: Text(s.entryReversed)));
+      navigator.pop();
+      if (refresh != null) await refresh();
+    } on ApiException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+}
+
+/// Opens the manual journal entry form and refreshes the list on success.
+Future<void> openJournalEntryForm(BuildContext context) async {
+  final controller = context.read<JournalController>();
+  final created = await pushScreen<bool>(
+    context,
+    context.s.newJournalEntry,
+    const JournalEntryFormScreen(),
+  );
+  if (created ?? false) await controller.refresh();
 }

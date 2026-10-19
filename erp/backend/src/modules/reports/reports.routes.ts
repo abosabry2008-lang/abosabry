@@ -9,12 +9,16 @@ import { requirePermission } from '../../middleware/authorize';
 import { lowStockProducts } from '../inventory/inventory.service';
 import {
   buildInventoryValuation,
+  buildProfitReport,
+  buildPurchasesReport,
   buildSalesReport,
+  buildTaxReport,
   buildTopProducts,
   dayKey,
 } from './reports.service';
 import { buildCustomerStatement, buildSupplierStatement } from './statement.service';
 import {
+  buildAgingReport,
   buildItemMovement,
   buildReceivablesBySalesperson,
   buildStockBalance,
@@ -346,6 +350,70 @@ router.get(
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
     ok(res, await buildSupplierStatement(req.params.id, from, to));
+  }),
+);
+
+// GET /reports/purchases
+router.get(
+  '/purchases',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const groupBy = asString(req.query.groupBy) === 'month' ? 'month' : 'day';
+    ok(res, await buildPurchasesReport(from, to, groupBy));
+  }),
+);
+
+// GET /reports/profit
+router.get(
+  '/profit',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildProfitReport(from, to));
+  }),
+);
+
+// GET /reports/tax
+router.get(
+  '/tax',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildTaxReport(from, to));
+  }),
+);
+
+// GET /reports/aging?side=receivable|payable
+router.get(
+  '/aging',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const side = asString(req.query.side) === 'payable' ? 'payable' : 'receivable';
+    const asOf = asDate(req.query.asOf);
+    ok(res, await buildAgingReport(side, asOf));
+  }),
+);
+
+// GET /reports/low-stock
+router.get(
+  '/low-stock',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const rows = await lowStockProducts(asString(req.query.warehouseId));
+    ok(
+      res,
+      rows.map((row) => ({
+        ...row.product,
+        costPrice: Number(row.product.costPrice),
+        salePrice: Number(row.product.salePrice),
+        quantity: row.quantity,
+        shortage: row.shortage,
+      })),
+    );
   }),
 );
 

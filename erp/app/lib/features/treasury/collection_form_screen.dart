@@ -22,6 +22,9 @@ class _LineDraft {
   String? customerId;
   String? invoiceId;
 
+  /// Optional per-line cash box; `null` means "use the receipt's box".
+  String? boxId;
+
   double get parsedAmount => double.tryParse(amount.text.trim()) ?? 0;
 
   void dispose() {
@@ -180,6 +183,7 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                 (line) => <String, dynamic>{
                   'customerId': line.customerId,
                   'invoiceId': line.invoiceId,
+                  'cashBoxId': line.boxId,
                   'amount': line.parsedAmount,
                   'note': line.note.text.trim().isEmpty
                       ? null
@@ -214,6 +218,10 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
           ),
         )
         .toList();
+    var receiptBoxName = s.receiptBox;
+    for (final box in _boxes) {
+      if (box.id == _boxId) receiptBoxName = box.name;
+    }
 
     return Form(
       key: _formKey,
@@ -281,11 +289,6 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
           const SizedBox(height: 16),
           SectionCard(
             title: s.collectionLines,
-            trailing: TextButton.icon(
-              onPressed: _saving ? null : _addLine,
-              icon: const Icon(Icons.add),
-              label: Text(s.addLine),
-            ),
             child: Column(
               children: <Widget>[
                 for (var index = 0; index < _lines.length; index++)
@@ -295,6 +298,8 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                     line: _lines[index],
                     enabled: !_saving,
                     customers: _customers,
+                    boxes: boxOptions,
+                    receiptBoxName: receiptBoxName,
                     invoices: _invoices
                         .where(
                           (invoice) =>
@@ -329,10 +334,23 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                         }
                       });
                     },
+                    onBoxChanged: (value) {
+                      setState(() => _lines[index].boxId =
+                          (value == null || value.isEmpty) ? null : value);
+                    },
                     onRemove: _lines.length > 1
                         ? () => _removeLine(_lines[index])
                         : null,
                   ),
+                const SizedBox(height: 2),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _saving ? null : _addLine,
+                    icon: const Icon(Icons.add),
+                    label: Text(s.addLine),
+                  ),
+                ),
                 const Divider(height: 28),
                 Row(
                   children: <Widget>[
@@ -387,8 +405,11 @@ class _LineEditor extends StatelessWidget {
     required this.customers,
     required this.invoices,
     required this.invoice,
+    required this.boxes,
+    required this.receiptBoxName,
     required this.onCustomerChanged,
     required this.onInvoiceChanged,
+    required this.onBoxChanged,
     required this.onRemove,
   });
 
@@ -398,8 +419,11 @@ class _LineEditor extends StatelessWidget {
   final List<Customer> customers;
   final List<Invoice> invoices;
   final Invoice? invoice;
+  final List<SelectOption<String>> boxes;
+  final String receiptBoxName;
   final ValueChanged<String?> onCustomerChanged;
   final ValueChanged<String?> onInvoiceChanged;
+  final ValueChanged<String?> onBoxChanged;
   final VoidCallback? onRemove;
 
   @override
@@ -483,6 +507,19 @@ class _LineEditor extends StatelessWidget {
               if (parsed == null || parsed <= 0) return s.lineNeedsAmount;
               return null;
             },
+          ),
+          const SizedBox(height: 14),
+          AppSelectField<String>(
+            label: s.lineCashBox,
+            value: line.boxId ?? '',
+            enabled: enabled,
+            hint: receiptBoxName,
+            prefixIcon: Icons.account_balance_wallet_outlined,
+            options: <SelectOption<String>>[
+              SelectOption<String>('', s.useBox(receiptBoxName)),
+              ...boxes,
+            ],
+            onChanged: onBoxChanged,
           ),
           const SizedBox(height: 14),
           AppTextField(

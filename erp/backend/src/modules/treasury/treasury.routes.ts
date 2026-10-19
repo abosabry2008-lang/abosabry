@@ -68,6 +68,7 @@ const collectionSchema = z.object({
       z.object({
         customerId: z.string().nullable().optional(),
         invoiceId: z.string().nullable().optional(),
+        cashBoxId: z.string().nullable().optional(),
         amount: z.number().positive(),
         note: z.string().nullable().optional(),
       }),

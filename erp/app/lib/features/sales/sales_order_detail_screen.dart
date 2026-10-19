@@ -137,11 +137,14 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
     }
 
     final canManage = context.watch<Session>().can('sales');
+    final canCancelOrder = context.watch<Session>().can('sales.cancel');
     final theme = Theme.of(context);
     final canConfirm = order.status == 'DRAFT';
     final canFulfill = order.status == 'CONFIRMED' ||
         order.status == 'PARTIALLY_FULFILLED';
-    final canCancel = order.status != 'CANCELLED' && order.status != 'FULFILLED';
+    final canCancel = canCancelOrder &&
+        order.status != 'CANCELLED' &&
+        order.status != 'FULFILLED';
     final canInvoice = order.status == 'CONFIRMED' ||
         order.status == 'PARTIALLY_FULFILLED' ||
         order.status == 'FULFILLED';

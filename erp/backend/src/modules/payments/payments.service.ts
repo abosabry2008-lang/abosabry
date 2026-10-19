@@ -570,6 +570,7 @@ export const collectionInclude = {
   lines: {
     include: {
       customer: { select: { id: true, name: true } },
+      cashBox: { select: { id: true, code: true, name: true } },
       invoice: { select: { id: true, number: true, total: true, balance: true, status: true } },
     },
   },
@@ -588,6 +589,8 @@ export const collectionInclude = {
 export interface CollectionLineInput {
   customerId?: string | null;
   invoiceId?: string | null;
+  /** Optional per-line cash box; falls back to the receipt's box. */
+  cashBoxId?: string | null;
   amount: number;
   note?: string | null;
 }
@@ -652,6 +655,7 @@ export async function createCollectionTx(tx: Tx, input: CreateCollectionInput) {
     }
 
     const amount = round2(line.amount);
+    const lineBox = line.cashBoxId ? await resolveCashBoxTx(tx, line.cashBoxId) : box;
     await createPaymentTx(tx, {
       invoiceId: invoice?.id ?? null,
       customerId,
@@ -662,7 +666,7 @@ export async function createCollectionTx(tx: Tx, input: CreateCollectionInput) {
       reference: input.reference ?? number,
       note: line.note ?? input.note ?? `Collection ${number}`,
       userId: input.userId,
-      cashBoxId: box.id,
+      cashBoxId: lineBox.id,
       collectionVoucherId: voucher.id,
     });
 
@@ -671,6 +675,7 @@ export async function createCollectionTx(tx: Tx, input: CreateCollectionInput) {
         collectionVoucherId: voucher.id,
         customerId,
         invoiceId: invoice?.id ?? null,
+        cashBoxId: lineBox.id,
         amount,
         note: line.note ?? null,
       },
