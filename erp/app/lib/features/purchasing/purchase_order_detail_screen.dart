@@ -136,13 +136,13 @@ class _PurchaseOrderDetailScreenState extends State<PurchaseOrderDetailScreen> {
     final canReceive =
         order.status == 'APPROVED' || order.status == 'PARTIALLY_RECEIVED';
     final hasReceived = order.lines.any((line) => line.receivedQty > 0);
-    final canCancel = order.status != 'CANCELLED' &&
-        order.status != 'RECEIVED' &&
-        !hasReceived;
-    final canEdit = !hasReceived &&
-        ((order.status == 'DRAFT' && canManage) ||
-            (canCancelOrder &&
-                (order.status == 'PENDING' || order.status == 'APPROVED')));
+    // Admins can cancel or edit any order that is not already cancelled —
+    // including received ones, whose goods, payable and ledger entry are
+    // reversed automatically by the API.
+    final canCancel =
+        order.status != 'CANCELLED' && (canCancelOrder || !hasReceived);
+    final canEdit = order.status != 'CANCELLED' &&
+        ((order.status == 'DRAFT' && canManage) || canCancelOrder);
 
     return Scaffold(
       body: RefreshIndicator(
@@ -274,7 +274,9 @@ class _PurchaseOrderDetailScreenState extends State<PurchaseOrderDetailScreen> {
                           : () => _act(
                                 'cancel',
                                 confirmTitle: s.cancelPurchaseOrderQ,
-                                confirmMessage: s.cannotBeUndone,
+                                confirmMessage: hasReceived
+                                    ? s.cancelReceivedOrderMessage
+                                    : s.cannotBeUndone,
                                 successMessage: s.purchaseOrderCancelled,
                                 closeOnSuccess: true,
                               ),

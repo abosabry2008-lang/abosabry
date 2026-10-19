@@ -17,6 +17,7 @@ import {
   dayKey,
 } from './reports.service';
 import { buildCustomerStatement, buildSupplierStatement } from './statement.service';
+import { buildBackupWorkbook } from './backup.service';
 import {
   buildAgingReport,
   buildItemMovement,
@@ -24,6 +25,12 @@ import {
   buildStockBalance,
   buildSupplierPayables,
 } from './analytics.service';
+import {
+  buildCollectionsBySalesperson,
+  buildConsolidatedSalesNote,
+  buildProfitBySalesperson,
+  buildSalespersonStatement,
+} from './salespeople.service';
 
 const router = Router();
 router.use(authenticate);
@@ -306,6 +313,60 @@ router.get(
   }),
 );
 
+// GET /reports/consolidated-sales-note
+router.get(
+  '/consolidated-sales-note',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const salespersonId = asString(req.query.salespersonId);
+    ok(res, await buildConsolidatedSalesNote(from, to, salespersonId));
+  }),
+);
+
+// GET /reports/profit-by-salesperson
+router.get(
+  '/profit-by-salesperson',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const salespersonId = asString(req.query.salespersonId);
+    ok(res, await buildProfitBySalesperson(from, to, salespersonId));
+  }),
+);
+
+// GET /reports/collections-by-salesperson
+router.get(
+  '/collections-by-salesperson',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const salespersonId = asString(req.query.salespersonId);
+    ok(res, await buildCollectionsBySalesperson(from, to, salespersonId));
+  }),
+);
+
+// GET /reports/salespeople/:id/statement
+router.get(
+  '/salespeople/:id/statement',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    try {
+      ok(res, await buildSalespersonStatement(req.params.id, from, to));
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SALESPERSON_NOT_FOUND') {
+        throw ApiError.notFound('Salesperson not found', 'SALESPERSON_NOT_FOUND');
+      }
+      throw error;
+    }
+  }),
+);
+
 // GET /reports/stock-balance
 router.get(
   '/stock-balance',
@@ -414,6 +475,24 @@ router.get(
         shortage: row.shortage,
       })),
     );
+  }),
+);
+
+// GET /reports/backup — a full .xlsx workbook of every business record.
+// Admin-only (settings.write is withheld from every other role).
+router.get(
+  '/backup',
+  requirePermission('settings.write'),
+  asyncHandler(async (_req, res) => {
+    const buffer = await buildBackupWorkbook();
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    res.set(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.set('Content-Disposition', `attachment; filename="erp-backup-${stamp}.xlsx"`);
+    res.set('Content-Length', String(buffer.length));
+    res.end(buffer);
   }),
 );
 

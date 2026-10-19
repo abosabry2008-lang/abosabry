@@ -1,10 +1,12 @@
 import { Prisma, SalesChannel } from '@prisma/client';
 import { ApiError } from '../../lib/api-error';
-import { documentTotals } from '../../lib/money';
+import { documentTotals, round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { nextNumber } from '../../lib/sequence';
 import { getSettings, isTaxEnabled } from '../../lib/settings';
+import { applyMovement, resolveLocation } from '../inventory/inventory.service';
 import { drawFromWarehouse } from '../inventory/inventory.service';
+import { ACCOUNT, postJournal, reverseJournalBySource } from '../accounting/accounting.service';
 
 export const salesOrderInclude = {
   customer: { select: { id: true, name: true, email: true, phone: true } },
@@ -180,6 +182,49 @@ export async function fulfillSalesOrderTx(tx: Tx, id: string, input: FulfillInpu
   });
 }
 
+/**
+ * Puts every fulfilled quantity of an order back on the shelf.
+ *
+ * Used when a fulfilled order is cancelled or re-edited: stock that left the
+ * warehouse for this order is returned to the warehouse's default location so
+ * balances match the document again.
+ */
+interface FulfilledLine {
+  id: string;
+  productId: string;
+  fulfilledQty: number;
+  unitPrice: unknown;
+}
+
+async function restoreFulfilledStock(
+  tx: Tx,
+  order: { number: string; warehouseId: string },
+  lines: FulfilledLine[],
+  userId?: string,
+) {
+  const pending = lines.filter((line) => line.fulfilledQty > 0);
+  if (pending.length === 0) return;
+
+  const location = await resolveLocation(tx, order.warehouseId);
+
+  for (const line of pending) {
+    await applyMovement(tx, {
+      type: 'SALE_RETURN',
+      productId: line.productId,
+      locationId: location.id,
+      quantity: line.fulfilledQty,
+      unitCost: Number(line.unitPrice),
+      reference: order.number,
+      note: `Reversed fulfilment of ${order.number}`,
+      userId,
+    });
+    await tx.salesOrderLine.update({
+      where: { id: line.id },
+      data: { fulfilledQty: 0 },
+    });
+  }
+}
+
 /** Creates, confirms and fulfils an order in one step (used by the POS). */
 export async function registerSaleTx(
   tx: Tx,
@@ -199,15 +244,59 @@ export async function createSalesOrder(input: CreateSalesOrderInput) {
   return prisma.$transaction((tx) => createSalesOrderTx(tx, input));
 }
 
+export interface UpdateSalesOrderOptions {
+  /**
+   * Admins may edit an order that has already left the draft state. Any
+   * fulfilled quantity is returned to stock and re-applied from the new lines,
+   * so inventory stays consistent with the document.
+   */
+  allowPosted?: boolean;
+  userId?: string;
+}
+
 export async function updateSalesOrder(
   id: string,
-  input: { customerId?: string | null; currencyId?: string | null; notes?: string | null; lines?: SalesLineInput[] },
+  input: {
+    customerId?: string | null;
+    currencyId?: string | null;
+    notes?: string | null;
+    lines?: SalesLineInput[];
+  },
+  options: UpdateSalesOrderOptions = {},
 ) {
   return prisma.$transaction(async (tx) => {
-    const existing = await tx.salesOrder.findUnique({ where: { id } });
+    const existing = await tx.salesOrder.findUnique({
+      where: { id },
+      include: { lines: true },
+    });
     if (!existing) throw ApiError.notFound('Sales order not found');
-    if (existing.status !== 'DRAFT') {
+    if (existing.status === 'CANCELLED') {
+      throw ApiError.badRequest('A cancelled sales order cannot be edited', 'NOT_EDITABLE');
+    }
+
+    const editable =
+      existing.status === 'DRAFT' || options.allowPosted === true;
+    if (!editable) {
       throw ApiError.badRequest('Only draft sales orders can be edited', 'NOT_EDITABLE');
+    }
+
+    // Editing a fulfilled order changes what should have left the warehouse,
+    // so the old fulfilment is rolled back before the new lines are applied.
+    const hadFulfilment = existing.lines.some((line) => line.fulfilledQty > 0);
+    if (hadFulfilment) {
+      if (existing.status === 'FULFILLED' || existing.status === 'PARTIALLY_FULFILLED') {
+        await restoreFulfilledStock(
+          tx,
+          existing,
+          existing.lines.map((line) => ({
+            id: line.id,
+            productId: line.productId,
+            fulfilledQty: line.fulfilledQty,
+            unitPrice: line.unitPrice,
+          })),
+          options.userId,
+        );
+      }
     }
 
     const data: Prisma.SalesOrderUpdateInput = {};
@@ -237,9 +326,22 @@ export async function updateSalesOrder(
           taxRate: line.taxRate,
         })),
       };
+      // Changing the lines of a fulfilment resets it: the order goes back to
+      // CONFIRMED and the stock is re-drawn from the new quantities below.
+      if (existing.status === 'FULFILLED' || existing.status === 'PARTIALLY_FULFILLED') {
+        data.status = 'CONFIRMED';
+        data.fulfilledAt = null;
+      }
     }
 
-    return tx.salesOrder.update({ where: { id }, data, include: salesOrderInclude });
+    const updated = await tx.salesOrder.update({ where: { id }, data, include: salesOrderInclude });
+
+    // Re-draw the stock for an order that was fulfilled before the edit.
+    if (hadFulfilment && input.lines && updated.status === 'CONFIRMED') {
+      return fulfillSalesOrderTx(tx, id, { userId: options.userId });
+    }
+
+    return updated;
   });
 }
 
@@ -251,16 +353,67 @@ export async function fulfillSalesOrder(id: string, input: FulfillInput) {
   return prisma.$transaction((tx) => fulfillSalesOrderTx(tx, id, input));
 }
 
-export async function cancelSalesOrder(id: string) {
+export interface CancelSalesOrderOptions {
+  userId?: string;
+}
+
+/**
+ * Cancels a sales order — including one that was already fulfilled.
+ *
+ * Cancelling an executed order reverses everything it caused: the stock that
+ * left the warehouse comes back, and any ledger entry posted for the order is
+ * reversed, so inventory and accounting no longer reflect a document we are
+ * pulling back.
+ */
+export async function cancelSalesOrder(id: string, options: CancelSalesOrderOptions = {}) {
   return prisma.$transaction(async (tx) => {
-    const order = await tx.salesOrder.findUnique({ where: { id } });
+    const order = await tx.salesOrder.findUnique({
+      where: { id },
+      include: { lines: true, invoices: { select: { id: true, number: true, status: true } } },
+    });
     if (!order) throw ApiError.notFound('Sales order not found');
-    if (order.status === 'FULFILLED' || order.status === 'PARTIALLY_FULFILLED') {
-      throw ApiError.badRequest('A fulfilled order cannot be cancelled', 'NOT_CANCELLABLE');
-    }
     if (order.status === 'CANCELLED') {
       throw ApiError.badRequest('This order is already cancelled');
     }
-    return tx.salesOrder.update({ where: { id }, data: { status: 'CANCELLED' }, include: salesOrderInclude });
+
+    // Live invoices must be voided first, otherwise revenue would stay on the
+    // books for an order that no longer exists.
+    const liveInvoices = order.invoices.filter((invoice) => invoice.status !== 'VOID');
+    if (liveInvoices.length > 0) {
+      throw ApiError.conflict(
+        `This order has an active invoice (${liveInvoices.map((i) => i.number).join(', ')}) — void it first`,
+        'HAS_INVOICES',
+        { invoices: liveInvoices.map((invoice) => invoice.number) },
+      );
+    }
+
+    // Put back whatever was fulfilled.
+    await restoreFulfilledStock(
+      tx,
+      order,
+      order.lines.map((line) => ({
+        id: line.id,
+        productId: line.productId,
+        fulfilledQty: line.fulfilledQty,
+        unitPrice: line.unitPrice,
+      })),
+      options.userId,
+    );
+
+    // Reverse any ledger entry posted for the order itself.
+    await reverseJournalBySource(tx, {
+      sourceType: 'SALES_ORDER',
+      sourceId: order.id,
+      reversalSourceType: 'SALES_ORDER_CANCEL',
+      memo: `Sales order ${order.number} cancelled`,
+      reference: order.number,
+      userId: options.userId,
+    });
+
+    return tx.salesOrder.update({
+      where: { id },
+      data: { status: 'CANCELLED', fulfilledAt: null },
+      include: salesOrderInclude,
+    });
   });
 }

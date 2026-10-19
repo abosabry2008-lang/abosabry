@@ -11,6 +11,8 @@ import '../../widgets/error_view.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
+import '../shell/navigation.dart';
+import 'sales_order_form_screen.dart';
 
 /// Read-only sales order with confirm / fulfil / cancel / invoice actions.
 class SalesOrderDetailScreen extends StatefulWidget {
@@ -98,6 +100,17 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
     }
   }
 
+  Future<void> _edit() async {
+    final order = _order;
+    if (order == null) return;
+    final saved = await pushScreen<bool>(
+      context,
+      context.s.editOrder,
+      SalesOrderFormScreen(order: order),
+    );
+    if (saved ?? false) await _load();
+  }
+
   Future<void> _createInvoice() async {
     if (!mounted) return;
     setState(() => _busy = true);
@@ -142,9 +155,12 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
     final canConfirm = order.status == 'DRAFT';
     final canFulfill = order.status == 'CONFIRMED' ||
         order.status == 'PARTIALLY_FULFILLED';
-    final canCancel = canCancelOrder &&
-        order.status != 'CANCELLED' &&
-        order.status != 'FULFILLED';
+    // Admins can cancel any order that is not already cancelled — including a
+    // fulfilled one, whose stock and ledger entry are reversed by the API.
+    final canCancel = canCancelOrder && order.status != 'CANCELLED';
+    // Admins can also rewrite the lines of an order that already shipped.
+    final canEdit = order.status != 'CANCELLED' &&
+        (order.status == 'DRAFT' || canCancelOrder);
     final canInvoice = order.status == 'CONFIRMED' ||
         order.status == 'PARTIALLY_FULFILLED' ||
         order.status == 'FULFILLED';
@@ -270,6 +286,12 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
                       icon: const Icon(Icons.local_shipping_outlined),
                       label: Text(s.fulfil),
                     ),
+                  if (canEdit)
+                    FilledButton.tonalIcon(
+                      onPressed: _busy ? null : _edit,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: Text(s.edit),
+                    ),
                   if (canInvoice)
                     FilledButton.tonalIcon(
                       onPressed: _busy ? null : _createInvoice,
@@ -283,7 +305,12 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
                           : () => _act(
                                 'cancel',
                                 confirmTitle: s.cancelSalesOrderQ,
-                                confirmMessage: s.cannotBeUndone,
+                                confirmMessage:
+                                    order.status == 'FULFILLED' ||
+                                            order.status ==
+                                                'PARTIALLY_FULFILLED'
+                                        ? s.cancelFulfilledOrderMessage
+                                        : s.cannotBeUndone,
                                 successMessage: s.salesOrderCancelled,
                                 closeOnSuccess: true,
                               ),

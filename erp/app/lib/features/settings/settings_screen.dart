@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_exception.dart';
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
+import '../../core/print_service.dart';
 import '../../core/session.dart';
 import '../../models/app_settings.dart';
 import '../../models/currency.dart';
@@ -41,29 +42,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final s = context.s;
-    final canUsers = context.watch<Session>().can('users');
+    final session = context.watch<Session>();
+    final canUsers = session.can('users');
+    // settings.write is admin-only, so this doubles as the admin check.
+    final canBackup = session.can('settings.write');
+    final tabs = <Tab>[
+      Tab(text: s.company),
+      Tab(text: s.currencies),
+      if (canUsers) Tab(text: s.users),
+      if (canBackup) Tab(text: s.backup),
+    ];
+    final views = <Widget>[
+      _CompanySettingsTab(),
+      CurrenciesTab(),
+      if (canUsers) UsersTab(),
+      if (canBackup) const _BackupTab(),
+    ];
     return DefaultTabController(
-      length: canUsers ? 3 : 2,
+      length: tabs.length,
       child: Column(
         children: <Widget>[
-          TabBar(
-            tabs: <Widget>[
-              Tab(text: s.company),
-              Tab(text: s.currencies),
-              if (canUsers) Tab(text: s.users),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              children: <Widget>[
-                _CompanySettingsTab(),
-                CurrenciesTab(),
-                if (canUsers) UsersTab(),
-              ],
-            ),
-          ),
+          TabBar(tabs: tabs),
+          Expanded(child: TabBarView(children: views)),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Backup (النسخة الاحتياطية) — admin only
+// ---------------------------------------------------------------------------
+
+class _BackupTab extends StatefulWidget {
+  const _BackupTab();
+
+  @override
+  State<_BackupTab> createState() => _BackupTabState();
+}
+
+class _BackupTabState extends State<_BackupTab> {
+  bool _busy = false;
+
+  Future<void> _download() async {
+    final s = context.s;
+    setState(() => _busy = true);
+    final ok = await PrintService.downloadBackup(context);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.backupFailed)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: <Widget>[
+        SectionCard(
+          title: s.backupTitle,
+          subtitle: s.backup,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text(s.backupHint),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _busy ? null : _download,
+                icon: _busy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.file_download_outlined),
+                label: Text(_busy ? s.backupDownloading : s.downloadBackup),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

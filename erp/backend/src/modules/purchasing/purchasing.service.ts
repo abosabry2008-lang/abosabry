@@ -4,7 +4,7 @@ import { documentTotals, round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { nextNumber } from '../../lib/sequence';
 import { getSettings } from '../../lib/settings';
-import { ACCOUNT, postJournal } from '../accounting/accounting.service';
+import { ACCOUNT, postJournal, reverseJournalBySource } from '../accounting/accounting.service';
 import { applyMovement, resolveLocation } from '../inventory/inventory.service';
 
 export const purchaseOrderInclude = {
@@ -90,10 +90,70 @@ export interface UpdatePurchaseOrderInput {
 
 export interface UpdatePurchaseOrderOptions {
   /**
-   * Allows admins to edit a not-yet-received order (DRAFT, PENDING or
-   * APPROVED) after it has been approved.
+   * Allows admins to edit an order past the draft stage, including one that
+   * has already been (partly) received. Any received quantity is pulled back
+   * out of stock, off the supplier balance and out of the ledger first.
    */
   allowPosted?: boolean;
+  userId?: string;
+}
+
+interface ReceivedLine {
+  id: string;
+  productId: string;
+  receivedQty: number;
+  unitCost: unknown;
+}
+
+/**
+ * Undoes the goods receipt side effects of a purchase order: the received
+ * quantity leaves stock again, the supplier balance is reduced by its value
+ * and the matching ledger entry is reversed.
+ */
+async function reverseReceivedGoods(
+  tx: Tx,
+  order: { id: string; number: string; warehouseId: string; supplierId: string },
+  lines: ReceivedLine[],
+  userId?: string,
+) {
+  const receivedValue = round2(
+    lines.reduce((sum, line) => sum + line.receivedQty * Number(line.unitCost), 0),
+  );
+  if (receivedValue <= 0) return;
+
+  const location = await resolveLocation(tx, order.warehouseId);
+
+  for (const line of lines) {
+    if (line.receivedQty <= 0) continue;
+    await applyMovement(tx, {
+      type: 'PURCHASE_RETURN',
+      productId: line.productId,
+      locationId: location.id,
+      quantity: -line.receivedQty,
+      unitCost: Number(line.unitCost),
+      reference: order.number,
+      note: `Reversed goods receipt of ${order.number}`,
+      userId,
+    });
+    await tx.purchaseOrderLine.update({
+      where: { id: line.id },
+      data: { receivedQty: 0 },
+    });
+  }
+
+  await tx.supplier.update({
+    where: { id: order.supplierId },
+    data: { balance: { decrement: receivedValue } },
+  });
+
+  await reverseJournalBySource(tx, {
+    sourceType: 'PURCHASE_ORDER',
+    sourceId: order.id,
+    reversalSourceType: 'PURCHASE_ORDER_REVERSAL',
+    memo: `Goods receipt for ${order.number} reversed`,
+    reference: order.number,
+    userId,
+  });
 }
 
 export async function updatePurchaseOrder(
@@ -102,25 +162,35 @@ export async function updatePurchaseOrder(
   options: UpdatePurchaseOrderOptions = {},
 ) {
   return prisma.$transaction(async (tx) => {
-    const existing = await tx.purchaseOrder.findUnique({ where: { id } });
+    const existing = await tx.purchaseOrder.findUnique({
+      where: { id },
+      include: { lines: true },
+    });
     if (!existing) throw ApiError.notFound('Purchase order not found');
-    const editable: string[] = ['DRAFT'];
-    if (options.allowPosted) editable.push('PENDING', 'APPROVED');
-    if (!editable.includes(existing.status)) {
+    if (existing.status === 'CANCELLED') {
+      throw ApiError.badRequest('A cancelled purchase order cannot be edited', 'NOT_EDITABLE');
+    }
+
+    const editable = existing.status === 'DRAFT' || options.allowPosted === true;
+    if (!editable) {
       throw ApiError.badRequest('This purchase order can no longer be edited', 'NOT_EDITABLE');
     }
 
-    if (input.lines && options.allowPosted && existing.status !== 'DRAFT') {
-      const received = await tx.purchaseOrderLine.aggregate({
-        where: { purchaseOrderId: id },
-        _sum: { receivedQty: true },
-      });
-      if (Number(received._sum.receivedQty ?? 0) > 0) {
-        throw ApiError.badRequest(
-          'This purchase order already has received quantities — reverse the receipts first',
-          'HAS_RECEIPTS',
-        );
-      }
+    // Editing a received order changes what should have come in, so the old
+    // receipt is rolled back (stock, supplier balance and ledger) first.
+    const hasReceipts = existing.lines.some((line) => line.receivedQty > 0);
+    if (hasReceipts) {
+      await reverseReceivedGoods(
+        tx,
+        existing,
+        existing.lines.map((line) => ({
+          id: line.id,
+          productId: line.productId,
+          receivedQty: line.receivedQty,
+          unitCost: line.unitCost,
+        })),
+        options.userId,
+      );
     }
 
     const data: Prisma.PurchaseOrderUpdateInput = {};
@@ -137,34 +207,61 @@ export async function updatePurchaseOrder(
       data.taxTotal = totals.taxTotal;
       data.total = totals.total;
       data.lines = { create: lines };
+      // A rolled-back receipt returns the order to APPROVED so it can be
+      // received again against its new lines.
+      if (hasReceipts) {
+        data.status = 'APPROVED';
+        data.receivedAt = null;
+      }
+    } else if (hasReceipts) {
+      data.status = 'APPROVED';
+      data.receivedAt = null;
     }
 
     return tx.purchaseOrder.update({ where: { id }, data, include: purchaseOrderInclude });
   });
 }
 
-export async function setPurchaseOrderStatus(id: string, status: Prisma.PurchaseOrderUpdateInput['status']) {
+export interface SetPurchaseOrderStatusOptions {
+  userId?: string;
+}
+
+export async function setPurchaseOrderStatus(
+  id: string,
+  status: Prisma.PurchaseOrderUpdateInput['status'],
+  options: SetPurchaseOrderStatusOptions = {},
+) {
   return prisma.$transaction(async (tx) => {
-    const existing = await tx.purchaseOrder.findUnique({ where: { id } });
+    const existing = await tx.purchaseOrder.findUnique({
+      where: { id },
+      include: { lines: true },
+    });
     if (!existing) throw ApiError.notFound('Purchase order not found');
-    if (existing.status === 'RECEIVED' || existing.status === 'CANCELLED') {
-      throw ApiError.badRequest(`A ${existing.status.toLowerCase()} purchase order cannot be changed`, 'NOT_EDITABLE');
+    if (existing.status === 'CANCELLED') {
+      throw ApiError.badRequest('This purchase order is already cancelled', 'NOT_EDITABLE');
     }
 
+    // Cancelling a received order returns the goods, the payable and the
+    // ledger entry, so the cancellation leaves no trace on the books.
     if (status === 'CANCELLED') {
-      const received = await tx.purchaseOrderLine.aggregate({
-        where: { purchaseOrderId: id },
-        _sum: { receivedQty: true },
-      });
-      if (Number(received._sum.receivedQty ?? 0) > 0) {
-        throw ApiError.badRequest(
-          'This purchase order already has received quantities — reverse the receipts first',
-          'HAS_RECEIPTS',
-        );
-      }
+      await reverseReceivedGoods(
+        tx,
+        existing,
+        existing.lines.map((line) => ({
+          id: line.id,
+          productId: line.productId,
+          receivedQty: line.receivedQty,
+          unitCost: line.unitCost,
+        })),
+        options.userId,
+      );
     }
 
-    return tx.purchaseOrder.update({ where: { id }, data: { status }, include: purchaseOrderInclude });
+    return tx.purchaseOrder.update({
+      where: { id },
+      data: { status, ...(status === 'CANCELLED' ? { receivedAt: null } : {}) },
+      include: purchaseOrderInclude,
+    });
   });
 }
 

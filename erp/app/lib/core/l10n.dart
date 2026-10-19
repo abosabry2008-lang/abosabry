@@ -539,6 +539,18 @@ class AppStrings {
   String get cancelSalesOrderQ => _t('Cancel sales order?', 'إلغاء أمر البيع؟');
   String get salesOrderCancelled => _t('Sales order cancelled.', 'تم إلغاء أمر البيع.');
   String get salesOrderUpdated => _t('Sales order updated.', 'تم تحديث أمر البيع.');
+  String get onlyAdminEditsFulfilled => _t(
+        'Only an admin can change the lines of a fulfilled order.',
+        'تعديل أسطر أمر بيع منفَّذ متاح للمدير فقط.',
+      );
+  String get cancelFulfilledOrderMessage => _t(
+        'This order was already fulfilled — its goods will be returned to stock and its ledger entry reversed.',
+        'هذا الأمر مُنفَّذ بالكامل — ستُرجَع الكميات إلى المخزون وسيُعكس القيد المحاسبي.',
+      );
+  String get cancelReceivedOrderMessage => _t(
+        'This order has received goods — they will be taken out of stock and the supplier balance and ledger entry reversed.',
+        'هذا الأمر مُستلَم — ستُخصَم الكميات من المخزون ويُعدَّل رصيد المورد ويُعكس القيد المحاسبي.',
+      );
   String get draftInvoiceCreated => _t(
         'Draft invoice created. Issue it from Invoices.',
         'تم إنشاء فاتورة مسودة. أصدرها من الفواتير.',
@@ -1006,6 +1018,37 @@ class AppStrings {
         'اختر عميلًا أو موردًا أولًا.',
       );
   String get allSalespeople => _t('All salespeople', 'كل المندوبين');
+  String get salespeople => _t('Salespeople', 'المناديب');
+  String get salespeopleReports => _t('Salespeople reports', 'تقارير المناديب');
+  String get consolidatedSalesNote =>
+      _t('Consolidated sales note', 'الإذن المجمع للمبيعات');
+  String get consolidatedSalesNoteHint => _t(
+        'Fulfilled quantities per product, grouped by salesperson, for the chosen period.',
+        'الكميات المنفَّذة لكل صنف مجمّعة لكل مندوب خلال الفترة المحددة.',
+      );
+  String get profitBySalesperson =>
+      _t('Profitability by salesperson', 'ربحية كل مندوب');
+  String get profitBySalespersonHint => _t(
+        'Sales revenue (net of discount) minus the cost of goods, per salesperson.',
+        'إيراد المبيعات (بعد الخصم) ناقص تكلفة البضاعة المباعة، لكل مندوب.',
+      );
+  String get collectionsBySalesperson =>
+      _t('Collections by salesperson', 'تحصيلات كل مندوب');
+  String get collectionsBySalespersonHint => _t(
+        'What each salesperson collected from customers in the period.',
+        'ما حصّله كل مندوب من العملاء خلال الفترة.',
+      );
+  String get salespersonStatement =>
+      _t('Salesperson statement', 'كشف حساب مندوب');
+  String get pickSalespersonFirst => _t(
+        'Choose a salesperson to show their statement.',
+        'اختر مندوبًا لعرض كشف حسابه.',
+      );
+  String get soldProducts => _t('Products sold', 'الأصناف المباعة');
+  String get netSales => _t('Net sales', 'صافي المبيعات');
+  String get collected => _t('Collected', 'المحصّل');
+  String get collectionVouchers =>
+      _t('Collection receipts', 'إيصالات التحصيل');
   String get dateRange => _t('Date range', 'الفترة الزمنية');
   String get taxSettings => _t('Tax', 'الضريبة');
   String get enableTax => _t('Enable tax', 'تفعيل الضريبة');
@@ -1199,6 +1242,26 @@ class AppStrings {
   String get journalEntriesHint => _t(
         'Every posting of the ledger. Open an entry to review its lines.',
         'كل قيود الدفتر. افتح القيد لمراجعة سطوره.',
+      );
+  String get backup => _t('Backup', 'النسخة الاحتياطية');
+  String get backupTitle => _t('Full data backup', 'نسخة احتياطية كاملة');
+  String get backupHint => _t(
+        'Downloads everything as one Excel workbook: customers and suppliers with their balances, '
+            'stock quantities and values, products, orders, invoices, payments, collections, '
+            'cash boxes, journal entries and stock movements — one sheet per table.',
+        'يُنزِّل كل البيانات في ملف Excel واحد: العملاء والموردون بأرصدتهم، كميات المخزون وقيمته، '
+            'الأصناف، الأوامر، الفواتير، المدفوعات، التحصيلات، الخزائن، القيود المحاسبية وحركات المخزون — '
+            'ورقة لكل جدول.',
+      );
+  String get downloadBackup => _t('Download backup (Excel)', 'تنزيل النسخة (Excel)');
+  String get backupDownloading => _t('Preparing the file…', 'جارٍ تحضير الملف…');
+  String get backupFailed => _t(
+        'Could not create the backup file.',
+        'تعذّر إنشاء ملف النسخة الاحتياطية.',
+      );
+  String get backupAdminOnly => _t(
+        'Only an administrator can download a full backup.',
+        'تنزيل النسخة الاحتياطية الكاملة متاح للمدير فقط.',
       );
 }
 

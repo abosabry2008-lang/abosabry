@@ -20,6 +20,12 @@ import type {
   StatementTotals,
   SupplierStatement,
 } from '../reports/statement.service';
+import type {
+  SalespersonCollectionsReport,
+  ConsolidatedSalesNote,
+  SalespersonProfitReport,
+  SalespersonStatement,
+} from '../reports/salespeople.service';
 
 type InvoiceWithRelations = Prisma.InvoiceGetPayload<{ include: typeof invoiceInclude }>;
 
@@ -748,6 +754,203 @@ ${rows || `        <tr><td colspan="10" class="muted center">${empty}</td></tr>`
     title: ar ? 'حركة صنف' : 'Item movement',
     company: settings,
     subtitle: `${report.product.name} (${report.product.sku})`,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Salespeople reports (تقارير المناديب)
+// ---------------------------------------------------------------------------
+
+export function consolidatedSalesNoteHtml(
+  report: ConsolidatedSalesNote,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const unassigned = ar ? 'بدون مندوب' : 'Unassigned';
+
+  const sections = report.rows
+    .map((rep) => {
+      const rows = rep.lines
+        .map(
+          (line) => `      <tr>
+        <td>${escapeHtml(line.sku)}</td>
+        <td>${escapeHtml(line.name)}</td>
+        <td>${escapeHtml(line.unit)}</td>
+        <td class="num">${escapeHtml(line.quantity)}</td>
+        <td class="num">${money(line.net)}</td>
+      </tr>`,
+        )
+        .join('\n');
+      return `    <h3>${escapeHtml(rep.salesperson ?? unassigned)}</h3>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'الكود' : 'SKU'}</th>
+          <th>${ar ? 'الصنف' : 'Product'}</th>
+          <th>${ar ? 'الوحدة' : 'Unit'}</th>
+          <th class="num">${ar ? 'الكمية' : 'Quantity'}</th>
+          <th class="num">${ar ? 'صافي المبيعات' : 'Net sales'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows}
+        <tr class="total"><td colspan="3">${ar ? 'إجمالي المندوب' : 'Salesperson total'}</td><td class="num">${escapeHtml(rep.quantity)}</td><td class="num">${money(rep.net)}</td></tr>
+      </tbody>
+    </table>`;
+    })
+    .join('\n');
+
+  const empty = ar ? 'لا مبيعات في هذه الفترة' : 'No sales in this period';
+  const body = sections || `    <p class="muted center">${empty}</p>`;
+
+  return renderPage({
+    title: ar ? 'الإذن المجمع للمبيعات' : 'Consolidated sales note',
+    company: settings,
+    subtitle: rangeLabel(report),
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}
+
+export function profitBySalespersonHtml(
+  report: SalespersonProfitReport,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const rows = report.rows
+    .map(
+      (row) => `      <tr>
+        <td>${escapeHtml(row.salesperson ?? (ar ? 'بدون مندوب' : 'Unassigned'))}</td>
+        <td class="num">${escapeHtml(row.orders)}</td>
+        <td class="num">${money(row.revenue)}</td>
+        <td class="num">${money(row.cost)}</td>
+        <td class="num">${money(row.profit)}</td>
+        <td class="num">${escapeHtml(row.margin)}%</td>
+      </tr>`,
+    )
+    .join('\n');
+  const empty = ar ? 'لا مبيعات في هذه الفترة' : 'No sales in this period';
+
+  const body = `    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'المندوب' : 'Salesperson'}</th>
+          <th class="num">${ar ? 'الأوامر' : 'Orders'}</th>
+          <th class="num">${ar ? 'الإيراد' : 'Revenue'}</th>
+          <th class="num">${ar ? 'التكلفة' : 'Cost'}</th>
+          <th class="num">${ar ? 'الربح' : 'Profit'}</th>
+          <th class="num">${ar ? 'الهامش' : 'Margin'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td>${ar ? 'الإجمالي' : 'Totals'}</td><td></td><td class="num">${money(report.totals.revenue)}</td><td class="num">${money(report.totals.cost)}</td><td class="num">${money(report.totals.profit)}</td><td class="num">${escapeHtml(report.totals.margin)}%</td></tr>
+      </tbody>
+    </table>`;
+
+  return renderPage({
+    title: ar ? 'ربحية كل مندوب' : 'Profitability by salesperson',
+    company: settings,
+    subtitle: rangeLabel(report),
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}
+
+export function collectionsBySalespersonHtml(
+  report: SalespersonCollectionsReport,
+  settings: AppSettings,
+  lang = 'en',
+): string {  const ar = isArabic(lang);
+  const rows = report.rows
+    .map(
+      (row) => `      <tr>
+        <td>${escapeHtml(row.salesperson ?? (ar ? 'بدون مندوب' : 'Unassigned'))}</td>
+        <td class="num">${escapeHtml(row.vouchers)}</td>
+        <td class="num">${money(row.amount)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const empty = ar ? 'لا تحصيلات في هذه الفترة' : 'No collections in this period';
+
+  const body = `    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'المندوب' : 'Salesperson'}</th>
+          <th class="num">${ar ? 'الإيصالات' : 'Receipts'}</th>
+          <th class="num">${ar ? 'المحصّل' : 'Collected'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows || `        <tr><td colspan="3" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td>${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${escapeHtml(report.totals.vouchers)}</td><td class="num">${money(report.totals.amount)}</td></tr>
+      </tbody>
+    </table>`;
+
+  return renderPage({
+    title: ar ? 'تحصيلات كل مندوب' : 'Collections by salesperson',
+    company: settings,
+    subtitle: rangeLabel(report),
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}
+
+export function salespersonStatementHtml(
+  statement: SalespersonStatement,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const rows = statement.rows
+    .map(
+      (row) => `      <tr>
+        <td>${escapeHtml(formatDate(row.date))}</td>
+        <td>${escapeHtml(row.type === 'SALE' ? (ar ? 'فاتورة' : 'Invoice') : ar ? 'تحصيل' : 'Collection')}</td>
+        <td>${escapeHtml(row.reference)}</td>
+        <td>${escapeHtml(row.customer ?? '—')}</td>
+        <td class="num">${row.debit ? money(row.debit) : ''}</td>
+        <td class="num">${row.credit ? money(row.credit) : ''}</td>
+        <td class="num">${money(row.balance)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const empty = ar ? 'لا حركات في هذه الفترة' : 'No movements in this period';
+
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'الرصيد الافتتاحي' : 'Opening balance'}</span><span class="value">${money(statement.openingBalance)}</span></div>
+      <div><span class="label">${ar ? 'الرصيد الختامي' : 'Closing balance'}</span><span class="value">${money(statement.totals.closingBalance)}</span></div>
+    </section>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'التاريخ' : 'Date'}</th>
+          <th>${ar ? 'النوع' : 'Type'}</th>
+          <th>${ar ? 'المرجع' : 'Reference'}</th>
+          <th>${ar ? 'العميل' : 'Customer'}</th>
+          <th class="num">${ar ? 'مدين' : 'Debit'}</th>
+          <th class="num">${ar ? 'دائن' : 'Credit'}</th>
+          <th class="num">${ar ? 'الرصيد' : 'Balance'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows || `        <tr><td colspan="7" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td colspan="4">${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${money(statement.totals.sales)}</td><td class="num">${money(statement.totals.collections)}</td><td class="num">${money(statement.totals.closingBalance)}</td></tr>
+      </tbody>
+    </table>`;
+
+  return renderPage({
+    title: ar ? 'كشف حساب مندوب' : 'Salesperson statement',
+    company: settings,
+    subtitle: `${statement.salesperson.name} · ${statement.from} → ${statement.to}`,
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,

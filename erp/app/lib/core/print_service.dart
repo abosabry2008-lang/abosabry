@@ -133,6 +133,64 @@ class PrintService {
           'warehouseId': warehouseId,
       });
 
+  static Uri consolidatedSalesNoteUrl(
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+    String? salespersonId,
+  }) =>
+      _uri('/print/reports/consolidated-sales-note', <String, String?>{
+        'token': token,
+        if (from != null) 'from': Formatters.isoDate(from),
+        if (to != null) 'to': Formatters.isoDate(to),
+        if (salespersonId != null && salespersonId.isNotEmpty)
+          'salespersonId': salespersonId,
+      });
+
+  static Uri profitBySalespersonUrl(
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+    String? salespersonId,
+  }) =>
+      _uri('/print/reports/profit-by-salesperson', <String, String?>{
+        'token': token,
+        if (from != null) 'from': Formatters.isoDate(from),
+        if (to != null) 'to': Formatters.isoDate(to),
+        if (salespersonId != null && salespersonId.isNotEmpty)
+          'salespersonId': salespersonId,
+      });
+
+  static Uri collectionsBySalespersonUrl(
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+    String? salespersonId,
+  }) =>
+      _uri('/print/reports/collections-by-salesperson', <String, String?>{
+        'token': token,
+        if (from != null) 'from': Formatters.isoDate(from),
+        if (to != null) 'to': Formatters.isoDate(to),
+        if (salespersonId != null && salespersonId.isNotEmpty)
+          'salespersonId': salespersonId,
+      });
+
+  static Uri salespersonStatementUrl(
+    String salespersonId,
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      _uri('/print/salespeople/$salespersonId/statement', <String, String?>{
+        'token': token,
+        if (from != null) 'from': Formatters.isoDate(from),
+        if (to != null) 'to': Formatters.isoDate(to),
+      });
+
+  /// URL of the full Excel backup (`GET /reports/backup`).
+  static Uri backupUrl(String? token) =>
+      _uri('/reports/backup', <String, String?>{'token': token});
+
   /// Convenience wrappers that read the token from the current [Session].
   static Future<bool> printInvoice(BuildContext context, String invoiceId) =>
       open(context, invoiceUrl(invoiceId, token(context)));
@@ -244,6 +302,74 @@ class PrintService {
           warehouseId: warehouseId,
         ),
       );
+
+  static Future<bool> printConsolidatedSalesNote(
+    BuildContext context, {
+    DateTime? from,
+    DateTime? to,
+    String? salespersonId,
+  }) =>
+      open(
+        context,
+        consolidatedSalesNoteUrl(
+          token(context),
+          from: from,
+          to: to,
+          salespersonId: salespersonId,
+        ),
+      );
+
+  static Future<bool> printProfitBySalesperson(
+    BuildContext context, {
+    DateTime? from,
+    DateTime? to,
+    String? salespersonId,
+  }) =>
+      open(
+        context,
+        profitBySalespersonUrl(
+          token(context),
+          from: from,
+          to: to,
+          salespersonId: salespersonId,
+        ),
+      );
+
+  static Future<bool> printCollectionsBySalesperson(
+    BuildContext context, {
+    DateTime? from,
+    DateTime? to,
+    String? salespersonId,
+  }) =>
+      open(
+        context,
+        collectionsBySalespersonUrl(
+          token(context),
+          from: from,
+          to: to,
+          salespersonId: salespersonId,
+        ),
+      );
+
+  static Future<bool> printSalespersonStatement(
+    BuildContext context,
+    String salespersonId, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      open(
+        context,
+        salespersonStatementUrl(
+          salespersonId,
+          token(context),
+          from: from,
+          to: to,
+        ),
+      );
+
+  /// Downloads the full Excel backup by opening it in an external browser.
+  static Future<bool> downloadBackup(BuildContext context) =>
+      open(context, backupUrl(token(context)));
 
   /// Opens [uri] in an external browser, showing a snackbar when it fails.
   static Future<bool> open(BuildContext context, Uri uri) async {

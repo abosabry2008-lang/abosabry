@@ -8,6 +8,7 @@ import { asDate, asEnum, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
+import { roleHasPermission } from '../../lib/permissions';
 import {
   cancelSalesOrder,
   confirmSalesOrder,
@@ -143,7 +144,11 @@ router.patch(
   requirePermission('sales.write'),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
-    const order = await updateSalesOrder(req.params.id, req.body);
+    const user = currentUser(req);
+    const order = await updateSalesOrder(req.params.id, req.body, {
+      allowPosted: roleHasPermission(user.role, 'sales.cancel'),
+      userId: user.id,
+    });
     ok(res, serialize(order));
   }),
 );
@@ -174,7 +179,7 @@ router.post(
   '/:id/cancel',
   requirePermission('sales.cancel'),
   asyncHandler(async (req, res) => {
-    const order = await cancelSalesOrder(req.params.id);
+    const order = await cancelSalesOrder(req.params.id, { userId: currentUser(req).id });
     ok(res, serialize(order));
   }),
 );

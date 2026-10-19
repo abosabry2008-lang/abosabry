@@ -141,6 +141,22 @@ class ReportsController extends ChangeNotifier {
   bool loadingBalanceSheet = false;
   String? balanceSheetError;
 
+  Map<String, dynamic> consolidatedSalesNote = <String, dynamic>{};
+  bool loadingConsolidatedSalesNote = false;
+  String? consolidatedSalesNoteError;
+
+  Map<String, dynamic> profitBySalesperson = <String, dynamic>{};
+  bool loadingProfitBySalesperson = false;
+  String? profitBySalespersonError;
+
+  Map<String, dynamic> collectionsBySalesperson = <String, dynamic>{};
+  bool loadingCollectionsBySalesperson = false;
+  String? collectionsBySalespersonError;
+
+  Map<String, dynamic> salespersonStatement = <String, dynamic>{};
+  bool loadingSalespersonStatement = false;
+  String? salespersonStatementError;
+
   Future<void> loadDashboard() async {
     loadingDashboard = true;
     dashboardError = null;
@@ -561,6 +577,90 @@ class ReportsController extends ChangeNotifier {
         },
         setData: (data) => balanceSheet = data,
         errorMessage: 'Could not load the balance sheet',
+      );
+
+  // --- salespeople reports (تقارير المناديب) --------------------------------
+
+  Future<void> loadConsolidatedSalesNote({
+    DateTime? from,
+    DateTime? to,
+    String? salespersonId,
+  }) =>
+      _loadSection(
+        path: '/reports/consolidated-sales-note',
+        query: <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+          if (salespersonId != null && salespersonId.isNotEmpty)
+            'salespersonId': salespersonId,
+        },
+        setStatus: (loading, error) {
+          loadingConsolidatedSalesNote = loading;
+          consolidatedSalesNoteError = error;
+        },
+        setData: (data) => consolidatedSalesNote = data,
+        errorMessage: 'Could not load the consolidated sales note',
+      );
+
+  Future<void> loadProfitBySalesperson({
+    DateTime? from,
+    DateTime? to,
+    String? salespersonId,
+  }) =>
+      _loadSection(
+        path: '/reports/profit-by-salesperson',
+        query: <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+          if (salespersonId != null && salespersonId.isNotEmpty)
+            'salespersonId': salespersonId,
+        },
+        setStatus: (loading, error) {
+          loadingProfitBySalesperson = loading;
+          profitBySalespersonError = error;
+        },
+        setData: (data) => profitBySalesperson = data,
+        errorMessage: 'Could not load the salesperson profitability',
+      );
+
+  Future<void> loadCollectionsBySalesperson({
+    DateTime? from,
+    DateTime? to,
+    String? salespersonId,
+  }) =>
+      _loadSection(
+        path: '/reports/collections-by-salesperson',
+        query: <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+          if (salespersonId != null && salespersonId.isNotEmpty)
+            'salespersonId': salespersonId,
+        },
+        setStatus: (loading, error) {
+          loadingCollectionsBySalesperson = loading;
+          collectionsBySalespersonError = error;
+        },
+        setData: (data) => collectionsBySalesperson = data,
+        errorMessage: 'Could not load the salesperson collections',
+      );
+
+  Future<void> loadSalespersonStatement({
+    required String salespersonId,
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      _loadSection(
+        path: '/reports/salespeople/$salespersonId/statement',
+        query: <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+        },
+        setStatus: (loading, error) {
+          loadingSalespersonStatement = loading;
+          salespersonStatementError = error;
+        },
+        setData: (data) => salespersonStatement = data,
+        errorMessage: 'Could not load the salesperson statement',
       );
 
   /// Shared loader for reports whose `data` is an object.

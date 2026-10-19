@@ -32,7 +32,17 @@ import {
   supplierPayablesHtml,
   supplierStatementHtml,
   topProductsHtml,
+  collectionsBySalespersonHtml,
+  consolidatedSalesNoteHtml,
+  profitBySalespersonHtml,
+  salespersonStatementHtml,
 } from './printing.templates';
+import {
+  buildCollectionsBySalesperson,
+  buildConsolidatedSalesNote,
+  buildProfitBySalesperson,
+  buildSalespersonStatement,
+} from '../reports/salespeople.service';
 
 const router = Router();
 
@@ -191,6 +201,73 @@ router.get(
       getSettings(),
     ]);
     sendHtml(res, itemMovementHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/reports/consolidated-sales-note
+router.get(
+  '/reports/consolidated-sales-note',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const salespersonId = asString(req.query.salespersonId);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildConsolidatedSalesNote(from, to, salespersonId),
+      getSettings(),
+    ]);
+    sendHtml(res, consolidatedSalesNoteHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/reports/profit-by-salesperson
+router.get(
+  '/reports/profit-by-salesperson',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const salespersonId = asString(req.query.salespersonId);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildProfitBySalesperson(from, to, salespersonId),
+      getSettings(),
+    ]);
+    sendHtml(res, profitBySalespersonHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/reports/collections-by-salesperson
+router.get(
+  '/reports/collections-by-salesperson',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const salespersonId = asString(req.query.salespersonId);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildCollectionsBySalesperson(from, to, salespersonId),
+      getSettings(),
+    ]);
+    sendHtml(res, collectionsBySalespersonHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/salespeople/:id/statement
+router.get(
+  '/salespeople/:id/statement',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [statement, settings] = await Promise.all([
+      buildSalespersonStatement(req.params.id, from, to),
+      getSettings(),
+    ]);
+    sendHtml(res, salespersonStatementHtml(statement, settings, lang));
   }),
 );
 

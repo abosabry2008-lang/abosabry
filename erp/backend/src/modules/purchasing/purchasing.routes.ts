@@ -135,6 +135,7 @@ router.patch(
     const user = currentUser(req);
     const order = await updatePurchaseOrder(req.params.id, req.body, {
       allowPosted: roleHasPermission(user.role, 'purchases.cancel'),
+      userId: user.id,
     });
     ok(res, serialize(order));
   }),
@@ -166,7 +167,9 @@ router.post(
   '/:id/cancel',
   requirePermission('purchases.cancel'),
   asyncHandler(async (req, res) => {
-    const order = await setPurchaseOrderStatus(req.params.id, 'CANCELLED');
+    const order = await setPurchaseOrderStatus(req.params.id, 'CANCELLED', {
+      userId: currentUser(req).id,
+    });
     ok(res, serialize(order));
   }),
 );

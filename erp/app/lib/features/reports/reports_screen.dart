@@ -23,6 +23,7 @@ import 'financial_reports_screen.dart';
 import 'item_movement_screen.dart';
 import 'operations_reports_screen.dart';
 import 'report_widgets.dart';
+import 'salespeople_reports_screen.dart';
 import 'statement_hub_screen.dart';
 
 /// Every report, organised as a branch tree: pick a category, then a report.
@@ -69,6 +70,39 @@ class ReportsScreen extends StatelessWidget {
                     title: s.receivablesBySalesperson,
                     onOpen: (controller) => controller.loadReceivables(),
                     builder: (_) => const _ReceivablesTab(),
+                  ),
+                ],
+              ),
+              // --- Salespeople (تقارير المناديب) --------------------------
+              _ReportBranch(
+                icon: Icons.support_agent_outlined,
+                title: s.salespeopleReports,
+                children: <Widget>[
+                  _ReportLeaf(
+                    icon: Icons.receipt_long_outlined,
+                    title: s.consolidatedSalesNote,
+                    onOpen: (controller) =>
+                        controller.loadConsolidatedSalesNote(),
+                    builder: (_) => const ConsolidatedSalesNoteScreen(),
+                  ),
+                  _ReportLeaf(
+                    icon: Icons.savings_outlined,
+                    title: s.profitBySalesperson,
+                    onOpen: (controller) =>
+                        controller.loadProfitBySalesperson(),
+                    builder: (_) => const ProfitBySalespersonScreen(),
+                  ),
+                  _ReportLeaf(
+                    icon: Icons.payments_outlined,
+                    title: s.collectionsBySalesperson,
+                    onOpen: (controller) =>
+                        controller.loadCollectionsBySalesperson(),
+                    builder: (_) => const CollectionsBySalespersonScreen(),
+                  ),
+                  _ReportLeaf(
+                    icon: Icons.account_balance_wallet_outlined,
+                    title: s.salespersonStatement,
+                    builder: (_) => const SalespersonStatementScreen(),
                   ),
                 ],
               ),

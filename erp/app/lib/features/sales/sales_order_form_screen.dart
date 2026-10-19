@@ -4,16 +4,24 @@ import 'package:provider/provider.dart';
 import '../../core/api_exception.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
+import '../../models/sales_order.dart';
 import '../../models/warehouse.dart';
 import '../../state/customers_controller.dart';
+import '../../state/product_catalog.dart';
 import '../../state/sales_orders_controller.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/order_lines_editor.dart';
 import '../../widgets/section_card.dart';
 
-/// Create form for a sales order.
+/// Create/edit form for a sales order.
+///
+/// Pass [order] to edit it. Editing a fulfilled order is reserved for admins;
+/// the API returns the fulfilled stock and re-applies the new lines.
 class SalesOrderFormScreen extends StatefulWidget {
-  const SalesOrderFormScreen({super.key});
+  const SalesOrderFormScreen({super.key, this.order});
+
+  /// The order being edited, or `null` when creating a new one.
+  final SalesOrder? order;
 
   @override
   State<SalesOrderFormScreen> createState() => _SalesOrderFormScreenState();
@@ -21,21 +29,53 @@ class SalesOrderFormScreen extends StatefulWidget {
 
 class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final List<OrderLineDraft> _lines = <OrderLineDraft>[OrderLineDraft()];
+  final List<OrderLineDraft> _lines = <OrderLineDraft>[];
 
   List<Warehouse> _warehouses = <Warehouse>[];
   String? _customerId;
   String? _warehouseId;
   final TextEditingController _notes = TextEditingController();
   bool _saving = false;
+  bool _linesDirty = false;
+
+  bool get _editing => widget.order != null;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    final order = widget.order;
+    if (order != null) {
+      _customerId = order.customerId;
+      _warehouseId = order.warehouseId;
+      _notes.text = order.notes ?? '';
+      for (final line in order.lines) {
+        _lines.add(
+          OrderLineDraft(
+            quantity: line.quantity.toDouble(),
+            price: line.unitPrice,
+            discount: line.discount,
+            taxRate: line.taxRate,
+          ),
+        );
+      }
+    }
+    if (_lines.isEmpty) _lines.add(OrderLineDraft());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       context.read<CustomersController>().ensureLoaded();
-      _loadWarehouses();
+      await _loadWarehouses();
+      if (!mounted) return;
+      // Resolve the products of an edited order so its lines stay valid.
+      final catalog = context.read<ProductCatalog>();
+      await catalog.ensureLoaded();
+      if (!mounted) return;
+      setState(() {
+        final order = widget.order;
+        if (order == null) return;
+        for (var i = 0; i < _lines.length && i < order.lines.length; i++) {
+          _lines[i].product ??= catalog.byId(order.lines[i].productId);
+        }
+      });
     });
   }
 
@@ -59,6 +99,11 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
       setState(() {
         _warehouses = page.items;
         _warehouseId ??= page.items.isEmpty ? null : page.items.first.id;
+        // Keep an edited order's warehouse if it is still selectable.
+        if (_warehouseId != null &&
+            !page.items.any((warehouse) => warehouse.id == _warehouseId)) {
+          _warehouseId = page.items.isEmpty ? null : page.items.first.id;
+        }
       });
     } catch (_) {
       // Leave the dropdown empty; validation will block submission.
@@ -83,31 +128,45 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
         return;
       }
     }
+
+    final order = widget.order;
+    if (order != null) {
+      final fulfilled = order.lines.any((line) => line.fulfilledQty > 0);
+      // Editing quantities of an order that already shipped needs admin rights.
+      if (fulfilled && _linesDirty && !context.read<Session>().can('sales.cancel')) {
+        _snack(context.s.onlyAdminEditsFulfilled);
+        return;
+      }
+    }
+
     setState(() => _saving = true);
     final controller = context.read<SalesOrdersController>();
     try {
-      await controller.api.post(
-        '/sales-orders',
-        body: <String, dynamic>{
+      if (order == null) {
+        await controller.api.post(
+          '/sales-orders',
+          body: <String, dynamic>{
+            'customerId': _customerId,
+            'warehouseId': _warehouseId,
+            'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+            'lines': _linesJson(validLines),
+          },
+        );
+        await controller.refresh();
+        if (!mounted) return;
+        _snack(context.s.salesOrderCreated);
+      } else {
+        final body = <String, dynamic>{
           'customerId': _customerId,
-          'warehouseId': _warehouseId,
           'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-          'lines': validLines
-              .map(
-                (line) => <String, dynamic>{
-                  'productId': line.product!.id,
-                  'quantity': line.quantity,
-                  'unitPrice': line.price,
-                  'discount': line.discount,
-                  'taxRate': line.taxRate,
-                },
-              )
-              .toList(),
-        },
-      );
-      await controller.refresh();
+        };
+        if (_linesDirty) body['lines'] = _linesJson(validLines);
+        await controller.api.patchObject('/sales-orders/${order.id}', body: body);
+        await controller.refresh();
+        if (!mounted) return;
+        _snack(context.s.salesOrderUpdated);
+      }
       if (!mounted) return;
-      _snack(context.s.salesOrderCreated);
       Navigator.of(context).pop(true);
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -116,6 +175,18 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  List<Map<String, dynamic>> _linesJson(List<OrderLineDraft> lines) => lines
+      .map(
+        (line) => <String, dynamic>{
+          'productId': line.product!.id,
+          'quantity': line.quantity,
+          'unitPrice': line.price,
+          'discount': line.discount,
+          'taxRate': line.taxRate,
+        },
+      )
+      .toList();
 
   void _snack(String message) {
     ScaffoldMessenger.of(context)
@@ -193,7 +264,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                 showDiscount: true,
                 preferSalePrice: true,
                 enforceSalePriceFloor: true,
-                onChanged: () => setState(() {}),
+                onChanged: () => setState(() => _linesDirty = true),
               ),
             ),
             const SizedBox(height: 20),
@@ -217,7 +288,13 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.save_outlined),
-                    label: Text(_saving ? s.saving : s.createOrder),
+                    label: Text(
+                      _saving
+                          ? s.saving
+                          : _editing
+                              ? s.save
+                              : s.createOrder,
+                    ),
                   ),
                 ),
               ],
