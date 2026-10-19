@@ -677,10 +677,35 @@ class AppStrings {
   String get journalEntry => _t('Journal entry', 'قيد اليومية');
   String get saveSettings => _t('Save settings', 'حفظ الإعدادات');
   String get noCurrencies => _t('No currencies', 'لا توجد عملات');
-  String get currenciesManagedHint =>
-      _t('Currencies are managed by an administrator.', 'تُدار العملات من قبل المسؤول.');
+  String get currenciesManagedHint => _t(
+        'Add currencies here and choose the base currency.',
+        'أضف العملات من هنا وحدد العملة الأساسية.',
+      );
   String rateValue(String value) => _t('Rate $value', 'السعر $value');
   String get baseLabel => _t('Base', 'أساسية');
+  String get addCurrency => _t('Add currency', 'إضافة عملة');
+  String get editCurrency => _t('Edit currency', 'تعديل العملة');
+  String get symbol => _t('Symbol', 'الرمز');
+  String get exchangeRateLabel =>
+      _t('Exchange rate (vs base currency)', 'سعر الصـرف (مقابل العملة الأساسية)');
+  String get enterPositiveRate =>
+      _t('Enter a rate greater than zero', 'أدخل سعرًا أكبر من صفر');
+  String get currencyCodeRequired =>
+      _t('Currency code is required', 'رمز العملة مطلوب');
+  String get setAsBaseLabel =>
+      _t('Base currency', 'العملة الأساسية');
+  String get keepBaseCurrency => _t(
+        'A currency must remain the base. To switch, set another currency as the base instead.',
+        'يجب أن تبقى هناك عملة أساسية. بدّلها بتحديد عملة أخرى كأساسية.',
+      );
+  String deleteCurrencyQ(String code) => _t('Delete $code?', 'حذف $code؟');
+  String get deleteCurrencyMessage =>
+      _t('This cannot be undone.', 'لا يمكن التراجع عن هذا.');
+  String get currencyCreated => _t('Currency created.', 'تم إنشاء العملة.');
+  String get currencyUpdated => _t('Currency updated.', 'تم تحديث العملة.');
+  String get currencyDeleted => _t('Currency deleted.', 'تم حذف العملة.');
+  String get baseCurrencyUpdated =>
+      _t('Base currency updated.', 'تم تحديث العملة الأساسية.');
 
   // ---------------------------------------------------------------------------
   // Users

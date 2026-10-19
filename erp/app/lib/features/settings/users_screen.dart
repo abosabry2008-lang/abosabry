@@ -21,9 +21,10 @@ const List<String> userRoles = <String>[
   'ACCOUNTANT',
 ];
 
-/// User administration: list, create, edit and deactivate.
-class UsersScreen extends StatelessWidget {
-  const UsersScreen({super.key});
+/// User administration tab: list, create, edit and deactivate.
+/// Embedded inside the Settings screen (Users tab, admin-only).
+class UsersTab extends StatelessWidget {
+  const UsersTab({super.key});
 
   Future<void> _openForm(BuildContext context, {AppUser? user}) async {
     final saved = await showDialog<bool>(

@@ -19,7 +19,6 @@ import '../reports/reports_screen.dart';
 import '../returns/returns_screen.dart';
 import '../sales/sales_orders_screen.dart';
 import '../settings/settings_screen.dart';
-import '../settings/users_screen.dart';
 import '../suppliers/suppliers_screen.dart';
 import '../warehouses/warehouses_screen.dart';
 import 'navigation.dart';
@@ -149,13 +148,8 @@ final List<_Destination> _destinations = <_Destination>[
     permission: 'accounting',
     builder: _journal,
   ),
-  // الإعدادات انتقلت إلى شريط الأعلى بجانب زر تغيير اللغة.
-  _Destination(
-    label: (s) => s.users,
-    icon: Icons.manage_accounts_outlined,
-    permission: 'users',
-    builder: _users,
-  ),
+  // الإعدادات انتقلت إلى شريط الأعلى بجانب زر تغيير اللغة،
+  // والمستخدمون أصبحوا تبويبًا داخل الإعدادات (للمسؤول فقط).
 ];
 
 Widget _dashboard() => const DashboardScreen();
@@ -176,7 +170,6 @@ Widget _reports() => const ReportsScreen();
 Widget _accounts() => const AccountsScreen();
 Widget _journal() => const JournalScreen();
 // Widget _settings() => const SettingsScreen(); // الإعدادات في شريط الأعلى الآن
-Widget _users() => const UsersScreen();
 
 /// Responsive application shell: a [NavigationRail] on wide layouts and a
 /// [NavigationDrawer] on narrow ones. The AppBar shows the signed-in user,
