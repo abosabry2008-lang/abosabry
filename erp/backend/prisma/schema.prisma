@@ -60,6 +60,7 @@ enum InvoiceStatus {
   PARTIALLY_PAID
   PAID
   VOID
+  CANCELLED
 }
 
 enum PaymentMethod {
