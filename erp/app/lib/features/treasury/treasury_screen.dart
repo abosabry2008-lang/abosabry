@@ -521,7 +521,13 @@ class _CollectionsTabState extends State<_CollectionsTab>
     try {
       final page = await api.getPage<CollectionVoucher>(
         '/treasury/collections',
-        query: <String, dynamic>{'page': 1, 'pageSize': 100},
+        query: <String, dynamic>{
+          'page': 1,
+          'pageSize': 100,
+          // Show cancelled receipts too — the row styles them with a tag and
+          // a strikethrough, and admins need the full history.
+          'includeCancelled': 'true',
+        },
         parse: CollectionVoucher.fromJson,
       );
       if (!mounted) return;

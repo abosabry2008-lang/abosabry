@@ -58795,7 +58795,7 @@ l=A.Z(h,!1,t.D).a
 m.v(new A.aBb(m))
 p=4
 s=7
-return A.l(l.hf("/treasury/collections",A.blh(),A.a6(["page",1,"pageSize",100],t.N,t.z),t.yA),$async$hw)
+return A.l(l.hf("/treasury/collections",A.blh(),A.a6(["page",1,"pageSize",100,"includeCancelled","true"],t.N,t.z),t.yA),$async$hw)
 case 7:k=b
 if(m.c==null){n=[1]
 s=5

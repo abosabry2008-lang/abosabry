@@ -1,7 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
-import { env } from '../config/env';
 import { ApiError } from '../lib/api-error';
 
 export function notFoundHandler(req: Request, _res: Response, next: NextFunction): void {
@@ -46,6 +45,12 @@ function toApiError(err: unknown): ApiError {
     return ApiError.unauthorized('Invalid token');
   }
 
+  // body-parser raises a SyntaxError (with a `body` property) for malformed JSON
+  // payloads — report it as a client error instead of a 500.
+  if (err instanceof SyntaxError && 'body' in err) {
+    return ApiError.badRequest('Request body is not valid JSON', 'INVALID_JSON');
+  }
+
   return new ApiError(500, 'Internal server error', 'INTERNAL');
 }
 
@@ -53,7 +58,9 @@ function toApiError(err: unknown): ApiError {
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
   const apiError = toApiError(err);
 
-  if (!env.isProduction && apiError.status >= 500) {
+  // Always log server-side errors (Vercel collects stdout/stderr per request),
+  // so 500s are diagnosable in production too.
+  if (apiError.status >= 500) {
     // eslint-disable-next-line no-console
     console.error('[error]', err);
   }
