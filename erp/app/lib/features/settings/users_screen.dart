@@ -184,6 +184,9 @@ class _UserFormDialogState extends State<_UserFormDialog> {
       TextEditingController(text: widget.user?.phone ?? '');
   late String _role = widget.user?.role ?? 'SALES';
   late bool _active = widget.user?.active ?? true;
+  // الباسورد ظاهر افتراضياً عند الإضافة/التعديل مع زر إظهار/إخفاء،
+  // عشان المستخدم يشوف اللي بيكتبه ويقلل أخطاء الإدخال.
+  bool _obscure = false;
   bool _saving = false;
 
   bool get _isEdit => widget.user != null;
@@ -265,7 +268,16 @@ class _UserFormDialogState extends State<_UserFormDialog> {
               AppTextField(
                 label: _isEdit ? s.newPasswordOptional : s.password,
                 controller: _password,
-                obscureText: true,
+                obscureText: _obscure,
+                suffix: IconButton(
+                  tooltip: _obscure ? s.showPassword : s.hidePassword,
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
                 validator: (value) {
                   final password = value ?? '';
                   if (_isEdit && password.isEmpty) return null;

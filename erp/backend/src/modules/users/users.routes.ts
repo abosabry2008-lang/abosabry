@@ -21,7 +21,7 @@ const createSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().min(1),
   role: roleEnum.default('SALES'),
-  phone: z.string().optional(),
+  phone: z.string().nullable().optional(),
   active: z.boolean().optional(),
 });
 

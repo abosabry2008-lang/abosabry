@@ -249,6 +249,16 @@ class ApiClient {
     var message = asStringOrNull(error['message']);
     if (message == null || message.trim().isEmpty) {
       message = _fallbackMessage(response.statusCode);
+    } else if (asStringOrNull(error['code']) == 'VALIDATION_ERROR') {
+      // Expand zod's fieldErrors so the user sees WHICH field failed and why,
+      // instead of the bare "Validation failed" message.
+      final details = asMap(error['details']);
+      final parts = <String>[
+        ...asRawList(details['formErrors']).map(asString),
+        for (final entry in asMap(details['fieldErrors']).entries)
+          ...asRawList(entry.value).map((item) => '${entry.key}: ${asString(item)}'),
+      ];
+      if (parts.isNotEmpty) message = '$message — ${parts.join(', ')}';
     }
     return ApiException(
       message,
