@@ -60,7 +60,6 @@ enum InvoiceStatus {
   PARTIALLY_PAID
   PAID
   VOID
-  CANCELLED
 }
 
 enum PaymentMethod {
@@ -118,6 +117,13 @@ model User {
 
   /// Customers this user is the assigned sales representative for.
   salespersonForCustomers Customer[] @relation("CustomerSalesperson")
+
+  /// Cash transfers created/recorded by this user.
+  cashTransfers            CashTransfer[]
+  /// Collection vouchers created by this user.
+  collectionsCreated       CollectionVoucher[] @relation("CollectionCreatedBy")
+  /// Collection vouchers assigned to this salesperson.
+  collectionsAsSalesperson CollectionVoucher[] @relation("SalespersonCollections")
 
   @@index([role])
 }
@@ -254,8 +260,8 @@ model StockLevel {
   reserved    Int      @default(0)
   updatedAt   DateTime @updatedAt
 
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  location  Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  location  Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
   warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 
   @@unique([productId, locationId])
@@ -361,15 +367,15 @@ model PurchaseOrderLine {
 // ---------------------------------------------------------------------------
 
 model Customer {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   email       String?
   phone       String?
   address     String?
   taxId       String?
-  creditLimit Decimal  @default(0) @db.Decimal(14, 2)
-  balance     Decimal  @default(0) @db.Decimal(14, 2)
-  active      Boolean  @default(true)
+  creditLimit Decimal @default(0) @db.Decimal(14, 2)
+  balance     Decimal @default(0) @db.Decimal(14, 2)
+  active      Boolean @default(true)
 
   /// The sales representative (مندوب) responsible for this customer.
   salespersonId String?
@@ -377,11 +383,12 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  salesperson User?         @relation("CustomerSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
-  salesOrders SalesOrder[]
-  invoices    Invoice[]
-  payments    Payment[]
-  returnOrders ReturnOrder[]
+  salesperson     User?            @relation("CustomerSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
+  salesOrders     SalesOrder[]
+  invoices        Invoice[]
+  payments        Payment[]
+  returnOrders    ReturnOrder[]
+  collectionLines CollectionLine[]
 
   @@index([name])
   @@index([salespersonId])
@@ -450,26 +457,26 @@ enum ReturnType {
 }
 
 model ReturnOrder {
-  id           String           @id @default(cuid())
-  number       String           @unique
-  type         ReturnType
-  customerId   String?
-  supplierId   String?
-  warehouseId  String
-  status       ReturnOrderStatus @default(DRAFT)
-  returnDate   DateTime         @default(now())
-  subtotal     Decimal          @default(0) @db.Decimal(14, 2)
-  taxTotal     Decimal          @default(0) @db.Decimal(14, 2)
-  total        Decimal          @default(0) @db.Decimal(14, 2)
-  notes        String?
-  userId       String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id          String            @id @default(cuid())
+  number      String            @unique
+  type        ReturnType
+  customerId  String?
+  supplierId  String?
+  warehouseId String
+  status      ReturnOrderStatus @default(DRAFT)
+  returnDate  DateTime          @default(now())
+  subtotal    Decimal           @default(0) @db.Decimal(14, 2)
+  taxTotal    Decimal           @default(0) @db.Decimal(14, 2)
+  total       Decimal           @default(0) @db.Decimal(14, 2)
+  notes       String?
+  userId      String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
-  customer  Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  supplier  Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  warehouse Warehouse        @relation(fields: [warehouseId], references: [id])
-  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customer  Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  supplier  Supplier?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  warehouse Warehouse         @relation(fields: [warehouseId], references: [id])
+  user      User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   lines     ReturnOrderLine[]
 
   @@index([type])
@@ -479,13 +486,13 @@ model ReturnOrder {
 }
 
 model ReturnOrderLine {
-  id            String      @id @default(cuid())
+  id            String  @id @default(cuid())
   returnOrderId String
   productId     String
   quantity      Int
-  unitPrice     Decimal     @db.Decimal(14, 2) // سعر المرتجع (سعر البيع للعميل / التكلفة للمورد)
-  unitCost      Decimal     @default(0) @db.Decimal(14, 2) // تكلفة المنتج وقت الإرجاع
-  taxRate       Decimal     @default(0) @db.Decimal(6, 3)
+  unitPrice     Decimal @db.Decimal(14, 2) // سعر المرتجع (سعر البيع للعميل / التكلفة للمورد)
+  unitCost      Decimal @default(0) @db.Decimal(14, 2) // تكلفة المنتج وقت الإرجاع
+  taxRate       Decimal @default(0) @db.Decimal(6, 3)
 
   returnOrder ReturnOrder @relation(fields: [returnOrderId], references: [id], onDelete: Cascade)
   product     Product     @relation(fields: [productId], references: [id])
@@ -517,11 +524,12 @@ model Invoice {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  customer   Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  salesOrder SalesOrder? @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
-  currency   Currency?   @relation(fields: [currencyId], references: [id], onDelete: SetNull)
-  lines      InvoiceLine[]
-  payments   Payment[]
+  customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  salesOrder      SalesOrder?      @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  currency        Currency?        @relation(fields: [currencyId], references: [id], onDelete: SetNull)
+  lines           InvoiceLine[]
+  payments        Payment[]
+  collectionLines CollectionLine[]
 
   @@index([customerId])
   @@index([status])
@@ -546,31 +554,39 @@ model InvoiceLine {
 }
 
 model Payment {
-  id           String           @id @default(cuid())
-  number       String           @unique
-  direction    PaymentDirection @default(INBOUND)
-  customerId   String?
-  supplierId   String?
-  invoiceId    String?
-  currencyId   String?
-  method       PaymentMethod    @default(CASH)
-  amount       Decimal          @db.Decimal(14, 2)
-  exchangeRate Decimal          @default(1) @db.Decimal(18, 8)
-  reference    String?
-  note         String?
-  paidAt       DateTime         @default(now())
-  userId       String?
-  createdAt    DateTime         @default(now())
+  id                  String           @id @default(cuid())
+  number              String           @unique
+  direction           PaymentDirection @default(INBOUND)
+  customerId          String?
+  supplierId          String?
+  invoiceId           String?
+  currencyId          String?
+  cashBoxId           String?
+  collectionVoucherId String?
+  method              PaymentMethod    @default(CASH)
+  amount              Decimal          @db.Decimal(14, 2)
+  exchangeRate        Decimal          @default(1) @db.Decimal(18, 8)
+  reference           String?
+  note                String?
+  paidAt              DateTime         @default(now())
+  userId              String?
+  cancelledAt         DateTime?
+  cancelledBy         String?
+  createdAt           DateTime         @default(now())
 
-  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  invoice  Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  currency Currency? @relation(fields: [currencyId], references: [id], onDelete: SetNull)
-  user     User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customer          Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  supplier          Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  invoice           Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  currency          Currency?          @relation(fields: [currencyId], references: [id], onDelete: SetNull)
+  user              User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  cashBox           CashBox?           @relation(fields: [cashBoxId], references: [id], onDelete: SetNull)
+  collectionVoucher CollectionVoucher? @relation(fields: [collectionVoucherId], references: [id], onDelete: SetNull)
 
   @@index([invoiceId])
   @@index([paidAt])
   @@index([customerId])
+  @@index([cashBoxId])
+  @@index([collectionVoucherId])
 }
 
 // ---------------------------------------------------------------------------
@@ -622,6 +638,92 @@ model JournalLine {
 }
 
 // ---------------------------------------------------------------------------
+// Treasury (الخزينة)
+// ---------------------------------------------------------------------------
+
+enum CashBoxType {
+  MAIN
+  SUB
+}
+
+model CashBox {
+  id             String      @id @default(cuid())
+  name           String
+  code           String      @unique
+  type           CashBoxType @default(SUB)
+  /// الرصيد الافتتاحي — الرصيد الحالي يُحسب من الحركات فوقه.
+  openingBalance Decimal     @default(0) @db.Decimal(14, 2)
+  active         Boolean     @default(true)
+  isDefault      Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  payments     Payment[]
+  transfersOut CashTransfer[]      @relation("CashTransferFrom")
+  transfersIn  CashTransfer[]      @relation("CashTransferTo")
+  collections  CollectionVoucher[]
+}
+
+model CashTransfer {
+  id           String    @id @default(cuid())
+  number       String    @unique
+  fromBoxId    String
+  toBoxId      String
+  amount       Decimal   @db.Decimal(14, 2)
+  exchangeRate Decimal   @default(1) @db.Decimal(18, 8)
+  reference    String?
+  note         String?
+  transferDate DateTime  @default(now())
+  userId       String?
+  cancelledAt  DateTime?
+  cancelledBy  String?
+  createdAt    DateTime  @default(now())
+
+  fromBox CashBox @relation("CashTransferFrom", fields: [fromBoxId], references: [id])
+  toBox   CashBox @relation("CashTransferTo", fields: [toBoxId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([transferDate])
+}
+
+model CollectionVoucher {
+  id            String    @id @default(cuid())
+  number        String    @unique
+  salespersonId String?
+  cashBoxId     String
+  total         Decimal   @default(0) @db.Decimal(14, 2)
+  collectedAt   DateTime  @default(now())
+  reference     String?
+  note          String?
+  userId        String?
+  cancelledAt   DateTime?
+  cancelledBy   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  salesperson User?            @relation("SalespersonCollections", fields: [salespersonId], references: [id], onDelete: SetNull)
+  cashBox     CashBox          @relation(fields: [cashBoxId], references: [id])
+  user        User?            @relation("CollectionCreatedBy", fields: [userId], references: [id], onDelete: SetNull)
+  lines       CollectionLine[]
+  payments    Payment[]
+}
+
+model CollectionLine {
+  id                  String  @id @default(cuid())
+  collectionVoucherId String
+  customerId          String?
+  invoiceId           String?
+  amount              Decimal @db.Decimal(14, 2)
+  note                String?
+
+  collection CollectionVoucher @relation(fields: [collectionVoucherId], references: [id], onDelete: Cascade)
+  customer   Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  invoice    Invoice?          @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([collectionVoucherId])
+}
+
+// ---------------------------------------------------------------------------
 // System
 // ---------------------------------------------------------------------------
 
@@ -631,26 +733,26 @@ model Sequence {
 }
 
 model Setting {
-  id                  Int      @id @default(1)
-  companyName         String   @default("My Company")
-  companyEmail        String?
-  companyPhone        String?
-  companyAddress      String?
+  id                   Int      @id @default(1)
+  companyName          String   @default("My Company")
+  companyEmail         String?
+  companyPhone         String?
+  companyAddress       String?
   /// URL of the company logo shown on documents.
-  logoUrl             String?
+  logoUrl              String?
   /// رقم السجل التجاري.
   commercialRegisterNo String?
   /// رقم البطاقة الضريبية.
-  taxCardNo           String?
-  baseCurrencyCode    String   @default("USD")
-  defaultTaxRate      Decimal  @default(0) @db.Decimal(6, 3)
-  taxEnabled          Boolean  @default(true)
-  dashboardWidgets    String?
-  invoicePrefix       String   @default("INV")
-  salesOrderPrefix    String   @default("SO")
-  purchaseOrderPrefix String   @default("PO")
-  paymentPrefix       String   @default("PAY")
-  journalPrefix       String   @default("JE")
-  lowStockAlerts      Boolean  @default(true)
-  updatedAt           DateTime @updatedAt
+  taxCardNo            String?
+  baseCurrencyCode     String   @default("USD")
+  defaultTaxRate       Decimal  @default(0) @db.Decimal(6, 3)
+  taxEnabled           Boolean  @default(true)
+  dashboardWidgets     String?
+  invoicePrefix        String   @default("INV")
+  salesOrderPrefix     String   @default("SO")
+  purchaseOrderPrefix  String   @default("PO")
+  paymentPrefix        String   @default("PAY")
+  journalPrefix        String   @default("JE")
+  lowStockAlerts       Boolean  @default(true)
+  updatedAt            DateTime @updatedAt
 }
