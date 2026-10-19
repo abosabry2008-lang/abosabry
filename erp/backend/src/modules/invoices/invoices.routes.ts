@@ -8,6 +8,7 @@ import { asDate, asEnum, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
+import { roleHasPermission } from '../../lib/permissions';
 import { createInvoice, invoiceInclude, issueInvoice, updateInvoice, voidInvoice } from './invoices.service';
 
 const router = Router();
@@ -151,14 +152,18 @@ router.patch(
   requirePermission('invoices.write'),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
-    const invoice = await updateInvoice(req.params.id, req.body);
+    const user = currentUser(req);
+    const invoice = await updateInvoice(req.params.id, req.body, {
+      allowPosted: roleHasPermission(user.role, 'invoices.edit'),
+      userId: user.id,
+    });
     ok(res, serializeInvoice(invoice));
   }),
 );
 
 router.post(
   '/:id/void',
-  requirePermission('invoices.write'),
+  requirePermission('invoices.cancel'),
   asyncHandler(async (req, res) => {
     const invoice = await voidInvoice(req.params.id, currentUser(req).id);
     ok(res, serializeInvoice(invoice));

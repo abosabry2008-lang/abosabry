@@ -145,7 +145,10 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       );
     }
 
-    final canManage = context.watch<Session>().can('invoices');
+    final session = context.watch<Session>();
+    final canManage = session.can('invoices');
+    final canCancelInvoice = session.can('invoices.cancel');
+    final canEditPosted = session.can('invoices.edit');
 
     return Scaffold(
       body: RefreshIndicator(
@@ -255,7 +258,11 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   icon: const Icon(Icons.print_outlined),
                   label: Text(s.print),
                 ),
-                if (canManage && invoice.status == 'DRAFT')
+                if ((canManage && invoice.status == 'DRAFT') ||
+                    (canEditPosted &&
+                        (invoice.status == 'ISSUED' ||
+                            invoice.status == 'PARTIALLY_PAID' ||
+                            invoice.status == 'PAID')))
                   FilledButton.tonalIcon(
                     onPressed: _busy ? null : _edit,
                     icon: const Icon(Icons.edit_outlined),
@@ -263,7 +270,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   ),
               ],
             ),
-            if (canManage && invoice.status != 'VOID') ...<Widget>[
+            if ((canManage || canCancelInvoice) && invoice.status != 'VOID') ...<Widget>[
               const SizedBox(height: 12),
               Wrap(
                 spacing: 12,
@@ -289,7 +296,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                       icon: const Icon(Icons.payments_outlined),
                       label: Text(s.recordPayment),
                     ),
-                  if (invoice.canVoid)
+                  if (invoice.canVoid && canCancelInvoice)
                     OutlinedButton.icon(
                       onPressed: _busy
                           ? null

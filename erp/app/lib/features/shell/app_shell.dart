@@ -12,7 +12,7 @@ import '../dashboard/dashboard_screen.dart';
 import '../inventory/inventory_screen.dart';
 import '../inventory/movements_screen.dart';
 import '../invoices/invoices_screen.dart';
-import '../payments/payments_screen.dart';
+import '../treasury/treasury_screen.dart';
 import '../products/products_screen.dart';
 import '../purchasing/purchase_orders_screen.dart';
 import '../reports/reports_screen.dart';
@@ -125,10 +125,10 @@ final List<_Destination> _destinations = <_Destination>[
     builder: _invoices,
   ),
   _Destination(
-    label: (s) => s.payments,
-    icon: Icons.payments_outlined,
-    permission: 'payments',
-    builder: _payments,
+    label: (s) => s.treasury,
+    icon: Icons.account_balance_wallet_outlined,
+    permission: 'treasury',
+    builder: _treasury,
   ),
   _Destination(
     label: (s) => s.reports,
@@ -165,7 +165,7 @@ Widget _customers() => const CustomersScreen();
 Widget _salesOrders() => const SalesOrdersScreen();
 Widget _returns() => const ReturnsScreen();
 Widget _invoices() => const InvoicesScreen();
-Widget _payments() => const PaymentsScreen();
+Widget _treasury() => const TreasuryScreen();
 Widget _reports() => const ReportsScreen();
 Widget _accounts() => const AccountsScreen();
 Widget _journal() => const JournalScreen();

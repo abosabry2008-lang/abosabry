@@ -459,6 +459,7 @@ class AppStrings {
   String get lines => _t('Lines', 'الأسطر');
   String get productsToOrder => _t('Products to order', 'المنتجات المطلوب طلبها');
   String get createOrder => _t('Create order', 'إنشاء الأمر');
+  String get editOrder => _t('Edit order', 'تعديل الأمر');
   String get salesOrderCreated => _t('Sales order created.', 'تم إنشاء أمر البيع.');
   String get warehouseIsRequired => _t('Warehouse is required', 'المستودع مطلوب');
   String get selectSupplierAndWarehouse =>
@@ -624,6 +625,99 @@ class AppStrings {
       _t('Enter an amount greater than zero', 'أدخل مبلغًا أكبر من صفر');
   String get recordAPayment => _t('Record a payment', 'تسجيل دفعة');
   String get invoice => _t('Invoice', 'فاتورة');
+
+  // ---------------------------------------------------------------------------
+  // Treasury (الخزينة)
+  // ---------------------------------------------------------------------------
+  String get treasury => _t('Treasury', 'الخزينة');
+  String get cashBoxes => _t('Cash boxes', 'الخزائن');
+  String get cashBox => _t('Cash box', 'خزنة');
+  String get cashBoxesHint => _t(
+        'Each cash box keeps its own balance. Sales, purchases, transfers and collections post here automatically.',
+        'لكل خزنة رصيدها المستقل. تُسجَّل المبيعات والمشتريات والتحويلات والتحصيلات هنا تلقائيًا.',
+      );
+  String get newCashBox => _t('New cash box', 'خزنة جديدة');
+  String get editCashBox => _t('Edit cash box', 'تعديل الخزنة');
+  String get cashBoxName => _t('Cash box name', 'اسم الخزنة');
+  String get cashBoxType => _t('Cash box type', 'نوع الخزنة');
+  String get mainBox => _t('Main', 'رئيسية');
+  String get subBox => _t('Sub', 'فرعية');
+  String get defaultBox => _t('Default', 'افتراضية');
+  String get setAsDefault => _t('Set as default', 'تعيين كافتراضية');
+  String get totalInBoxes => _t('Total across boxes', 'إجمالي الخزائن');
+  String get noCashBoxes => _t('No cash boxes yet', 'لا توجد خزائن بعد');
+  String get boxSaved => _t('Cash box saved.', 'تم حفظ الخزنة.');
+  String get boxDeleted => _t('Cash box deleted.', 'تم حذف الخزنة.');
+  String get deleteBoxQ => _t('Delete this cash box?', 'حذف هذه الخزنة؟');
+  String get deleteBoxMessage => _t(
+        'Only boxes without any movements can be deleted. Deactivate a box instead to keep its history.',
+        'لا يمكن حذف خزنة لها حركات. أوقفها بدلًا من ذلك للحفاظ على سجلها.',
+      );
+  String get boxHasMovements => _t(
+        'This cash box has movements — deactivate it instead.',
+        'هذه الخزنة لها حركات — أوقفها بدلًا من حذفها.',
+      );
+  String get boxStatement => _t('Cash box statement', 'كشف حساب الخزنة');
+  String get totalIn => _t('Total in', 'إجمالي الوارد');
+  String get totalOut => _t('Total out', 'إجمالي الصادر');
+  String get newTransfer => _t('Transfer between boxes', 'تحويل بين الخزائن');
+  String get editTransfer => _t('Edit transfer', 'تعديل التحويل');
+  String get fromBox => _t('From box', 'من خزنة');
+  String get toBox => _t('To box', 'إلى خزنة');
+  String get transferAmount => _t('Transfer amount', 'مبلغ التحويل');
+  String get transferSaved => _t('Transfer completed.', 'تم تنفيذ التحويل.');
+  String get transferUpdated => _t('Transfer updated.', 'تم تحديث التحويل.');
+  String get transferCancelled => _t('Transfer cancelled.', 'تم إلغاء التحويل.');
+  String get cancelTransferQ => _t('Cancel this transfer?', 'إلغاء هذا التحويل؟');
+  String get sameBox => _t('Choose two different boxes', 'اختر خزنتين مختلفتين');
+  String get insufficientFunds => _t(
+        'The selected cash box does not have enough funds.',
+        'لا يوجد رصيد كافٍ في الخزنة المحددة.',
+      );
+  String get deposit => _t('Deposit', 'إيداع');
+  String get withdraw => _t('Withdraw', 'سحب');
+  String get depositIntoBox => _t('Deposit into box', 'إيداع في الخزنة');
+  String get withdrawFromBox => _t('Withdraw from box', 'سحب من الخزنة');
+  String get chooseBox => _t('Choose a cash box', 'اختر خزنة');
+  String get box => _t('Box', 'الخزنة');
+  String get paymentIn => _t('Receipt', 'وارد');
+  String get paymentOut => _t('Payment', 'صادر');
+  String get transferIn => _t('Transfer in', 'تحويل وارد');
+  String get transferOut => _t('Transfer out', 'تحويل صادر');
+  String get collections => _t('Collections', 'إيصالات التحصيل');
+  String get none => _t('None', 'بدون');
+  String get noSalesperson => _t('No salesperson', 'بدون مندوب');
+  String get collection => _t('Collection receipt', 'إيصال تحصيل');
+  String get newCollection => _t('New collection receipt', 'إيصال تحصيل جديد');
+  String get collectionsHint => _t(
+        "Collect several customers' dues in one receipt handed in by an agent.",
+        'حصّل مستحقات عدة عملاء في إيصال واحد يورده المندوب.',
+      );
+  String get collectionSaved => _t('Collection receipt saved.', 'تم حفظ إيصال التحصيل.');
+  String get collectionCancelled =>
+      _t('Collection receipt cancelled.', 'تم إلغاء إيصال التحصيل.');
+  String get cancelCollectionQ => _t('Cancel this receipt?', 'إلغاء هذا الإيصال؟');
+  String get cancelCollectionMessage => _t(
+        'Every payment created by this receipt is cancelled and the balances are restored.',
+        'سيتم إلغاء كل الدفعات الناتجة عن هذا الإيصال وإرجاع الأرصدة.',
+      );
+  String get noCollections => _t('No collection receipts', 'لا توجد إيصالات تحصيل');
+  String get collectionLines => _t('Collection lines', 'أسطر التحصيل');
+  String get voucherTotal => _t('Receipt total', 'إجمالي الإيصال');
+  String get lineNeedsCustomer =>
+      _t('Choose a customer for every line', 'اختر عميلًا لكل سطر');
+  String get lineNeedsAmount => _t(
+        'Enter an amount greater than zero for every line',
+        'أدخل مبلغًا أكبر من صفر لكل سطر',
+      );
+  String get cancelPaymentQ => _t('Cancel this payment?', 'إلغاء هذه الدفعة؟');
+  String get cancelPaymentMessage => _t(
+        'The journal entry is reversed and the cash box, invoice and customer balances are restored.',
+        'سيتم عكس القيد وإرجاع أرصدة الخزنة والفاتورة والعميل.',
+      );
+  String get paymentCancelled => _t('Payment cancelled.', 'تم إلغاء الدفعة.');
+  String get paymentUpdated => _t('Payment updated.', 'تم تحديث الدفعة.');
+  String get editPayment => _t('Edit payment', 'تعديل الدفعة');
 
   // ---------------------------------------------------------------------------
   // Reports

@@ -4,7 +4,7 @@ import { documentTotals, lineTotals, round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { nextNumber } from '../../lib/sequence';
 import { getSettings, isTaxEnabled } from '../../lib/settings';
-import { ACCOUNT, postJournal, type JournalLineInput } from '../accounting/accounting.service';
+import { ACCOUNT, postJournal, reverseJournalBySource, type JournalLineInput } from '../accounting/accounting.service';
 
 export const invoiceInclude = {
   customer: { select: { id: true, name: true, email: true, phone: true, address: true } },
@@ -12,6 +12,7 @@ export const invoiceInclude = {
   salesOrder: { select: { id: true, number: true } },
   lines: { include: { product: { select: { id: true, sku: true, name: true, unit: true } } } },
   payments: {
+    where: { cancelledAt: null },
     select: { id: true, number: true, amount: true, method: true, paidAt: true, reference: true },
   },
 } satisfies Prisma.InvoiceInclude;
@@ -173,6 +174,58 @@ async function exchangeRateFor(tx: Tx, currencyId: string | null): Promise<numbe
   return currency ? Number(currency.exchangeRate) : 1;
 }
 
+/** Posts the receivable / revenue / tax / COGS journal entry for an invoice. */
+async function postInvoiceJournalTx(
+  tx: Tx,
+  invoice: {
+    id: string;
+    number: string;
+    subtotal: unknown;
+    taxTotal: unknown;
+    total: unknown;
+    lines: { productId: string | null; quantity: number }[];
+  },
+  userId?: string,
+): Promise<void> {
+  const total = round2(Number(invoice.total));
+  const subtotal = round2(Number(invoice.subtotal));
+  const taxTotal = round2(Number(invoice.taxTotal));
+
+  // Cost of goods sold from the products on the invoice.
+  const productIds = invoice.lines.map((line) => line.productId).filter((v): v is string => Boolean(v));
+  const products = productIds.length
+    ? await tx.product.findMany({ where: { id: { in: productIds } }, select: { id: true, costPrice: true } })
+    : [];
+  const costById = new Map(products.map((product) => [product.id, Number(product.costPrice)]));
+  const cogs = round2(
+    invoice.lines.reduce((sum, line) => {
+      if (!line.productId) return sum;
+      return sum + line.quantity * (costById.get(line.productId) ?? 0);
+    }, 0),
+  );
+
+  const journalLines: JournalLineInput[] = [
+    { accountCode: ACCOUNT.RECEIVABLE, debit: total, description: `Invoice ${invoice.number}` },
+    { accountCode: ACCOUNT.REVENUE, credit: subtotal, description: `Revenue ${invoice.number}` },
+    { accountCode: ACCOUNT.TAX_PAYABLE, credit: taxTotal, description: `Tax on ${invoice.number}` },
+  ];
+  if (cogs > 0) {
+    journalLines.push(
+      { accountCode: ACCOUNT.COGS, debit: cogs, description: `Cost of sales ${invoice.number}` },
+      { accountCode: ACCOUNT.INVENTORY, credit: cogs, description: `Inventory reduction ${invoice.number}` },
+    );
+  }
+
+  await postJournal(tx, {
+    memo: `Invoice ${invoice.number} issued`,
+    reference: invoice.number,
+    sourceType: 'INVOICE',
+    sourceId: invoice.id,
+    userId,
+    lines: journalLines,
+  });
+}
+
 export async function createInvoiceTx(tx: Tx, input: CreateInvoiceInput) {
   const taxEnabled = await isTaxEnabled();
   const built = input.salesOrderId
@@ -222,49 +275,13 @@ export async function issueInvoiceTx(tx: Tx, id: string, userId?: string) {
     throw ApiError.badRequest(`Only draft invoices can be issued (current status: ${invoice.status})`, 'NOT_ISSUABLE');
   }
 
-  const total = round2(Number(invoice.total));
-  const subtotal = round2(Number(invoice.subtotal));
-  const taxTotal = round2(Number(invoice.taxTotal));
-
-  // Cost of goods sold from the products on the invoice.
-  const productIds = invoice.lines.map((line) => line.productId).filter((v): v is string => Boolean(v));
-  const products = productIds.length
-    ? await tx.product.findMany({ where: { id: { in: productIds } }, select: { id: true, costPrice: true } })
-    : [];
-  const costById = new Map(products.map((product) => [product.id, Number(product.costPrice)]));
-  const cogs = round2(
-    invoice.lines.reduce((sum, line) => {
-      if (!line.productId) return sum;
-      return sum + line.quantity * (costById.get(line.productId) ?? 0);
-    }, 0),
-  );
-
   const updated = await tx.invoice.update({
     where: { id },
     data: { status: 'ISSUED', issueDate: new Date() },
     include: invoiceInclude,
   });
 
-  const journalLines: JournalLineInput[] = [
-    { accountCode: ACCOUNT.RECEIVABLE, debit: total, description: `Invoice ${invoice.number}` },
-    { accountCode: ACCOUNT.REVENUE, credit: subtotal, description: `Revenue ${invoice.number}` },
-    { accountCode: ACCOUNT.TAX_PAYABLE, credit: taxTotal, description: `Tax on ${invoice.number}` },
-  ];
-  if (cogs > 0) {
-    journalLines.push(
-      { accountCode: ACCOUNT.COGS, debit: cogs, description: `Cost of sales ${invoice.number}` },
-      { accountCode: ACCOUNT.INVENTORY, credit: cogs, description: `Inventory reduction ${invoice.number}` },
-    );
-  }
-
-  await postJournal(tx, {
-    memo: `Invoice ${invoice.number} issued`,
-    reference: invoice.number,
-    sourceType: 'INVOICE',
-    sourceId: invoice.id,
-    userId,
-    lines: journalLines,
-  });
+  await postInvoiceJournalTx(tx, invoice, userId);
 
   if (invoice.customerId) await recalcCustomerBalance(tx, invoice.customerId);
 
@@ -275,29 +292,54 @@ export async function voidInvoiceTx(tx: Tx, id: string, userId?: string) {
   const invoice = await tx.invoice.findUnique({ where: { id }, include: { payments: true } });
   if (!invoice) throw ApiError.notFound('Invoice not found');
   if (invoice.status === 'VOID') throw ApiError.badRequest('This invoice is already void');
-  if (invoice.payments.length > 0) {
-    throw ApiError.conflict('Cannot void an invoice that has payments recorded against it');
+
+  // Cancelling an invoice also cancels every live payment recorded against it,
+  // so cash-box balances, the ledger and the customer account stay consistent.
+  for (const payment of invoice.payments) {
+    if (payment.cancelledAt) continue;
+    if (payment.collectionVoucherId) {
+      throw ApiError.badRequest(
+        'This invoice was paid through a collection receipt — cancel the receipt first',
+        'COLLECTION_PAYMENT',
+      );
+    }
+
+    await reverseJournalBySource(tx, {
+      sourceType: 'PAYMENT',
+      sourceId: payment.id,
+      reversalSourceType: 'PAYMENT_CANCEL',
+      memo: `Payment ${payment.number} cancelled`,
+      reference: payment.number,
+      userId,
+    });
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: { cancelledAt: new Date(), cancelledBy: userId ?? null },
+    });
+    if (payment.supplierId && payment.direction === 'OUTBOUND') {
+      await tx.supplier.update({
+        where: { id: payment.supplierId },
+        data: { balance: { increment: round2(Number(payment.amount)) } },
+      });
+    }
   }
 
-  const wasIssued = invoice.status === 'ISSUED' || invoice.status === 'PARTIALLY_PAID' || invoice.status === 'PAID';
+  const wasIssued = invoice.status !== 'DRAFT';
   const updated = await tx.invoice.update({
     where: { id },
-    data: { status: 'VOID', balance: 0 },
+    data: { status: 'VOID', balance: 0, amountPaid: 0 },
     include: invoiceInclude,
   });
 
   if (wasIssued) {
-    await postJournal(tx, {
+    // Exact reversal of the issue entry, including the COGS / Inventory legs.
+    await reverseJournalBySource(tx, {
+      sourceType: 'INVOICE',
+      sourceId: invoice.id,
+      reversalSourceType: 'INVOICE_VOID',
       memo: `Invoice ${invoice.number} voided`,
       reference: invoice.number,
-      sourceType: 'INVOICE_VOID',
-      sourceId: invoice.id,
       userId,
-      lines: [
-        { accountCode: ACCOUNT.REVENUE, debit: round2(Number(invoice.subtotal)), description: `Reverse revenue ${invoice.number}` },
-        { accountCode: ACCOUNT.TAX_PAYABLE, debit: round2(Number(invoice.taxTotal)), description: `Reverse tax ${invoice.number}` },
-        { accountCode: ACCOUNT.RECEIVABLE, credit: round2(Number(invoice.total)), description: `Reverse receivable ${invoice.number}` },
-      ],
     });
   }
 
@@ -330,11 +372,38 @@ export interface UpdateInvoiceInput {
   lines?: InvoiceLineInput[];
 }
 
-export async function updateInvoiceTx(tx: Tx, id: string, input: UpdateInvoiceInput) {
+export interface UpdateInvoiceOptions {
+  /** Admins may edit a posted invoice that has no live payments. */
+  allowPosted?: boolean;
+  userId?: string;
+}
+
+export async function updateInvoiceTx(
+  tx: Tx,
+  id: string,
+  input: UpdateInvoiceInput,
+  options: UpdateInvoiceOptions = {},
+) {
   const invoice = await tx.invoice.findUnique({ where: { id } });
   if (!invoice) throw ApiError.notFound('Invoice not found');
-  if (invoice.status !== 'DRAFT') {
+
+  const isDraft = invoice.status === 'DRAFT';
+  const isPosted =
+    options.allowPosted === true &&
+    (invoice.status === 'ISSUED' || invoice.status === 'PARTIALLY_PAID' || invoice.status === 'PAID');
+
+  if (!isDraft && !isPosted) {
     throw ApiError.badRequest('Only draft invoices can be updated', 'NOT_EDITABLE');
+  }
+
+  if (isPosted) {
+    const livePayments = await tx.payment.count({ where: { invoiceId: id, cancelledAt: null } });
+    if (livePayments > 0) {
+      throw ApiError.conflict(
+        'Cancel the payments recorded against this invoice before editing it',
+        'HAS_PAYMENTS',
+      );
+    }
   }
 
   const built = input.lines && input.lines.length > 0
@@ -382,6 +451,10 @@ export async function updateInvoiceTx(tx: Tx, id: string, input: UpdateInvoiceIn
     data.taxTotal = built.totals.taxTotal;
     data.total = built.totals.total;
     data.balance = built.totals.total;
+    if (isPosted) {
+      data.amountPaid = 0;
+      data.status = 'ISSUED';
+    }
     data.lines = {
       create: built.lines.map((line) => ({
         productId: line.productId,
@@ -396,10 +469,28 @@ export async function updateInvoiceTx(tx: Tx, id: string, input: UpdateInvoiceIn
   }
 
   const updated = await tx.invoice.update({ where: { id }, data, include: invoiceInclude });
+
+  // Editing quantities/prices of a posted invoice re-posts its ledger entry so
+  // revenue, tax and COGS match the new lines.
+  if (isPosted && built.lines.length > 0) {
+    await reverseJournalBySource(tx, {
+      sourceType: 'INVOICE',
+      sourceId: invoice.id,
+      reversalSourceType: 'INVOICE_EDIT',
+      memo: `Invoice ${invoice.number} edited`,
+      reference: invoice.number,
+      userId: options.userId,
+    });
+    await postInvoiceJournalTx(tx, updated, options.userId);
+  }
+
   if (updated.customerId) await recalcCustomerBalance(tx, updated.customerId);
+  if (invoice.customerId && invoice.customerId !== updated.customerId) {
+    await recalcCustomerBalance(tx, invoice.customerId);
+  }
   return updated;
 }
 
-export async function updateInvoice(id: string, input: UpdateInvoiceInput) {
-  return prisma.$transaction((tx) => updateInvoiceTx(tx, id, input));
+export async function updateInvoice(id: string, input: UpdateInvoiceInput, options: UpdateInvoiceOptions = {}) {
+  return prisma.$transaction((tx) => updateInvoiceTx(tx, id, input, options));
 }

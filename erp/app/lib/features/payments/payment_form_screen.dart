@@ -5,6 +5,7 @@ import '../../core/api_exception.dart';
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
+import '../../models/cash_box.dart';
 import '../../models/customer.dart';
 import '../../models/invoice.dart';
 import '../../models/supplier.dart';
@@ -37,6 +38,7 @@ class PaymentFormScreen extends StatefulWidget {
     this.supplierId,
     this.supplierName,
     this.initialAmount,
+    this.cashBoxId,
     this.lockTarget = false,
   });
 
@@ -48,6 +50,9 @@ class PaymentFormScreen extends StatefulWidget {
   final String? supplierId;
   final String? supplierName;
   final double? initialAmount;
+
+  /// Pre-selected cash box (the default box is used when omitted).
+  final String? cashBoxId;
 
   /// When true the direction and the linked record cannot be changed.
   final bool lockTarget;
@@ -72,11 +77,13 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
   String? _invoiceId;
   String? _customerId;
   String? _supplierId;
+  String? _cashBoxId;
   DateTime _paidAt = DateTime.now();
 
   List<Customer> _customers = <Customer>[];
   List<Supplier> _suppliers = <Supplier>[];
   List<Invoice> _invoices = <Invoice>[];
+  List<CashBox> _boxes = <CashBox>[];
   bool _loadingOptions = false;
   bool _saving = false;
 
@@ -88,11 +95,10 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
     _invoiceId = widget.invoiceId;
     _customerId = widget.customerId;
     _supplierId = widget.supplierId;
-    if (!widget.lockTarget) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _loadOptions();
-      });
-    }
+    _cashBoxId = widget.cashBoxId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadOptions();
+    });
   }
 
   @override
@@ -107,26 +113,51 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
     setState(() => _loadingOptions = true);
     final api = context.read<Session>().api;
     try {
-      final customers = await api.getPage<Customer>(
-        '/customers',
-        query: <String, dynamic>{'page': 1, 'pageSize': 100},
-        parse: Customer.fromJson,
-      );
-      final suppliers = await api.getPage<Supplier>(
-        '/suppliers',
-        query: <String, dynamic>{'page': 1, 'pageSize': 100},
-        parse: Supplier.fromJson,
-      );
-      final invoices = await api.getPage<Invoice>(
-        '/invoices',
-        query: <String, dynamic>{'page': 1, 'pageSize': 100},
-        parse: Invoice.fromJson,
-      );
+      final boxes = await api.getList('/treasury/boxes');
+      final List<Customer> customers;
+      final List<Supplier> suppliers;
+      final List<Invoice> invoices;
+      if (widget.lockTarget) {
+        customers = <Customer>[];
+        suppliers = <Supplier>[];
+        invoices = <Invoice>[];
+      } else {
+        final customerPage = await api.getPage<Customer>(
+          '/customers',
+          query: <String, dynamic>{'page': 1, 'pageSize': 100},
+          parse: Customer.fromJson,
+        );
+        final supplierPage = await api.getPage<Supplier>(
+          '/suppliers',
+          query: <String, dynamic>{'page': 1, 'pageSize': 100},
+          parse: Supplier.fromJson,
+        );
+        final invoicePage = await api.getPage<Invoice>(
+          '/invoices',
+          query: <String, dynamic>{'page': 1, 'pageSize': 100},
+          parse: Invoice.fromJson,
+        );
+        customers = customerPage.items;
+        suppliers = supplierPage.items;
+        invoices = invoicePage.items;
+      }
       if (!mounted) return;
       setState(() {
-        _customers = customers.items;
-        _suppliers = suppliers.items;
-        _invoices = invoices.items;
+        _boxes = boxes.map(CashBox.fromJson).toList();
+        _customers = customers;
+        _suppliers = suppliers;
+        _invoices = invoices;
+        if (_cashBoxId == null) {
+          for (final box in _boxes) {
+            if (box.isDefault) {
+              _cashBoxId = box.id;
+              break;
+            }
+          }
+          if (_cashBoxId == null && _boxes.isNotEmpty) {
+            _cashBoxId = _boxes.first.id;
+          }
+        }
       });
     } on ApiException {
       // Leave the dropdowns empty; the form still submits the manual fields.
@@ -173,6 +204,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
           'invoiceId': _invoiceId,
           'customerId': _customerId,
           'supplierId': _supplierId,
+          'cashBoxId': _cashBoxId,
           'reference':
               _reference.text.trim().isEmpty ? null : _reference.text.trim(),
           'note': _note.text.trim().isEmpty ? null : _note.text.trim(),
@@ -239,6 +271,24 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                         .toList(),
                     onChanged: (value) =>
                         setState(() => _method = value ?? _method),
+                  ),
+                  const SizedBox(height: 14),
+                  AppSelectField<String>(
+                    label: s.cashBox,
+                    value: _cashBoxId,
+                    hint: s.chooseBox,
+                    enabled: !_saving && _boxes.isNotEmpty,
+                    prefixIcon: Icons.account_balance_wallet_outlined,
+                    options: _boxes
+                        .map(
+                          (box) => SelectOption<String>(
+                            box.id,
+                            '${box.name} · ${Formatters.money(box.balance)}',
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) =>
+                        setState(() => _cashBoxId = value),
                   ),
                   const SizedBox(height: 14),
                   AppNumberField(

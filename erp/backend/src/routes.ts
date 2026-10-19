@@ -16,6 +16,7 @@ import returnsRoutes from './modules/returns/returns.routes';
 import salesRoutes from './modules/sales/sales.routes';
 import settingsRoutes from './modules/settings/settings.routes';
 import suppliersRoutes from './modules/suppliers/suppliers.routes';
+import treasuryRoutes from './modules/treasury/treasury.routes';
 import usersRoutes from './modules/users/users.routes';
 import { locationsRouter, warehousesRouter } from './modules/warehouses/warehouses.routes';
 
@@ -40,6 +41,7 @@ api.use('/returns', returnsRoutes);
 api.use('/pos', posRoutes);
 api.use('/invoices', invoicesRoutes);
 api.use('/payments', paymentsRoutes);
+api.use('/treasury', treasuryRoutes);
 api.use('/currencies', currencyRoutes);
 api.use('/reports', reportsRoutes);
 api.use('/print', printingRoutes);

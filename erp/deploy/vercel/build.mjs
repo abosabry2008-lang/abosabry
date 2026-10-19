@@ -4,8 +4,9 @@
  *
  *   1. npm ci --include=dev   in erp/backend (TypeScript + Prisma CLI)
  *   2. npx prisma generate
- *   3. npx tsc               → erp/backend/dist
- *   4. copy erp/web → public/  (Vercel's static directory)
+ *   3. npx prisma db push     (only when DATABASE_URL is available)
+ *   4. npx tsc               → erp/backend/dist
+ *   5. copy erp/web → public/  (Vercel's static directory)
  *
  * The API itself is served by api/v1/[[...path]].js (see vercel.json).
  */
@@ -42,6 +43,18 @@ try {
 }
 
 run('npx', ['prisma', 'generate']);
+
+// Apply schema changes to the production database before the new code is
+// deployed. Vercel exposes the project environment variables to the build, so
+// this is the same DATABASE_URL the API uses at runtime. A failed push fails
+// the build, which keeps the previous deployment serving.
+if (!process.env.DATABASE_URL) {
+  // eslint-disable-next-line no-console
+  console.warn('[vercel] DATABASE_URL is not set — skipping prisma db push.');
+} else {
+  run('npx', ['prisma', 'db', 'push', '--skip-generate']);
+}
+
 run('npx', ['tsc', '-p', 'tsconfig.json']);
 
 if (!fs.existsSync(path.join(web, 'index.html'))) {

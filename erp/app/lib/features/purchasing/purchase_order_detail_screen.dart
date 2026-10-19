@@ -11,6 +11,8 @@ import '../../widgets/error_view.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
+import '../shell/navigation.dart';
+import 'purchase_order_edit_screen.dart';
 
 /// Read-only purchase order with approve / receive / cancel actions.
 class PurchaseOrderDetailScreen extends StatefulWidget {
@@ -57,6 +59,17 @@ class _PurchaseOrderDetailScreenState extends State<PurchaseOrderDetailScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _edit() async {
+    final order = _order;
+    if (order == null) return;
+    final saved = await pushScreen<bool>(
+      context,
+      context.s.editOrder,
+      PurchaseOrderEditScreen(order: order),
+    );
+    if (saved == true) await _load();
   }
 
   Future<void> _act(
@@ -115,12 +128,21 @@ class _PurchaseOrderDetailScreenState extends State<PurchaseOrderDetailScreen> {
       );
     }
 
-    final canManage = context.watch<Session>().can('purchases');
+    final session = context.watch<Session>();
+    final canManage = session.can('purchases');
+    final canCancelOrder = session.can('purchases.cancel');
     final theme = Theme.of(context);
     final canApprove = order.status == 'DRAFT' || order.status == 'PENDING';
     final canReceive =
         order.status == 'APPROVED' || order.status == 'PARTIALLY_RECEIVED';
-    final canCancel = order.status != 'CANCELLED' && order.status != 'RECEIVED';
+    final hasReceived = order.lines.any((line) => line.receivedQty > 0);
+    final canCancel = order.status != 'CANCELLED' &&
+        order.status != 'RECEIVED' &&
+        !hasReceived;
+    final canEdit = !hasReceived &&
+        ((order.status == 'DRAFT' && canManage) ||
+            (canCancelOrder &&
+                (order.status == 'PENDING' || order.status == 'APPROVED')));
 
     return Scaffold(
       body: RefreshIndicator(
@@ -206,13 +228,19 @@ class _PurchaseOrderDetailScreenState extends State<PurchaseOrderDetailScreen> {
                 ],
               ),
             ),
-            if (canManage &&
-                (canApprove || canReceive || canCancel)) ...<Widget>[
+            if ((canManage || canCancelOrder) &&
+                (canApprove || canReceive || canCancel || canEdit)) ...<Widget>[
               const SizedBox(height: 12),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: <Widget>[
+                  if (canEdit)
+                    FilledButton.tonalIcon(
+                      onPressed: _busy ? null : _edit,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: Text(s.edit),
+                    ),
                   if (canApprove)
                     FilledButton.tonalIcon(
                       onPressed: _busy
@@ -239,7 +267,7 @@ class _PurchaseOrderDetailScreenState extends State<PurchaseOrderDetailScreen> {
                       icon: const Icon(Icons.download_outlined),
                       label: Text(s.receive),
                     ),
-                  if (canCancel)
+                  if (canCancel && canCancelOrder)
                     OutlinedButton.icon(
                       onPressed: _busy
                           ? null

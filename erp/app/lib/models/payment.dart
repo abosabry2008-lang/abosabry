@@ -20,6 +20,11 @@ class Payment {
     this.supplierName,
     this.invoiceNumber,
     this.currencyCode,
+    this.cashBoxId,
+    this.cashBoxName = '',
+    this.collectionVoucherId,
+    this.collectionVoucherNumber,
+    this.cancelledAt,
   });
 
   final String id;
@@ -39,14 +44,22 @@ class Payment {
   final String? supplierName;
   final String? invoiceNumber;
   final String? currencyCode;
+  final String? cashBoxId;
+  final String cashBoxName;
+  final String? collectionVoucherId;
+  final String? collectionVoucherNumber;
+  final DateTime? cancelledAt;
 
   bool get isInbound => direction == 'INBOUND';
+  bool get cancelled => cancelledAt != null;
 
   factory Payment.fromJson(Map<String, dynamic> json) {
     final customer = asMap(json['customer']);
     final supplier = asMap(json['supplier']);
     final invoice = asMap(json['invoice']);
     final currency = asMap(json['currency']);
+    final cashBox = asMap(json['cashBox']);
+    final voucher = asMap(json['collectionVoucher']);
     return Payment(
       id: asString(json['id']),
       number: asString(json['number']),
@@ -69,6 +82,11 @@ class Payment {
           asStringOrNull(json['invoiceNumber']),
       currencyCode: asStringOrNull(currency['code']) ??
           asStringOrNull(json['currencyCode']),
+      cashBoxId: asStringOrNull(json['cashBoxId']),
+      cashBoxName: asStringOrNull(cashBox['name']) ?? '',
+      collectionVoucherId: asStringOrNull(json['collectionVoucherId']),
+      collectionVoucherNumber: asStringOrNull(voucher['number']),
+      cancelledAt: asDate(json['cancelledAt']),
     );
   }
 

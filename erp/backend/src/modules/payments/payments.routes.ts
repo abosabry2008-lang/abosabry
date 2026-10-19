@@ -3,11 +3,16 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http';
 import { prisma } from '../../lib/prisma';
-import { asDate, asEnum, asString } from '../../lib/query';
+import { asBool, asDate, asEnum, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
-import { createPayment, paymentInclude } from './payments.service';
+import {
+  cancelPayment,
+  createPayment,
+  paymentInclude,
+  updatePayment,
+} from './payments.service';
 
 const router = Router();
 router.use(authenticate);
@@ -21,8 +26,17 @@ const createSchema = z.object({
   customerId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
   currencyId: z.string().nullable().optional(),
+  cashBoxId: z.string().nullable().optional(),
   method: z.nativeEnum(PaymentMethod).optional(),
   amount: z.number().positive(),
+  reference: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
+  paidAt: z.coerce.date().nullable().optional(),
+});
+
+const updateSchema = z.object({
+  amount: z.number().positive().optional(),
+  cashBoxId: z.string().nullable().optional(),
   reference: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
   paidAt: z.coerce.date().nullable().optional(),
@@ -50,15 +64,19 @@ router.get(
     const customerId = asString(query.customerId);
     const supplierId = asString(query.supplierId);
     const invoiceId = asString(query.invoiceId);
+    const cashBoxId = asString(query.cashBoxId);
     const direction = asEnum<PaymentDirection>(query.direction as string, directions);
     const method = asEnum<PaymentMethod>(query.method as string, methods);
+    const includeCancelled = asBool(query.includeCancelled) === true;
     const from = asDate(query.from);
     const to = asDate(query.to);
 
     const where: Prisma.PaymentWhereInput = {};
+    if (!includeCancelled) where.cancelledAt = null;
     if (customerId) where.customerId = customerId;
     if (supplierId) where.supplierId = supplierId;
     if (invoiceId) where.invoiceId = invoiceId;
+    if (cashBoxId) where.cashBoxId = cashBoxId;
     if (direction) where.direction = direction;
     if (method) where.method = method;
     if (from || to) {
@@ -87,6 +105,25 @@ router.post(
   asyncHandler(async (req, res) => {
     const payment = await createPayment({ ...req.body, userId: currentUser(req).id });
     created(res, serializePayment(payment));
+  }),
+);
+
+router.patch(
+  '/:id',
+  requirePermission('treasury.write'),
+  validateBody(updateSchema),
+  asyncHandler(async (req, res) => {
+    const payment = await updatePayment(req.params.id, req.body, currentUser(req).id);
+    ok(res, serializePayment(payment));
+  }),
+);
+
+router.post(
+  '/:id/cancel',
+  requirePermission('treasury.write'),
+  asyncHandler(async (req, res) => {
+    const payment = await cancelPayment(req.params.id, currentUser(req).id);
+    ok(res, serializePayment(payment));
   }),
 );
 

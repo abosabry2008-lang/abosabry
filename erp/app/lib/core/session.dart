@@ -28,6 +28,7 @@ const Map<String, Set<String>> rolePermissions = <String, Set<String>>{
     'sales',
     'invoices',
     'payments',
+    'treasury',
     'reports',
     'accounting',
     'currencies',
@@ -40,6 +41,7 @@ const Map<String, Set<String>> rolePermissions = <String, Set<String>>{
     'sales',
     'invoices',
     'payments',
+    'treasury',
     'reports',
   },
   'CASHIER': <String>{
@@ -49,6 +51,7 @@ const Map<String, Set<String>> rolePermissions = <String, Set<String>>{
     'sales',
     'invoices',
     'payments',
+    'treasury',
   },
   'WAREHOUSE': <String>{
     'dashboard',
@@ -65,6 +68,7 @@ const Map<String, Set<String>> rolePermissions = <String, Set<String>>{
     'suppliers',
     'invoices',
     'payments',
+    'treasury',
     'reports',
     'accounting',
     'currencies',

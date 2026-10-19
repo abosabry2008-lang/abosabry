@@ -166,6 +166,7 @@ export async function buildSupplierPayables(
       where: {
         direction: 'OUTBOUND',
         supplierId: { not: null },
+        cancelledAt: null,
         ...(dateRange ? { paidAt: dateRange } : {}),
       },
       _sum: { amount: true },

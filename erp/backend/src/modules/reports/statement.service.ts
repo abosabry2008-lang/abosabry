@@ -142,7 +142,7 @@ export async function buildCustomerStatement(
       select: { id: true, number: true, total: true, issueDate: true, notes: true, createdAt: true },
     }),
     prisma.payment.findMany({
-      where: { customerId, ...(range ? { paidAt: range } : {}) },
+      where: { customerId, cancelledAt: null, ...(range ? { paidAt: range } : {}) },
       select: {
         id: true,
         number: true,
@@ -164,11 +164,11 @@ export async function buildCustomerStatement(
         _sum: { total: true },
       }),
       prisma.payment.aggregate({
-        where: { customerId, direction: 'INBOUND', paidAt: { lt: from } },
+        where: { customerId, direction: 'INBOUND', cancelledAt: null, paidAt: { lt: from } },
         _sum: { amount: true },
       }),
       prisma.payment.aggregate({
-        where: { customerId, direction: 'OUTBOUND', paidAt: { lt: from } },
+        where: { customerId, direction: 'OUTBOUND', cancelledAt: null, paidAt: { lt: from } },
         _sum: { amount: true },
       }),
     ]);
@@ -255,7 +255,7 @@ export async function buildSupplierStatement(
       select: { id: true, number: true, total: true, orderDate: true, notes: true, createdAt: true },
     }),
     prisma.payment.findMany({
-      where: { supplierId, direction: 'OUTBOUND', ...(range ? { paidAt: range } : {}) },
+      where: { supplierId, direction: 'OUTBOUND', cancelledAt: null, ...(range ? { paidAt: range } : {}) },
       select: {
         id: true,
         number: true,
@@ -276,7 +276,7 @@ export async function buildSupplierStatement(
         _sum: { total: true },
       }),
       prisma.payment.aggregate({
-        where: { supplierId, direction: 'OUTBOUND', paidAt: { lt: from } },
+        where: { supplierId, direction: 'OUTBOUND', cancelledAt: null, paidAt: { lt: from } },
         _sum: { amount: true },
       }),
     ]);

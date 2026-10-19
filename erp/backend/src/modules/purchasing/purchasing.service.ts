@@ -88,12 +88,39 @@ export interface UpdatePurchaseOrderInput {
   lines?: PurchaseLineInput[];
 }
 
-export async function updatePurchaseOrder(id: string, input: UpdatePurchaseOrderInput) {
+export interface UpdatePurchaseOrderOptions {
+  /**
+   * Allows admins to edit a not-yet-received order (DRAFT, PENDING or
+   * APPROVED) after it has been approved.
+   */
+  allowPosted?: boolean;
+}
+
+export async function updatePurchaseOrder(
+  id: string,
+  input: UpdatePurchaseOrderInput,
+  options: UpdatePurchaseOrderOptions = {},
+) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.purchaseOrder.findUnique({ where: { id } });
     if (!existing) throw ApiError.notFound('Purchase order not found');
-    if (existing.status !== 'DRAFT') {
-      throw ApiError.badRequest('Only draft purchase orders can be edited', 'NOT_EDITABLE');
+    const editable: string[] = ['DRAFT'];
+    if (options.allowPosted) editable.push('PENDING', 'APPROVED');
+    if (!editable.includes(existing.status)) {
+      throw ApiError.badRequest('This purchase order can no longer be edited', 'NOT_EDITABLE');
+    }
+
+    if (input.lines && options.allowPosted && existing.status !== 'DRAFT') {
+      const received = await tx.purchaseOrderLine.aggregate({
+        where: { purchaseOrderId: id },
+        _sum: { receivedQty: true },
+      });
+      if (Number(received._sum.receivedQty ?? 0) > 0) {
+        throw ApiError.badRequest(
+          'This purchase order already has received quantities — reverse the receipts first',
+          'HAS_RECEIPTS',
+        );
+      }
     }
 
     const data: Prisma.PurchaseOrderUpdateInput = {};
@@ -123,6 +150,20 @@ export async function setPurchaseOrderStatus(id: string, status: Prisma.Purchase
     if (existing.status === 'RECEIVED' || existing.status === 'CANCELLED') {
       throw ApiError.badRequest(`A ${existing.status.toLowerCase()} purchase order cannot be changed`, 'NOT_EDITABLE');
     }
+
+    if (status === 'CANCELLED') {
+      const received = await tx.purchaseOrderLine.aggregate({
+        where: { purchaseOrderId: id },
+        _sum: { receivedQty: true },
+      });
+      if (Number(received._sum.receivedQty ?? 0) > 0) {
+        throw ApiError.badRequest(
+          'This purchase order already has received quantities — reverse the receipts first',
+          'HAS_RECEIPTS',
+        );
+      }
+    }
+
     return tx.purchaseOrder.update({ where: { id }, data: { status }, include: purchaseOrderInclude });
   });
 }

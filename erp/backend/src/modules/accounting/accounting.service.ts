@@ -125,6 +125,48 @@ export async function postJournal(tx: Tx, input: JournalInput): Promise<void> {
   });
 }
 
+export interface ReverseJournalInput {
+  /** Source type of the original entry (e.g. "PAYMENT", "INVOICE"). */
+  sourceType: string;
+  sourceId: string;
+  /** Source type recorded on the reversing entry. */
+  reversalSourceType: string;
+  memo: string;
+  reference?: string;
+  userId?: string;
+  entryDate?: Date;
+}
+
+/**
+ * Posts the exact reversal of the most recent entry posted for a source
+ * document (looked up by `sourceType` + `sourceId`). Returns false when the
+ * document has no journal entry (e.g. a draft invoice).
+ */
+export async function reverseJournalBySource(tx: Tx, input: ReverseJournalInput): Promise<boolean> {
+  const entry = await tx.journalEntry.findFirst({
+    where: { sourceType: input.sourceType, sourceId: input.sourceId },
+    include: { lines: { include: { account: { select: { code: true } } } } },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!entry) return false;
+
+  await postJournal(tx, {
+    memo: input.memo,
+    reference: input.reference ?? entry.reference ?? undefined,
+    sourceType: input.reversalSourceType,
+    sourceId: input.sourceId,
+    userId: input.userId,
+    entryDate: input.entryDate ?? new Date(),
+    lines: entry.lines.map((line) => ({
+      accountCode: line.account.code,
+      debit: round2(Number(line.credit)),
+      credit: round2(Number(line.debit)),
+      description: `Reversal · ${line.description ?? entry.memo ?? entry.number}`.slice(0, 240),
+    })),
+  });
+  return true;
+}
+
 type TrialBalanceRow = {
   accountId: string;
   code: string;

@@ -8,6 +8,7 @@ import { asEnum, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
+import { roleHasPermission } from '../../lib/permissions';
 import {
   createPurchaseOrder,
   purchaseOrderInclude,
@@ -131,7 +132,10 @@ router.patch(
   requirePermission('purchasing.write'),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
-    const order = await updatePurchaseOrder(req.params.id, req.body);
+    const user = currentUser(req);
+    const order = await updatePurchaseOrder(req.params.id, req.body, {
+      allowPosted: roleHasPermission(user.role, 'purchases.cancel'),
+    });
     ok(res, serialize(order));
   }),
 );
@@ -160,7 +164,7 @@ router.post(
 
 router.post(
   '/:id/cancel',
-  requirePermission('purchasing.write'),
+  requirePermission('purchases.cancel'),
   asyncHandler(async (req, res) => {
     const order = await setPurchaseOrderStatus(req.params.id, 'CANCELLED');
     ok(res, serialize(order));
