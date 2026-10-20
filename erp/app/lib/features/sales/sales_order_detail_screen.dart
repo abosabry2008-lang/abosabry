@@ -206,7 +206,92 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
     if (saved ?? false) await _load();
   }
 
+  /// Creates a draft invoice from the order. First checks stock, and when some
+  /// items are missing the operator chooses to invoice only what is available
+  /// (leaving the rest out) or to invoice everything anyway.
   Future<void> _createInvoice() async {
+    if (!mounted) return;
+    final api = context.read<Session>().api;
+    final s = context.s;
+    setState(() => _busy = true);
+
+    Map<String, dynamic>? preview;
+    try {
+      preview = await api.getObject(
+        '/invoices/preview-from-order/${widget.orderId}',
+      );
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+        setState(() => _busy = false);
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    var skipUnavailable = false;
+    if (preview['canInvoiceEverything'] != true) {
+      final lines = (preview['lines'] is List)
+          ? (preview['lines'] as List).whereType<Map>().toList()
+          : const <Map>[];
+      final short =
+          lines.where((line) => (line['shortfall'] as num? ?? 0) > 0).toList();
+      final availableCount = lines.where(
+        (line) => (line['shortfall'] as num? ?? 0) <= 0,
+      );
+      final nothingAvailable = availableCount.isEmpty;
+
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(s.invoiceShortageTitle),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                nothingAvailable
+                    ? s.invoiceShortageNothingLeft
+                    : s.invoiceShortageMessage,
+              ),
+              const SizedBox(height: 12),
+              for (final line in short)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '• ${line['productName']}: '
+                    '${line['available']} / ${line['quantity']}',
+                  ),
+                ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop('cancel'),
+              child: Text(s.cancel),
+            ),
+            if (!nothingAvailable)
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop('available'),
+                child: Text(s.invoiceAvailableOnly),
+              ),
+            FilledButton.tonal(
+              onPressed: () => Navigator.of(dialogContext).pop('all'),
+              child: Text(s.invoiceEverything),
+            ),
+          ],
+        ),
+      );
+      if (choice == null || choice == 'cancel' || !mounted) return;
+      skipUnavailable = choice == 'available';
+    }
+
+    await _postInvoice(skipUnavailable: skipUnavailable);
+  }
+
+  Future<void> _postInvoice({required bool skipUnavailable}) async {
     if (!mounted) return;
     setState(() => _busy = true);
     final api = context.read<Session>().api;
@@ -214,7 +299,10 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
     try {
       await api.post(
         '/invoices',
-        body: <String, dynamic>{'salesOrderId': widget.orderId},
+        body: <String, dynamic>{
+          'salesOrderId': widget.orderId,
+          if (skipUnavailable) 'skipUnavailable': true,
+        },
       );
       if (!mounted) return;
       messenger.showSnackBar(

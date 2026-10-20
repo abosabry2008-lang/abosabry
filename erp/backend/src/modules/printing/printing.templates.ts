@@ -28,6 +28,7 @@ import type {
   SalespersonStatement,
 } from '../reports/salespeople.service';
 import type { ShortagesReport } from '../reports/analytics.service';
+import type { OrderFulfilmentReport } from '../reports/analytics.service';
 import type { CollectionsByBoxReport } from '../reports/collections.service';
 import type { buildExpenseReport } from '../expenses/expenses.service';
 
@@ -1174,7 +1175,7 @@ export function collectionsByBoxHtml(
       </tr>`,
         )
         .join('\n');
-      return `    <h3 class="section-title">${escapeHtml(box.cashBoxCode)} — ${escapeHtml(box.cashBoxName)} (${money(box.total)})</h3>
+      return `    <h3>${escapeHtml(box.cashBoxCode)} — ${escapeHtml(box.cashBoxName)} (${money(box.total)})</h3>
     <table class="data">
       <thead>
         <tr>
@@ -1258,6 +1259,69 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
 
   return renderPage({
     title: ar ? `كشف بند: ${categoryName}` : `Expense statement: ${categoryName}`,
+    company: settings,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}
+
+/** The order-fulfilment board: available vs. needed per open sales order. */
+export function orderFulfilmentHtml(
+  report: OrderFulfilmentReport,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const sections = report.rows
+    .map((order) => {
+      const rows = order.lines
+        .map(
+          (line) => `      <tr>
+        <td>${escapeHtml(line.sku)}</td>
+        <td>${escapeHtml(line.name)}</td>
+        <td class="num">${escapeHtml(line.required)}</td>
+        <td class="num">${escapeHtml(line.available)}</td>
+        <td class="num">${escapeHtml(line.shortage)}</td>
+      </tr>`,
+        )
+        .join('\n');
+      const status = order.fullyAvailable
+        ? ar
+          ? 'جاهز للتسليم'
+          : 'Ready to deliver'
+        : ar
+          ? 'يحتاج شراء'
+          : 'Needs purchasing';
+      return `    <h3>${escapeHtml(order.orderNumber)} — ${escapeHtml(order.customer ?? (ar ? 'عميل نقدي' : 'Walk-in'))} (${status})</h3>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'الكود' : 'SKU'}</th>
+          <th>${ar ? 'الصنف' : 'Product'}</th>
+          <th class="num">${ar ? 'المطلوب' : 'Required'}</th>
+          <th class="num">${ar ? 'المتاح' : 'Available'}</th>
+          <th class="num">${ar ? 'المطلوب شراؤه' : 'To buy'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows}
+      </tbody>
+    </table>`;
+    })
+    .join('\n');
+  const empty = ar ? 'لا توجد أوامر بيع مفتوحة' : 'No open sales orders';
+
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'أوامر مفتوحة' : 'Open orders'}</span><span class="value">${escapeHtml(report.totals.orders)}</span></div>
+      <div><span class="label">${ar ? 'المطلوب' : 'Required'}</span><span class="value">${escapeHtml(report.totals.required)}</span></div>
+      <div><span class="label">${ar ? 'المتاح' : 'Available'}</span><span class="value">${escapeHtml(report.totals.available)}</span></div>
+      <div><span class="label">${ar ? 'المطلوب شراؤه' : 'To buy'}</span><span class="value">${escapeHtml(report.totals.shortage)}</span></div>
+    </section>
+${sections || `    <p class="muted center">${empty}</p>`}`;
+
+  return renderPage({
+    title: ar ? 'المتاح والمطلوب لكل أمر بيع' : 'Available vs. needed per order',
     company: settings,
     body,
     dir: ar ? 'rtl' : 'ltr',

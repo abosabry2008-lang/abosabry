@@ -472,6 +472,23 @@ class PrintService {
         ),
       );
 
+  /// URL of the order-fulfilment board (المتاح والمطلوب).
+  static Uri orderFulfilmentUrl(String? token, {String? warehouseId}) =>
+      _uri('/print/reports/order-fulfilment', <String, String?>{
+        'token': token,
+        if (warehouseId != null && warehouseId.isNotEmpty)
+          'warehouseId': warehouseId,
+      });
+
+  static Future<bool> printOrderFulfilment(
+    BuildContext context, {
+    String? warehouseId,
+  }) =>
+      open(
+        context,
+        orderFulfilmentUrl(token(context), warehouseId: warehouseId),
+      );
+
   static Future<bool> printSalespersonStatement(
     BuildContext context,
     String salespersonId, {

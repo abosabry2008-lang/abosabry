@@ -34,6 +34,12 @@ export interface CreateInvoiceInput {
   notes?: string | null;
   lines?: InvoiceLineInput[];
   userId?: string;
+  /**
+   * When invoicing a sales order, drop the lines whose quantity is not fully
+   * on hand so the invoice only covers what can actually be delivered. Without
+   * it, every ordered line is billed even if the stock is short.
+   */
+  skipUnavailable?: boolean;
 }
 
 /** Recomputes a customer's outstanding balance from their open invoices. */
@@ -69,10 +75,89 @@ interface BuiltInvoice {
   totals: ReturnType<typeof documentTotals>;
 }
 
+/** Quantity of a product on hand across all stock levels of a warehouse. */
+async function stockOnHand(
+  tx: Tx,
+  warehouseId: string,
+  productId: string,
+): Promise<number> {
+  const levels = await tx.stockLevel.findMany({
+    where: { productId, location: { warehouseId } },
+    select: { quantity: true },
+  });
+  return levels.reduce((sum, level) => sum + Number(level.quantity), 0);
+}
+
+export interface InvoiceOrderLineCheck {
+  lineId: string;
+  productId: string;
+  productName: string;
+  sku: string | null;
+  quantity: number;
+  available: number;
+  shortfall: number;
+}
+
+export interface InvoiceOrderPreview {
+  salesOrderId: string;
+  orderNumber: string;
+  canInvoiceEverything: boolean;
+  lines: InvoiceOrderLineCheck[];
+  totals: { quantity: number; available: number; shortfall: number };
+}
+
+/**
+ * Shows, before invoicing a sales order, which of its lines are short on stock
+ * so the operator can choose to invoice only what is available or everything.
+ */
+export async function previewInvoiceFromOrder(
+  salesOrderId: string,
+): Promise<InvoiceOrderPreview> {
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.salesOrder.findUnique({
+      where: { id: salesOrderId },
+      include: { lines: { include: { product: { select: { id: true, name: true, sku: true } } } } },
+    });
+    if (!order) throw ApiError.notFound('Sales order not found');
+
+    const lines: InvoiceOrderLineCheck[] = [];
+    for (const line of order.lines) {
+      const available = await stockOnHand(tx, order.warehouseId, line.productId);
+      lines.push({
+        lineId: line.id,
+        productId: line.productId,
+        productName: line.product.name,
+        sku: line.product.sku,
+        quantity: line.quantity,
+        available,
+        shortfall: Math.max(0, line.quantity - available),
+      });
+    }
+
+    const totals = lines.reduce(
+      (acc, line) => ({
+        quantity: acc.quantity + line.quantity,
+        available: acc.available + line.available,
+        shortfall: acc.shortfall + line.shortfall,
+      }),
+      { quantity: 0, available: 0, shortfall: 0 },
+    );
+
+    return {
+      salesOrderId: order.id,
+      orderNumber: order.number,
+      canInvoiceEverything: totals.shortfall === 0,
+      lines,
+      totals,
+    };
+  });
+}
+
 async function buildFromSalesOrder(
   tx: Tx,
   salesOrderId: string,
   taxEnabled = true,
+  skipUnavailable = false,
 ): Promise<BuiltInvoice> {
   const order = await tx.salesOrder.findUnique({
     where: { id: salesOrderId },
@@ -90,7 +175,12 @@ async function buildFromSalesOrder(
     throw ApiError.conflict(`Sales order ${order.number} already has invoice ${existing.number}`, 'ALREADY_INVOICED');
   }
 
-  const lines = order.lines.map((line) => {
+  const lines: BuiltInvoice['lines'] = [];
+  for (const line of order.lines) {
+    if (skipUnavailable) {
+      const available = await stockOnHand(tx, order.warehouseId, line.productId);
+      if (available < line.quantity) continue;
+    }
     const taxRate = taxEnabled ? Number(line.taxRate) : 0;
     const total = lineTotals({
       quantity: line.quantity,
@@ -98,7 +188,7 @@ async function buildFromSalesOrder(
       discount: Number(line.discount),
       taxRate,
     }).total;
-    return {
+    lines.push({
       productId: line.productId,
       description: line.product?.name ?? 'Item',
       quantity: line.quantity,
@@ -106,8 +196,15 @@ async function buildFromSalesOrder(
       discount: Number(line.discount),
       taxRate,
       total,
-    };
-  });
+    });
+  }
+
+  if (lines.length === 0) {
+    throw ApiError.badRequest(
+      'Every line of this order is short on stock — nothing is available to invoice',
+      'NOTHING_AVAILABLE',
+    );
+  }
 
   return {
     customerId: order.customerId,
@@ -229,7 +326,7 @@ async function postInvoiceJournalTx(
 export async function createInvoiceTx(tx: Tx, input: CreateInvoiceInput) {
   const taxEnabled = await isTaxEnabled();
   const built = input.salesOrderId
-    ? await buildFromSalesOrder(tx, input.salesOrderId, taxEnabled)
+    ? await buildFromSalesOrder(tx, input.salesOrderId, taxEnabled, input.skipUnavailable === true)
     : await buildFromLines(input, taxEnabled);
 
   const exchangeRate = input.salesOrderId ? built.exchangeRate : await exchangeRateFor(tx, built.currencyId);

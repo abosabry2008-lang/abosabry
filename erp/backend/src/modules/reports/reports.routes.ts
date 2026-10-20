@@ -21,6 +21,7 @@ import { buildBackupWorkbook } from './backup.service';
 import {
   buildAgingReport,
   buildItemMovement,
+  buildOrderFulfilmentReport,
   buildReceivablesBySalesperson,
   buildShortagesReport,
   buildStockBalance,
@@ -488,6 +489,16 @@ router.get(
   asyncHandler(async (req, res) => {
     const warehouseId = asString(req.query.warehouseId);
     ok(res, await buildShortagesReport(warehouseId));
+  }),
+);
+
+// GET /reports/order-fulfilment — available vs. needed per open sales order
+router.get(
+  '/order-fulfilment',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const warehouseId = asString(req.query.warehouseId);
+    ok(res, await buildOrderFulfilmentReport(warehouseId));
   }),
 );
 

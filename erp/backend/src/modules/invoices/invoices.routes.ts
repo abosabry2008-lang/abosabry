@@ -9,7 +9,7 @@ import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import { roleHasPermission } from '../../lib/permissions';
-import { createInvoice, invoiceInclude, issueInvoice, updateInvoice, voidInvoice } from './invoices.service';
+import { createInvoice, invoiceInclude, issueInvoice, previewInvoiceFromOrder, updateInvoice, voidInvoice } from './invoices.service';
 
 const router = Router();
 router.use(authenticate);
@@ -33,6 +33,7 @@ const createSchema = z
     dueDate: z.coerce.date().nullable().optional(),
     notes: z.string().nullable().optional(),
     lines: z.array(lineSchema).min(1).optional(),
+    skipUnavailable: z.boolean().optional(),
   })
   .refine((value) => Boolean(value.salesOrderId) || (value.lines && value.lines.length > 0), {
     message: 'Provide either salesOrderId or at least one line',
@@ -112,6 +113,14 @@ router.get(
     ]);
 
     paginated(res, invoices.map((invoice) => serializeInvoice(invoice)), total, paging);
+  }),
+);
+
+router.get(
+  '/preview-from-order/:orderId',
+  requirePermission('invoices.read'),
+  asyncHandler(async (req, res) => {
+    ok(res, await previewInvoiceFromOrder(req.params.orderId));
   }),
 );
 

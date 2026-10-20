@@ -130,6 +130,11 @@ class ReportsController extends ChangeNotifier {
   bool loadingShortages = false;
   String? shortagesError;
 
+  List<Map<String, dynamic>> orderFulfilment = <Map<String, dynamic>>[];
+  Map<String, dynamic> orderFulfilmentTotals = <String, dynamic>{};
+  bool loadingOrderFulfilment = false;
+  String? orderFulfilmentError;
+
   List<CashBox> boxes = <CashBox>[];
   bool loadingBoxes = false;
   String? boxesError;
@@ -552,6 +557,31 @@ class ReportsController extends ChangeNotifier {
       shortagesError = 'Could not load the shortages report.';
     } finally {
       loadingShortages = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadOrderFulfilmentReport({String? warehouseId}) async {
+    loadingOrderFulfilment = true;
+    orderFulfilmentError = null;
+    notifyListeners();
+    try {
+      final data = await _fetchReport(
+        '/reports/order-fulfilment',
+        <String, dynamic>{
+          if (warehouseId != null && warehouseId.isNotEmpty)
+            'warehouseId': warehouseId,
+        },
+      );
+      orderFulfilment = asMapList(data['rows']);
+      orderFulfilmentTotals = asMap(data['totals']);
+    } on ApiException catch (exception) {
+      orderFulfilmentError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadOrderFulfilmentReport failed: $exception');
+      orderFulfilmentError = 'Could not load the order fulfilment report.';
+    } finally {
+      loadingOrderFulfilment = false;
       notifyListeners();
     }
   }

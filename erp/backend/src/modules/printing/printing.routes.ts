@@ -17,6 +17,7 @@ import {
 import { buildCustomerStatement, buildSupplierStatement } from '../reports/statement.service';
 import {
   buildItemMovement,
+  buildOrderFulfilmentReport,
   buildReceivablesBySalesperson,
   buildShortagesReport,
   buildStockBalance,
@@ -42,6 +43,7 @@ import {
   shortagesHtml,
   collectionsByBoxHtml,
   expenseCategoryStatementHtml,
+  orderFulfilmentHtml,
 } from './printing.templates';
 import {
   buildCollectionsBySalesperson,
@@ -348,6 +350,21 @@ router.get(
       res,
       expenseCategoryStatementHtml(report, category?.name ?? '—', settings, lang),
     );
+  }),
+);
+
+// GET /print/reports/order-fulfilment
+router.get(
+  '/reports/order-fulfilment',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const warehouseId = asString(req.query.warehouseId);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildOrderFulfilmentReport(warehouseId),
+      getSettings(),
+    ]);
+    sendHtml(res, orderFulfilmentHtml(report, settings, lang));
   }),
 );
 

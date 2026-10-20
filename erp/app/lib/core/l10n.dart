@@ -1481,6 +1481,35 @@ class AppStrings {
         'تم تسليم المتاح، والباقي قيد الانتظار.',
       );
   String get shortageDetails => _t('Missing items', 'الأصناف الناقصة');
+  String get invoiceShortageTitle =>
+      _t('Some items are not in stock', 'في أصناف غير موجودة بالمخزون');
+  String get invoiceShortageMessage => _t(
+        'The following items are short on stock. You can invoice only the '
+            'available items and leave the rest out, or continue and invoice '
+            'everything anyway.',
+        'الأصناف التالية ناقصة بالمخزون. يمكنك تحويل المتاح فقط للفاتورة '
+            'وترك الباقي، أو المتابعة وتحويل الكل للفاتورة.',
+      );
+  String get invoiceAvailableOnly =>
+      _t('Invoice available only', 'فاتورة بالمتاح فقط');
+  String get invoiceEverything => _t('Invoice everything', 'فاتورة بالكل');
+  String get invoiceShortageNothingLeft => _t(
+        'Nothing is available to invoice. Purchase the items first.',
+        'لا يوجد أي صنف متاح للفاتورة. اشترِ الأصناف أولاً.',
+      );
+  String get orderFulfilmentTitle =>
+      _t('Available vs. needed', 'المتاح والمطلوب');
+  String get orderFulfilmentHint => _t(
+        'What is on hand for each open sales order, and what still has to be purchased.',
+        'المتاح فعلياً لكل أمر بيع مفتوح، والمطلوب شراؤه لإكماله.',
+      );
+  String get fullyAvailable => _t('Ready to deliver', 'جاهز للتسليم');
+  String get needsPurchasing => _t('Needs purchasing', 'يحتاج شراء');
+  String get availableQty => _t('Available', 'المتاح');
+  String get noOpenOrders => _t(
+        'No open sales orders right now.',
+        'لا توجد أوامر بيع مفتوحة حالياً.',
+      );
 }
 
 /// [LocalizationsDelegate] for [AppStrings] supporting English and Arabic.

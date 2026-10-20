@@ -755,3 +755,149 @@ export async function buildShortagesReport(warehouseId?: string): Promise<Shorta
     totals,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Sales-order fulfilment board (البضاعة المتاحة والمطلوبة لكل أمر بيع)
+// ---------------------------------------------------------------------------
+
+export interface OrderFulfilmentLine {
+  lineId: string;
+  productId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  /** Units the customer ordered on this line. */
+  ordered: number;
+  /** Units already delivered. */
+  fulfilled: number;
+  /** Units still to be delivered (`ordered - fulfilled`). */
+  required: number;
+  /** Units physically on hand for the order's warehouse. */
+  available: number;
+  /** Units that must be purchased to cover the outstanding request. */
+  shortage: number;
+}
+
+export interface OrderFulfilmentRow {
+  orderId: string;
+  orderNumber: string;
+  customer: string | null;
+  orderDate: string;
+  status: string;
+  warehouse: string;
+  /** True when every outstanding line can be met from stock. */
+  fullyAvailable: boolean;
+  lines: OrderFulfilmentLine[];
+  totals: { required: number; available: number; shortage: number };
+}
+
+export interface OrderFulfilmentReport {
+  generatedAt: string;
+  rows: OrderFulfilmentRow[];
+  totals: {
+    orders: number;
+    lines: number;
+    required: number;
+    available: number;
+    shortage: number;
+  };
+}
+
+/**
+ * One row per open sales order showing, line by line, what is available on hand
+ * (`available`), what the customer ordered (`required`) and what still has to be
+ * purchased (`shortage`). This is the "goods available vs. goods to buy" board
+ * for finishing the order.
+ */
+export async function buildOrderFulfilmentReport(
+  warehouseId?: string,
+): Promise<OrderFulfilmentReport> {
+  const orders = await prisma.salesOrder.findMany({
+    where: {
+      status: { in: ['DRAFT', 'CONFIRMED', 'PARTIALLY_FULFILLED'] },
+      ...(warehouseId ? { warehouseId } : {}),
+    },
+    orderBy: { orderDate: 'asc' },
+    include: {
+      customer: { select: { name: true } },
+      warehouse: { select: { code: true, name: true } },
+      lines: {
+        orderBy: { id: 'asc' },
+        include: {
+          product: { select: { sku: true, name: true, unit: true } },
+        },
+      },
+    },
+  });
+
+  const levels = await prisma.stockLevel.findMany({
+    where: warehouseId ? { warehouseId } : {},
+    select: { productId: true, warehouseId: true, quantity: true, reserved: true },
+  });
+  const onHand = new Map<string, number>();
+  for (const level of levels) {
+    const key = `${level.warehouseId}:${level.productId}`;
+    const available = Number(level.quantity) - Number(level.reserved);
+    onHand.set(key, round2((onHand.get(key) ?? 0) + available));
+  }
+
+  const rows: OrderFulfilmentRow[] = [];
+  for (const order of orders) {
+    const lines: OrderFulfilmentLine[] = [];
+    for (const line of order.lines) {
+      const required = line.quantity - line.fulfilledQty;
+      if (required <= 0) continue;
+      const available = onHand.get(`${order.warehouseId}:${line.productId}`) ?? 0;
+      lines.push({
+        lineId: line.id,
+        productId: line.productId,
+        sku: line.product.sku,
+        name: line.product.name,
+        unit: line.product.unit,
+        ordered: line.quantity,
+        fulfilled: line.fulfilledQty,
+        required,
+        available,
+        shortage: round2(Math.max(0, required - available)),
+      });
+    }
+    if (lines.length === 0) continue;
+
+    const totals = lines.reduce(
+      (acc, line) => ({
+        required: round2(acc.required + line.required),
+        available: round2(acc.available + line.available),
+        shortage: round2(acc.shortage + line.shortage),
+      }),
+      { required: 0, available: 0, shortage: 0 },
+    );
+
+    rows.push({
+      orderId: order.id,
+      orderNumber: order.number,
+      customer: order.customer?.name ?? null,
+      orderDate: order.orderDate.toISOString(),
+      status: order.status,
+      warehouse: order.warehouse.name,
+      fullyAvailable: totals.shortage === 0,
+      lines,
+      totals,
+    });
+  }
+
+  // Short orders first so the shop sees what is blocking sales immediately.
+  rows.sort((a, b) => Number(a.fullyAvailable) - Number(b.fullyAvailable));
+
+  const totals = rows.reduce(
+    (acc, row) => ({
+      orders: acc.orders + 1,
+      lines: acc.lines + row.lines.length,
+      required: round2(acc.required + row.totals.required),
+      available: round2(acc.available + row.totals.available),
+      shortage: round2(acc.shortage + row.totals.shortage),
+    }),
+    { orders: 0, lines: 0, required: 0, available: 0, shortage: 0 },
+  );
+
+  return { generatedAt: new Date().toISOString(), rows, totals };
+}
