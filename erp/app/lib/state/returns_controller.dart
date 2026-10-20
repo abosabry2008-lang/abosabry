@@ -15,6 +15,9 @@ class ReturnsController extends PagedListController<ReturnOrder> {
   String get path => '/returns';
 
   @override
+  bool get requiresSearch => true;
+
+  @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{
         if (_type != null && _type!.isNotEmpty) 'type': _type,
         if (_status != null && _status!.isNotEmpty) 'status': _status,
@@ -23,12 +26,14 @@ class ReturnsController extends PagedListController<ReturnOrder> {
   void filterByType(String? value) {
     if (value == _type) return;
     _type = value;
+    markFilterChanged();
     refresh();
   }
 
   void filterByStatus(String? value) {
     if (value == _status) return;
     _status = value;
+    markFilterChanged();
     refresh();
   }
 

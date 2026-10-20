@@ -19,6 +19,9 @@ class StockController extends PagedListController<StockLevel> {
   String get path => '/inventory/stock';
 
   @override
+  bool get requiresSearch => true;
+
+  @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{
         if (_warehouseId != null && _warehouseId!.isNotEmpty)
           'warehouseId': _warehouseId,
@@ -31,24 +34,28 @@ class StockController extends PagedListController<StockLevel> {
   void filterByWarehouse(String? value) {
     if (value == _warehouseId) return;
     _warehouseId = value;
+    markFilterChanged();
     refresh();
   }
 
   void filterByLocation(String? value) {
     if (value == _locationId) return;
     _locationId = value;
+    markFilterChanged();
     refresh();
   }
 
   void filterByProduct(String? value) {
     if (value == _productId) return;
     _productId = value;
+    markFilterChanged();
     refresh();
   }
 
   void setLowStockOnly(bool value) {
     if (value == _lowStockOnly) return;
     _lowStockOnly = value;
+    markFilterChanged();
     refresh();
   }
 
@@ -73,6 +80,9 @@ class MovementsController extends PagedListController<StockMovement> {
   String get path => '/inventory/movements';
 
   @override
+  bool get requiresSearch => true;
+
+  @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{
         if (_warehouseId != null && _warehouseId!.isNotEmpty)
           'warehouseId': _warehouseId,
@@ -85,24 +95,28 @@ class MovementsController extends PagedListController<StockMovement> {
   void filterByWarehouse(String? value) {
     if (value == _warehouseId) return;
     _warehouseId = value;
+    markFilterChanged();
     refresh();
   }
 
   void filterByProduct(String? value) {
     if (value == _productId) return;
     _productId = value;
+    markFilterChanged();
     refresh();
   }
 
   void filterByType(String? value) {
     if (value == _type) return;
     _type = value;
+    markFilterChanged();
     refresh();
   }
 
   void setDateRange(DateTime? from, DateTime? to) {
     _from = from;
     _to = to;
+    markFilterChanged();
     refresh();
   }
 

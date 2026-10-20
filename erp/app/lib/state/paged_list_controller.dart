@@ -24,6 +24,8 @@ abstract class PagedListController<T> extends ChangeNotifier {
   int _pageSize = 20;
   String _search = '';
   bool _initialised = false;
+  bool _hasLoadedOnce = false;
+  bool _activated = false;
 
   bool get loading => _loading;
   bool get loadingMore => _loadingMore;
@@ -36,12 +38,31 @@ abstract class PagedListController<T> extends ChangeNotifier {
   bool get hasMore => _totalPages > 0 && _page < _totalPages;
   bool get isEmpty => !_loading && items.isEmpty;
   bool get isInitialised => _initialised;
+  /// True once a fetch has completed at least once (so empty means "no matches",
+  /// not "not loaded yet").
+  bool get hasLoadedOnce => _hasLoadedOnce;
 
   /// Endpoint path, e.g. `/products`.
   String get path;
 
   /// Extra filters appended to every request.
   Map<String, dynamic> queryParameters() => const <String, dynamic>{};
+
+  /// When true the list stays empty until the user searches or applies a filter.
+  /// This keeps big lists (invoices, orders, movements…) from loading everything
+  /// at once and keeps the app snappy.
+  bool get requiresSearch => false;
+
+  /// Whether the controller is allowed to fetch right now. Once a search term or
+  /// a filter is set the list becomes active; lists that don't [requiresSearch]
+  /// are always active.
+  bool get isActivated => _activated || !requiresSearch;
+
+  /// Call from a subclass whenever a filter changes so a filtered list loads.
+  @protected
+  void markFilterChanged() {
+    if (requiresSearch) _activated = true;
+  }
 
   /// Parses a single record.
   T parseItem(Map<String, dynamic> json);
@@ -50,12 +71,21 @@ abstract class PagedListController<T> extends ChangeNotifier {
   Future<void> ensureLoaded() async {
     if (_initialised) return;
     _initialised = true;
+    if (!isActivated) {
+      notifyListeners();
+      return;
+    }
     await refresh();
   }
 
   /// Reloads from page 1.
   Future<void> refresh() async {
     if (_loading) return;
+    if (!isActivated) {
+      _hasLoadedOnce = true;
+      notifyListeners();
+      return;
+    }
     _loading = true;
     _error = null;
     notifyListeners();
@@ -68,11 +98,14 @@ abstract class PagedListController<T> extends ChangeNotifier {
       _total = result.total;
       _totalPages = result.totalPages;
       _initialised = true;
+      _hasLoadedOnce = true;
     } on ApiException catch (error) {
       _error = error.message;
+      _hasLoadedOnce = true;
     } catch (error) {
       debugPrint('$runtimeType.refresh failed: $error');
       _error = 'Something went wrong while loading data.';
+      _hasLoadedOnce = true;
     } finally {
       _loading = false;
       notifyListeners();
@@ -106,6 +139,7 @@ abstract class PagedListController<T> extends ChangeNotifier {
     final term = value.trim();
     if (term == _search) return;
     _search = term;
+    if (term.isNotEmpty) _activated = true;
     refresh();
   }
 
@@ -113,6 +147,17 @@ abstract class PagedListController<T> extends ChangeNotifier {
   void setPageSize(int value) {
     if (value == _pageSize) return;
     _pageSize = value;
+    refresh();
+  }
+
+  /// Applies a new set of filters and reloads from page 1.
+  ///
+  /// Subclasses call this from their filter setters so a filtered list
+  /// activates (even when it [requiresSearch]).
+  @protected
+  void applyFilters(VoidCallback mutate) {
+    mutate();
+    markFilterChanged();
     refresh();
   }
 

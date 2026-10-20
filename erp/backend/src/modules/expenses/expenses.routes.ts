@@ -34,7 +34,9 @@ const categoryUpdateSchema = categorySchema.partial();
 const expenseSchema = z.object({
   categoryId: z.string().nullable().optional(),
   cashBoxId: z.string().nullable().optional(),
-  amount: z.number().positive(),
+  amount: z
+    .number()
+    .refine((value) => value !== 0, { message: 'Amount cannot be zero' }),
   method: z.nativeEnum(PaymentMethod).optional(),
   payee: z.string().nullable().optional(),
   reference: z.string().nullable().optional(),

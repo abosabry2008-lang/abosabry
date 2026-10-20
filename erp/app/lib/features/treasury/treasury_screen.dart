@@ -9,13 +9,16 @@ import '../../core/session.dart';
 import '../../models/cash_box.dart';
 import '../../models/cash_transfer.dart';
 import '../../models/collection_voucher.dart';
+import '../../models/account_settlement.dart';
 import '../../state/collections_controller.dart';
+import '../../state/settlements_controller.dart';
 import '../../state/transfers_controller.dart';
 import '../../widgets/async_list_view.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/date_range_button.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_view.dart';
+import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
 import '../payments/payments_screen.dart';
 import '../shell/navigation.dart';
@@ -23,6 +26,7 @@ import 'box_detail_screen.dart';
 import 'box_form_screen.dart';
 import 'collection_detail_screen.dart';
 import 'collection_form_screen.dart';
+import 'settlement_form_screen.dart';
 import 'transfer_form_screen.dart';
 import '../expenses/expenses_screen.dart';
 
@@ -36,7 +40,7 @@ class TreasuryScreen extends StatefulWidget {
 
 class _TreasuryScreenState extends State<TreasuryScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 5, vsync: this);
+  late final TabController _tabs = TabController(length: 6, vsync: this);
 
   List<CashBox> _boxes = <CashBox>[];
   bool _loading = true;
@@ -166,6 +170,7 @@ class _TreasuryScreenState extends State<TreasuryScreen>
               Tab(text: s.collections, icon: const Icon(Icons.receipt_long_outlined)),
               Tab(text: s.payments, icon: const Icon(Icons.payments_outlined)),
               Tab(text: s.expensesTitle, icon: const Icon(Icons.call_made)),
+              Tab(text: s.settlements, icon: const Icon(Icons.tune)),
             ],
           ),
         ),
@@ -178,6 +183,7 @@ class _TreasuryScreenState extends State<TreasuryScreen>
               const _CollectionsTab(),
               const PaymentsScreen(),
               const ExpensesScreen(),
+              const _SettlementsTab(),
             ],
           ),
         ),
@@ -906,6 +912,262 @@ class _TransfersTabState extends State<_TransfersTab>
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _cancel(transfer);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Account settlements (التسويات) — balance adjustments that never move cash.
+class _SettlementsTab extends StatefulWidget {
+  const _SettlementsTab();
+
+  @override
+  State<_SettlementsTab> createState() => _SettlementsTabState();
+}
+
+class _SettlementsTabState extends State<_SettlementsTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  Future<void> _create() async {
+    final saved = await pushScreen<bool>(
+      context,
+      context.s.newSettlement,
+      const SettlementFormScreen(),
+    );
+    if (saved == true && mounted) {
+      context.read<SettlementsController>().refresh();
+    }
+  }
+
+  Future<void> _edit(AccountSettlement settlement) async {
+    final saved = await pushScreen<bool>(
+      context,
+      context.s.editSettlement,
+      SettlementFormScreen(settlement: settlement),
+    );
+    if (saved == true && mounted) {
+      context.read<SettlementsController>().refresh();
+    }
+  }
+
+  Future<void> _cancel(AccountSettlement settlement) async {
+    final s = context.s;
+    final confirmed = await confirmDialog(
+      context,
+      title: s.cancelSettlementQ,
+      message: s.cancelSettlementMessage,
+      destructive: true,
+      confirmLabel: s.cancelSettlement,
+    );
+    if (!confirmed || !mounted) return;
+    final api = context.read<Session>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await api.delete('/settlements/${settlement.id}');
+      if (mounted) context.read<SettlementsController>().refresh();
+      messenger.showSnackBar(SnackBar(content: Text(s.settlementCancelled)));
+    } on ApiException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  String _targetLabel(AppStrings s, SettlementTarget target) {
+    switch (target) {
+      case SettlementTarget.customer:
+        return s.settlementTargetCustomer;
+      case SettlementTarget.supplier:
+        return s.settlementTargetSupplier;
+      case SettlementTarget.expenseCategory:
+        return s.settlementTargetExpense;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final s = context.s;
+    final session = context.watch<Session>();
+    final canManage = session.can('treasury.write');
+    final theme = Theme.of(context);
+    final controller = context.watch<SettlementsController>();
+
+    return Stack(
+      children: <Widget>[
+        Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AppSearchField(
+                      hintText: s.searchSettlementsHint,
+                      initialValue: controller.search,
+                      onChanged: controller.searchWith,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  DropdownButton<SettlementTarget?>(
+                    value: controller.target,
+                    underline: const SizedBox.shrink(),
+                    hint: Text(s.allSettlementTargets),
+                    items: <DropdownMenuItem<SettlementTarget?>>[
+                      DropdownMenuItem<SettlementTarget?>(
+                        value: null,
+                        child: Text(s.allSettlementTargets),
+                      ),
+                      DropdownMenuItem<SettlementTarget?>(
+                        value: SettlementTarget.customer,
+                        child: Text(s.settlementTargetCustomer),
+                      ),
+                      DropdownMenuItem<SettlementTarget?>(
+                        value: SettlementTarget.supplier,
+                        child: Text(s.settlementTargetSupplier),
+                      ),
+                      DropdownMenuItem<SettlementTarget?>(
+                        value: SettlementTarget.expenseCategory,
+                        child: Text(s.settlementTargetExpense),
+                      ),
+                    ],
+                    onChanged: controller.filterByTarget,
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: AsyncListView<AccountSettlement>(
+                controller: controller,
+                emptyIcon: Icons.tune,
+                emptyTitle: s.noSettlements,
+                emptyMessage: s.settlementsHint,
+                emptyAction: canManage
+                    ? FilledButton.icon(
+                        onPressed: _create,
+                        icon: const Icon(Icons.add),
+                        label: Text(s.newSettlement),
+                      )
+                    : null,
+                itemBuilder: (context, settlement, index) {
+                  final increasing =
+                      settlement.direction == SettlementDirection.increase;
+                  final accent = increasing
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.error;
+                  return Card(
+                    margin: EdgeInsets.zero,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(color: theme.colorScheme.outlineVariant),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
+                      leading: CircleAvatar(
+                        backgroundColor: accent.withValues(alpha: 0.14),
+                        child: Icon(
+                          increasing ? Icons.add : Icons.remove,
+                          color: accent,
+                        ),
+                      ),
+                      title: Row(
+                        children: <Widget>[
+                          Flexible(child: Text(settlement.number)),
+                          if (settlement.cancelled) ...<Widget>[
+                            const SizedBox(width: 6),
+                            _Tag(
+                              label: s.status('VOID'),
+                              color: theme.colorScheme.error,
+                            ),
+                          ],
+                        ],
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          <String>[
+                            Formatters.date(settlement.settledAt),
+                            _targetLabel(s, settlement.target),
+                            if (settlement.targetName.isNotEmpty)
+                              settlement.targetName,
+                            if (settlement.note != null &&
+                                settlement.note!.isNotEmpty)
+                              settlement.note!,
+                          ].join(' · '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      trailing: MoneyText(
+                        increasing ? settlement.amount : -settlement.amount,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: settlement.cancelled
+                              ? theme.colorScheme.outline
+                              : accent,
+                          decoration: settlement.cancelled
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
+                      onTap: settlement.cancelled || !canManage
+                          ? null
+                          : () => _showActions(settlement),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        if (canManage)
+          PositionedDirectional(
+            end: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              heroTag: 'settlement_fab',
+              tooltip: s.newSettlement,
+              onPressed: _create,
+              child: const Icon(Icons.add),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _showActions(AccountSettlement settlement) async {
+    final s = context.s;
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: Text(s.edit),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _edit(settlement);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.cancel_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(s.cancelSettlementQ),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _cancel(settlement);
               },
             ),
           ],

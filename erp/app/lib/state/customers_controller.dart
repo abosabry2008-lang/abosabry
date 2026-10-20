@@ -13,6 +13,9 @@ class CustomersController extends PagedListController<Customer> {
   String get path => '/customers';
 
   @override
+  bool get requiresSearch => true;
+
+  @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{
         if (_salespersonId != null && _salespersonId!.isNotEmpty)
           'salespersonId': _salespersonId,
@@ -21,6 +24,7 @@ class CustomersController extends PagedListController<Customer> {
   void filterBySalesperson(String? value) {
     if (value == _salespersonId) return;
     _salespersonId = value;
+    markFilterChanged();
     refresh();
   }
 

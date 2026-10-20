@@ -20,6 +20,7 @@ export interface AppSettings {
   paymentPrefix: string;
   journalPrefix: string;
   expensePrefix: string;
+  settlementPrefix: string;
   openingBalancePrefix: string;
   lowStockAlerts: boolean;
 }
@@ -49,6 +50,7 @@ export async function getSettings(client: Client = prisma): Promise<AppSettings>
       paymentPrefix: existing.paymentPrefix,
       journalPrefix: existing.journalPrefix,
       expensePrefix: existing.expensePrefix,
+      settlementPrefix: existing.settlementPrefix,
       openingBalancePrefix: existing.openingBalancePrefix,
       lowStockAlerts: existing.lowStockAlerts,
     };
@@ -74,6 +76,7 @@ export async function getSettings(client: Client = prisma): Promise<AppSettings>
     paymentPrefix: settings.paymentPrefix,
     journalPrefix: settings.journalPrefix,
     expensePrefix: settings.expensePrefix,
+    settlementPrefix: settings.settlementPrefix,
     openingBalancePrefix: settings.openingBalancePrefix,
     lowStockAlerts: settings.lowStockAlerts,
   };

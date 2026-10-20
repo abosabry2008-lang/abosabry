@@ -14,6 +14,9 @@ class AccountsController extends PagedListController<Account> {
   String get path => '/accounting/accounts';
 
   @override
+  bool get requiresSearch => true;
+
+  @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{
         if (_type != null && _type!.isNotEmpty) 'type': _type,
       };
@@ -21,6 +24,7 @@ class AccountsController extends PagedListController<Account> {
   void filterByType(String? value) {
     if (value == _type) return;
     _type = value;
+    markFilterChanged();
     refresh();
   }
 
@@ -38,6 +42,9 @@ class JournalController extends PagedListController<JournalEntry> {
   String get path => '/accounting/journal';
 
   @override
+  bool get requiresSearch => true;
+
+  @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{
         if (_reference != null && _reference!.isNotEmpty)
           'reference': _reference,
@@ -46,6 +53,7 @@ class JournalController extends PagedListController<JournalEntry> {
   void filterByReference(String? value) {
     if (value == _reference) return;
     _reference = value;
+    markFilterChanged();
     refresh();
   }
 

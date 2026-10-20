@@ -28,6 +28,7 @@ const updateSchema = z.object({
   paymentPrefix: z.string().min(1).max(8).optional(),
   journalPrefix: z.string().min(1).max(8).optional(),
   expensePrefix: z.string().min(1).max(8).optional(),
+  settlementPrefix: z.string().min(1).max(8).optional(),
   openingBalancePrefix: z.string().min(1).max(8).optional(),
   lowStockAlerts: z.boolean().optional(),
 });

@@ -91,6 +91,19 @@ enum AccountType {
   EXPENSE
 }
 
+/// How a settlement changes the target account's balance.
+enum SettlementTarget {
+  CUSTOMER
+  SUPPLIER
+  EXPENSE_CATEGORY
+}
+
+/// Whether a settlement adds to or subtracts from the target balance.
+enum SettlementDirection {
+  INCREASE
+  DECREASE
+}
+
 // ---------------------------------------------------------------------------
 // Identity
 // ---------------------------------------------------------------------------
@@ -127,6 +140,9 @@ model User {
 
   /// Expenses recorded by this user.
   expenses Expense[]
+
+  /// Account settlements created by this user.
+  settlements AccountSettlement[]
 
   /// Opening-balance entries created by this user.
   openingBalances OpeningBalance[]
@@ -320,6 +336,7 @@ model Supplier {
   purchaseOrders PurchaseOrder[]
   payments       Payment[]
   returnOrders   ReturnOrder[]
+  settlements    AccountSettlement[]
 
   @@index([name])
 }
@@ -395,6 +412,7 @@ model Customer {
   payments        Payment[]
   returnOrders    ReturnOrder[]
   collectionLines CollectionLine[]
+  settlements     AccountSettlement[]
 
   @@index([name])
   @@index([salespersonId])
@@ -776,6 +794,7 @@ model ExpenseCategory {
 
   account  Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
   expenses Expense[]
+  settlements AccountSettlement[]
 
   @@index([name])
 }
@@ -806,6 +825,42 @@ model Expense {
   @@index([spentAt])
   @@index([categoryId])
   @@index([cashBoxId])
+}
+
+/// A settlement (تسوية / قيد تسوية) that adjusts the balance of one account —
+/// a customer, a supplier or an expense category — without touching any cash
+/// box. It posts a balanced journal entry against the settlement account so the
+/// ledger stays complete, but no money moves in or out of the treasury.
+model AccountSettlement {
+  id          String              @id @default(cuid())
+  number      String              @unique
+  target      SettlementTarget
+  direction   SettlementDirection @default(INCREASE)
+  customerId  String?
+  supplierId  String?
+  categoryId  String?
+  /// حساب المصروف المستخدم في القيد (يُنسخ من البند عند الإنشاء).
+  accountCode String?
+  amount      Decimal             @db.Decimal(14, 2)
+  reference   String?
+  note        String?
+  settledAt   DateTime            @default(now())
+  userId      String?
+  cancelledAt DateTime?
+  cancelledBy String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  customer Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  supplier Supplier?        @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  category ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  user     User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([settledAt])
+  @@index([target])
+  @@index([customerId])
+  @@index([supplierId])
+  @@index([categoryId])
 }
 
 // ---------------------------------------------------------------------------
@@ -839,6 +894,7 @@ model Setting {
   paymentPrefix        String   @default("PAY")
   journalPrefix        String   @default("JE")
   expensePrefix        String   @default("EXP")
+  settlementPrefix     String   @default("SET")
   openingBalancePrefix String   @default("OB")
   lowStockAlerts       Boolean  @default(true)
   updatedAt            DateTime @updatedAt

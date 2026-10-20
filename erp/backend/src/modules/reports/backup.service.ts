@@ -108,6 +108,8 @@ async function collectBackupSheets(): Promise<BackupSheet[]> {
     cashTransfers,
     expenseCategories,
     expenses,
+    expensesByCategory,
+    settlements,
     journalEntries,
     journalLines,
     stockMovements,
@@ -132,6 +134,8 @@ async function collectBackupSheets(): Promise<BackupSheet[]> {
     prismaCashTransfer(),
     prismaExpenseCategory(),
     prismaExpense(),
+    prismaExpensesByCategory(),
+    prismaSettlement(),
     prismaJournalEntry(),
     prismaJournalLine(),
     prismaStockMovement(),
@@ -158,6 +162,8 @@ async function collectBackupSheets(): Promise<BackupSheet[]> {
     cashTransfers,
     expenseCategories,
     expenses,
+    expensesByCategory,
+    settlements,
     journalEntries,
     journalLines,
     stockMovements,
@@ -837,6 +843,133 @@ async function prismaExpense(): Promise<BackupSheet> {
     totals: {
       number: 'TOTAL',
       amount: Math.round(live.reduce((sum, row) => sum + n(row.amount), 0) * 100) / 100,
+    },
+  };
+}
+
+/** Account settlements (التسويات) — balance adjustments with no cash effect. */
+async function prismaSettlement(): Promise<BackupSheet> {
+  const rows = await prisma.accountSettlement.findMany({
+    include: {
+      customer: { select: { name: true } },
+      supplier: { select: { name: true } },
+      category: { select: { name: true } },
+      user: { select: { name: true } },
+    },
+    orderBy: { settledAt: 'desc' },
+  });
+  const live = rows.filter((row) => !row.cancelledAt);
+  return {
+    name: 'Settlements',
+    columns: [
+      { header: 'Number', key: 'number', width: 16 },
+      { header: 'Date', key: 'settledAt', width: 12 },
+      { header: 'Target', key: 'target', width: 18 },
+      { header: 'Account', key: 'accountName', width: 24 },
+      { header: 'Direction', key: 'direction', width: 12 },
+      { header: 'Amount', key: 'amount', width: 16, money: true },
+      { header: 'Reference', key: 'reference', width: 18 },
+      { header: 'Note', key: 'note', width: 28 },
+      { header: 'Created By', key: 'user', width: 18 },
+      { header: 'Cancelled', key: 'cancelled', width: 18 },
+    ],
+    rows: rows.map((row) => ({
+      number: row.number,
+      settledAt: dateOnly(row.settledAt),
+      target: row.target,
+      accountName:
+        row.customer?.name ?? row.supplier?.name ?? row.category?.name ?? '',
+      direction: row.direction,
+      amount: n(row.amount),
+      reference: row.reference ?? '',
+      note: row.note ?? '',
+      user: row.user?.name ?? '',
+      cancelled: row.cancelledAt ? stamp(row.cancelledAt) : '',
+    })),
+    totals: {
+      number: 'TOTAL',
+      amount: Math.round(live.reduce((sum, row) => sum + n(row.amount), 0) * 100) / 100,
+    },
+  };
+}
+
+/**
+ * A dedicated expenses workbook sheet that lists every expense grouped by its
+ * category (بند), with the full details of each entry and a per-category total.
+ * This is the sheet the shop reads when it wants the expenses of one بند only.
+ */
+async function prismaExpensesByCategory(): Promise<BackupSheet> {
+  const rows = await prisma.expense.findMany({
+    include: {
+      category: { select: { name: true } },
+      cashBox: { select: { code: true, name: true } },
+      user: { select: { name: true } },
+    },
+    orderBy: [{ spentAt: 'asc' }],
+  });
+
+  // Group the rows by category name so each بند is a contiguous block with its
+  // own subtotal row, exactly like a printed statement.
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const key = row.category?.name ?? 'Uncategorised (غير مصنّف)';
+    const bucket = groups.get(key) ?? [];
+    bucket.push(row);
+    groups.set(key, bucket);
+  }
+
+  const mapped: Record<string, unknown>[] = [];
+  let grandTotal = 0;
+  for (const [categoryName, items] of [...groups.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  )) {
+    for (const row of items) {
+      const cancelled = Boolean(row.cancelledAt);
+      if (!cancelled) grandTotal += n(row.amount);
+      mapped.push({
+        category: categoryName,
+        number: row.number,
+        spentAt: dateOnly(row.spentAt),
+        cashBox: row.cashBox ? `${row.cashBox.code} ${row.cashBox.name}` : '',
+        method: row.method,
+        payee: row.payee ?? '',
+        reference: row.reference ?? '',
+        amount: n(row.amount),
+        note: row.note ?? '',
+        user: row.user?.name ?? '',
+        cancelled: cancelled ? stamp(row.cancelledAt) : '',
+      });
+    }
+    const subtotal =
+      Math.round(
+        items.filter((row) => !row.cancelledAt).reduce((sum, row) => sum + n(row.amount), 0) * 100,
+      ) / 100;
+    mapped.push({
+      category: categoryName,
+      number: `SUBTOTAL — ${categoryName}`,
+      amount: subtotal,
+    });
+  }
+
+  return {
+    name: 'Expenses by Category',
+    columns: [
+      { header: 'Category', key: 'category', width: 24 },
+      { header: 'Number', key: 'number', width: 24 },
+      { header: 'Date', key: 'spentAt', width: 12 },
+      { header: 'Cash Box', key: 'cashBox', width: 24 },
+      { header: 'Method', key: 'method', width: 12 },
+      { header: 'Payee', key: 'payee', width: 22 },
+      { header: 'Reference', key: 'reference', width: 18 },
+      { header: 'Amount', key: 'amount', width: 16, money: true },
+      { header: 'Note', key: 'note', width: 28 },
+      { header: 'Created By', key: 'user', width: 18 },
+      { header: 'Cancelled', key: 'cancelled', width: 18 },
+    ],
+    rows: mapped,
+    totals: {
+      number: 'GRAND TOTAL',
+      amount: Math.round(grandTotal * 100) / 100,
     },
   };
 }

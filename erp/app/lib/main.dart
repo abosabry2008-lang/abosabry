@@ -28,6 +28,7 @@ import 'state/returns_controller.dart';
 import 'state/sales_orders_controller.dart';
 import 'state/salespeople_controller.dart';
 import 'state/settings_controller.dart';
+import 'state/settlements_controller.dart';
 import 'state/suppliers_controller.dart';
 import 'state/transfers_controller.dart';
 import 'state/users_controller.dart';
@@ -68,6 +69,7 @@ class _ErpAppState extends State<ErpApp> {
   late final CollectionVouchersController _collections;
   late final TransfersController _transfers;
   late final ExpensesController _expenses;
+  late final SettlementsController _settlements;
   late final PurchaseOrdersController _purchaseOrders;
   late final SalesOrdersController _salesOrders;
   late final ReturnsController _returns;
@@ -102,6 +104,7 @@ class _ErpAppState extends State<ErpApp> {
     _collections = CollectionVouchersController(_api);
     _transfers = TransfersController(_api);
     _expenses = ExpensesController(_api);
+    _settlements = SettlementsController(_api);
     _purchaseOrders = PurchaseOrdersController(_api);
     _salesOrders = SalesOrdersController(_api);
     _returns = ReturnsController(_api);
@@ -146,6 +149,7 @@ class _ErpAppState extends State<ErpApp> {
         ),
         ChangeNotifierProvider<TransfersController>.value(value: _transfers),
         ChangeNotifierProvider<ExpensesController>.value(value: _expenses),
+        ChangeNotifierProvider<SettlementsController>.value(value: _settlements),
         ChangeNotifierProvider<PurchaseOrdersController>.value(
           value: _purchaseOrders,
         ),

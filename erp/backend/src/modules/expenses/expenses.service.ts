@@ -149,6 +149,11 @@ async function postExpenseJournalTx(
   },
 ): Promise<void> {
   const cashAccount = input.method === 'CASH' ? ACCOUNT.CASH : ACCOUNT.BANK;
+  // A negative expense (a refund, or salary drawn from the box) is booked the
+  // other way round with a positive amount so the ledger never holds negative
+  // debits/credits: the expense account is credited and the cash account debited.
+  const reversed = input.amount < 0;
+  const value = Math.abs(input.amount);
   await postJournal(tx, {
     memo: `Expense ${input.number}${input.categoryName ? ` — ${input.categoryName}` : ''}`,
     reference: input.number,
@@ -159,13 +164,15 @@ async function postExpenseJournalTx(
     lines: [
       {
         accountCode: input.accountCode,
-        debit: input.amount,
+        debit: reversed ? 0 : value,
+        credit: reversed ? value : 0,
         description: `Expense (${input.number})`,
       },
       {
         accountCode: cashAccount,
-        credit: input.amount,
-        description: `Cash paid (${input.number})`,
+        debit: reversed ? value : 0,
+        credit: reversed ? 0 : value,
+        description: `${reversed ? 'Cash received' : 'Cash paid'} (${input.number})`,
       },
     ],
   });
@@ -174,20 +181,23 @@ async function postExpenseJournalTx(
 export async function createExpense(input: CreateExpenseInput) {
   return prisma.$transaction(async (tx) => {
     const amount = round2(input.amount);
-    if (amount <= 0) throw ApiError.badRequest('Expense amount must be greater than zero');
+    if (amount === 0) throw ApiError.badRequest('Expense amount cannot be zero');
 
     const method: PaymentMethod = input.method ?? 'CASH';
     const spentAt = input.spentAt ?? new Date();
     const accountCode = await resolveExpenseAccountCode(tx, input.categoryId);
     const box = await resolveCashBoxTx(tx, input.cashBoxId);
 
-    const available = await cashBoxBalanceTx(tx, box);
-    if (amount > available + 0.01) {
-      throw ApiError.badRequest(
-        `Insufficient funds in cash box "${box.name}" (available ${available}, requested ${amount})`,
-        'INSUFFICIENT_FUNDS',
-        { balance: available, attempted: amount, cashBoxId: box.id },
-      );
+    // Only a payment out of the box can run short; a negative expense adds cash.
+    if (amount > 0) {
+      const available = await cashBoxBalanceTx(tx, box);
+      if (amount > available + 0.01) {
+        throw ApiError.badRequest(
+          `Insufficient funds in cash box "${box.name}" (available ${available}, requested ${amount})`,
+          'INSUFFICIENT_FUNDS',
+          { balance: available, attempted: amount, cashBoxId: box.id },
+        );
+      }
     }
 
     const settings = await getSettings(tx);
@@ -233,7 +243,7 @@ export async function updateExpense(id: string, input: UpdateExpenseInput, userI
 
     const oldAmount = round2(Number(expense.amount));
     const amount = input.amount !== undefined ? round2(input.amount) : oldAmount;
-    if (amount <= 0) throw ApiError.badRequest('Expense amount must be greater than zero');
+    if (amount === 0) throw ApiError.badRequest('Expense amount cannot be zero');
 
     const method: PaymentMethod = input.method ?? expense.method;
     const spentAt = input.spentAt ?? expense.spentAt;
@@ -247,7 +257,7 @@ export async function updateExpense(id: string, input: UpdateExpenseInput, userI
           ? await tx.cashBox.findUnique({ where: { id: expense.cashBoxId } })
           : await resolveCashBoxTx(tx, null);
 
-    if (box) {
+    if (box && amount > 0) {
       const sameBox = expense.cashBoxId === box.id;
       const available = round2((await cashBoxBalanceTx(tx, box)) + (sameBox ? oldAmount : 0));
       if (amount > available + 0.01) {

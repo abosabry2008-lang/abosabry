@@ -18,6 +18,7 @@ export const DEFAULT_ACCOUNTS: { code: string; name: string; type: AccountType }
   { code: '4000', name: 'Sales Revenue', type: 'REVENUE' },
   { code: '5000', name: 'Cost of Goods Sold', type: 'EXPENSE' },
   { code: '6000', name: 'Operating Expenses', type: 'EXPENSE' },
+  { code: '7000', name: 'Settlements & Adjustments', type: 'EQUITY' },
 ];
 
 export const ACCOUNT = {
@@ -32,6 +33,7 @@ export const ACCOUNT = {
   REVENUE: '4000',
   COGS: '5000',
   EXPENSE: '6000',
+  SETTLEMENT: '7000',
 } as const;
 
 export async function ensureDefaultAccounts(tx: Tx): Promise<void> {

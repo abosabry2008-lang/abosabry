@@ -13,6 +13,9 @@ class SalesOrdersController extends PagedListController<SalesOrder> {
   String get path => '/sales-orders';
 
   @override
+  bool get requiresSearch => true;
+
+  @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{
         if (_status != null && _status!.isNotEmpty) 'status': _status,
       };
@@ -20,6 +23,7 @@ class SalesOrdersController extends PagedListController<SalesOrder> {
   void filterByStatus(String? value) {
     if (value == _status) return;
     _status = value;
+    markFilterChanged();
     refresh();
   }
 

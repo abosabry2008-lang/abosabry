@@ -88,6 +88,11 @@ class AppStrings {
   String get remove => _t('Remove', 'إزالة');
   String get somethingWentWrong => _t('Something went wrong', 'حدث خطأ ما');
   String get nothingHereYet => _t('Nothing here yet', 'لا يوجد شيء بعد');
+  String get searchToBeginTitle => _t('Search to begin', 'ابدأ بالبحث');
+  String get searchToBeginMessage => _t(
+        'Type a search term or apply a filter to load the records. This keeps the app fast.',
+        'اكتب كلمة بحث أو طبّق فلترًا لعرض الحركات. ده بيخلي البرنامج أسرع.',
+      );
   String get yes => _t('Yes', 'نعم');
   String get no => _t('No', 'لا');
   String get active => _t('Active', 'نشط');
@@ -1390,6 +1395,45 @@ class AppStrings {
   String get searchExpensesHint =>
       _t('Search expenses by number, payee or note…', 'ابحث في المصروفات بالرقم أو المستفيد أو الملاحظة…');
   String get ledgerAccount => _t('Account', 'الحساب');
+
+  // --- Settlements (التسويات) ------------------------------------------------
+
+  String get settlements => _t('Settlements', 'التسويات');
+  String get settlement => _t('Settlement', 'تسوية');
+  String get newSettlement => _t('New settlement', 'تسوية جديدة');
+  String get editSettlement => _t('Edit settlement', 'تعديل تسوية');
+  String get noSettlements => _t('No settlements yet', 'لا توجد تسويات بعد');
+  String get settlementsHint => _t(
+        'A settlement adjusts the balance of a customer, a supplier or an expense category without moving cash in or out of the treasury.',
+        'التسوية تعدّل رصيد عميل أو مورد أو بند مصروف دون تحريك نقدية من أو إلى الخزينة.',
+      );
+  String get searchSettlementsHint =>
+      _t('Search settlements by number or note…', 'ابحث في التسويات بالرقم أو الملاحظة…');
+  String get settlementSaved => _t('Settlement recorded', 'تم تسجيل التسوية');
+  String get settlementUpdated => _t('Settlement updated', 'تم تحديث التسوية');
+  String get settlementCancelled => _t('Settlement cancelled', 'تم إلغاء التسوية');
+  String get cancelSettlementQ => _t('Cancel this settlement?', 'إلغاء هذه التسوية؟');
+  String get cancelSettlement => _t('Cancel settlement', 'إلغاء التسوية');
+  String get cancelSettlementMessage => _t(
+        'The settlement will be reversed and the account balance restored.',
+        'سيتم عكس التسوية وإرجاع رصيد الحساب كما كان.',
+      );
+  String get settlementTarget => _t('Apply to', 'يُطبَّق على');
+  String get settlementTargetCustomer => _t('Customer account', 'حساب عميل');
+  String get settlementTargetSupplier => _t('Supplier account', 'حساب مورد');
+  String get settlementTargetExpense => _t('Expense category', 'بند مصروفات');
+  String get settlementDirection => _t('Effect', 'الأثر');
+  String get settlementIncrease => _t('Increase balance', 'زيادة الرصيد');
+  String get settlementDecrease => _t('Decrease balance', 'خصم من الرصيد');
+  String get settlementAmount => _t('Settlement amount', 'مبلغ التسوية');
+  String get settlementDate => _t('Settlement date', 'تاريخ التسوية');
+  String get settlementAccount => _t('Selected account', 'الحساب المختار');
+  String get allSettlementTargets => _t('All types', 'كل الأنواع');
+  String get settlementNoCashEffect =>
+      _t('No cash movement — this only adjusts the account balance.',
+          'بدون حركة نقدية — هذا يعدّل رصيد الحساب فقط.');
+  String get selectExpenseCategory =>
+      _t('Select an expense category', 'اختر بند مصروفات');
   String get accountOptional => _t('Ledger account (optional)', 'حساب الدفتر (اختياري)');
   String get expenseCount => _t('Expenses', 'عدد المصروفات');
 

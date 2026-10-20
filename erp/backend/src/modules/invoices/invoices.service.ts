@@ -42,18 +42,36 @@ export interface CreateInvoiceInput {
   skipUnavailable?: boolean;
 }
 
-/** Recomputes a customer's outstanding balance from their open invoices. */
+/**
+ * Recomputes a customer's outstanding balance from their open invoices plus
+ * any live account settlements (تسويات), which adjust the balance outside the
+ * invoice flow. Without folding in the settlements every recalculation would
+ * silently wipe a manual adjustment.
+ */
 export async function recalcCustomerBalance(tx: Tx, customerId: string): Promise<void> {
-  const aggregate = await tx.invoice.aggregate({
-    where: {
-      customerId,
-      status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
-    },
-    _sum: { balance: true },
-  });
+  const [aggregate, settlements] = await Promise.all([
+    tx.invoice.aggregate({
+      where: {
+        customerId,
+        status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+      },
+      _sum: { balance: true },
+    }),
+    tx.accountSettlement.findMany({
+      where: { customerId, cancelledAt: null },
+      select: { direction: true, amount: true },
+    }),
+  ]);
+
+  const invoiceBalance = Number(aggregate._sum.balance ?? 0);
+  const adjustment = settlements.reduce((sum, row) => {
+    const amount = Number(row.amount);
+    return sum + (row.direction === 'INCREASE' ? amount : -amount);
+  }, 0);
+
   await tx.customer.update({
     where: { id: customerId },
-    data: { balance: round2(Number(aggregate._sum.balance ?? 0)) },
+    data: { balance: round2(invoiceBalance + adjustment) },
   });
 }
 

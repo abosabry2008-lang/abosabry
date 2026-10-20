@@ -9,5 +9,8 @@ class SuppliersController extends PagedListController<Supplier> {
   String get path => '/suppliers';
 
   @override
+  bool get requiresSearch => true;
+
+  @override
   Supplier parseItem(Map<String, dynamic> json) => Supplier.fromJson(json);
 }

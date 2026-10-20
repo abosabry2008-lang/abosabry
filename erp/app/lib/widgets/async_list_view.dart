@@ -19,6 +19,7 @@ class AsyncListView<T> extends StatefulWidget {
     this.emptyMessage,
     this.emptyIcon = Icons.inbox_outlined,
     this.emptyAction,
+    this.searchPromptMessage,
     this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 96),
     this.separator = true,
   });
@@ -30,6 +31,10 @@ class AsyncListView<T> extends StatefulWidget {
   final String? emptyMessage;
   final IconData emptyIcon;
   final Widget? emptyAction;
+
+  /// Optional hint shown instead of the default message when the controller
+  /// requires a search before it lists anything.
+  final String? searchPromptMessage;
   final EdgeInsets padding;
   final bool separator;
 
@@ -89,6 +94,22 @@ class _AsyncListViewState<T> extends State<AsyncListView<T>> {
           return ErrorView(
             message: controller.error!,
             onRetry: controller.refresh,
+          );
+        }
+
+        // Lists that require a search stay empty (and never load everything)
+        // until the user types a search term or applies a filter.
+        if (!controller.isActivated && controller.items.isEmpty) {
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: <Widget>[
+              SizedBox(height: MediaQuery.sizeOf(context).height * 0.12),
+              EmptyState(
+                icon: Icons.search_outlined,
+                title: context.s.searchToBeginTitle,
+                message: widget.searchPromptMessage ?? context.s.searchToBeginMessage,
+              ),
+            ],
           );
         }
 

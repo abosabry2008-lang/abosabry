@@ -15,6 +15,9 @@ class ExpensesController extends PagedListController<Expense> {
   String get path => '/expenses';
 
   @override
+  bool get requiresSearch => true;
+
+  @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{
         if (_categoryId != null && _categoryId!.isNotEmpty)
           'categoryId': _categoryId,
@@ -24,12 +27,14 @@ class ExpensesController extends PagedListController<Expense> {
   void filterByCategory(String? value) {
     if (value == _categoryId) return;
     _categoryId = value;
+    markFilterChanged();
     refresh();
   }
 
   void filterByCashBox(String? value) {
     if (value == _cashBoxId) return;
     _cashBoxId = value;
+    markFilterChanged();
     refresh();
   }
 

@@ -13,6 +13,9 @@ class PaymentsController extends PagedListController<Payment> {
   String get path => '/payments';
 
   @override
+  bool get requiresSearch => true;
+
+  @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{
         if (_direction != null && _direction!.isNotEmpty) 'direction': _direction,
       };
@@ -20,6 +23,7 @@ class PaymentsController extends PagedListController<Payment> {
   void filterByDirection(String? value) {
     if (value == _direction) return;
     _direction = value;
+    markFilterChanged();
     refresh();
   }
 
