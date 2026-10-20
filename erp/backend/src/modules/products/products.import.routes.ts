@@ -23,9 +23,15 @@ const rowSchema = z.object({
   name: z.string().min(1).max(200),
   sku: z.string().max(64).nullable().optional(),
   barcode: z.string().max(64).nullable().optional(),
+  // New import columns as requested: (name, boxesPerCarton, cartonPrice, boxPrice, costPrice, salePrice)
+  // Legacy keys 'price' and 'quantity' are still accepted for compatibility.
   price: z.number().min(0).optional(),
+  salePrice: z.number().min(0).optional(),
   costPrice: z.number().min(0).optional(),
   quantity: z.number().optional(),
+  boxesPerCarton: z.number().int().min(0).optional(),
+  cartonPrice: z.number().min(0).optional(),
+  boxPrice: z.number().min(0).optional(),
   unit: z.string().max(16).optional(),
 });
 
@@ -132,7 +138,12 @@ router.post(
                 deletedAt: null,
                 active: true,
                 ...(row.costPrice != null ? { costPrice: row.costPrice } : {}),
-                ...(row.price != null ? { salePrice: row.price } : {}),
+                ...((row.salePrice ?? row.price) != null
+                  ? { salePrice: row.salePrice ?? row.price ?? 0 }
+                  : {}),
+                ...(row.boxesPerCarton != null ? { boxesPerCarton: row.boxesPerCarton } : {}),
+                ...(row.boxPrice != null ? { boxPrice: row.boxPrice } : {}),
+                ...(row.cartonPrice != null ? { cartonPrice: row.cartonPrice } : {}),
                 ...(row.unit ? { unit: row.unit } : {}),
               },
             });
@@ -174,7 +185,10 @@ router.post(
                 name,
                 unit: row.unit ?? 'pc',
                 costPrice: row.costPrice ?? 0,
-                salePrice: row.price ?? 0,
+                salePrice: row.salePrice ?? row.price ?? 0,
+                boxesPerCarton: row.boxesPerCarton ?? 0,
+                ...(row.boxPrice != null ? { boxPrice: row.boxPrice } : {}),
+                ...(row.cartonPrice != null ? { cartonPrice: row.cartonPrice } : {}),
                 active: true,
                 trackInventory: true,
                 ...(row.barcode ? { barcode: row.barcode } : {}),

@@ -40,6 +40,15 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   late final TextEditingController _salePrice = TextEditingController(
     text: (widget.product?.salePrice ?? 0).toString(),
   );
+  late final TextEditingController _boxesPerCarton = TextEditingController(
+    text: (widget.product?.boxesPerCarton ?? 0).toString(),
+  );
+  late final TextEditingController _boxPrice = TextEditingController(
+    text: widget.product?.boxPrice?.toString() ?? '',
+  );
+  late final TextEditingController _cartonPrice = TextEditingController(
+    text: widget.product?.cartonPrice?.toString() ?? '',
+  );
   late final TextEditingController _taxRate =
       TextEditingController(text: (widget.product?.taxRate ?? 0).toString());
   late final TextEditingController _reorderLevel = TextEditingController(
@@ -70,6 +79,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _unit.dispose();
     _costPrice.dispose();
     _salePrice.dispose();
+    _boxesPerCarton.dispose();
+    _boxPrice.dispose();
+    _cartonPrice.dispose();
     _taxRate.dispose();
     _reorderLevel.dispose();
     super.dispose();
@@ -81,6 +93,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     setState(() => _saving = true);
     final s = context.s;
     final controller = context.read<ProductsController>();
+    final boxesPerCarton = int.tryParse(_boxesPerCarton.text.trim()) ?? 0;
+    final boxPriceText = _boxPrice.text.trim();
+    final cartonPriceText = _cartonPrice.text.trim();
     final body = <String, dynamic>{
       'sku': _sku.text.trim(),
       'name': _name.text.trim(),
@@ -91,6 +106,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       'unit': _unit.text.trim().isEmpty ? 'pc' : _unit.text.trim(),
       'costPrice': double.tryParse(_costPrice.text.trim()) ?? 0,
       'salePrice': double.tryParse(_salePrice.text.trim()) ?? 0,
+      'boxesPerCarton': boxesPerCarton,
+      if (boxPriceText.isNotEmpty) 'boxPrice': double.tryParse(boxPriceText),
+      if (cartonPriceText.isNotEmpty) 'cartonPrice': double.tryParse(cartonPriceText),
+      if (boxPriceText.isEmpty) 'boxPrice': null,
+      if (cartonPriceText.isEmpty) 'cartonPrice': null,
       'taxRate': double.tryParse(_taxRate.text.trim()) ?? 0,
       'reorderLevel': int.tryParse(_reorderLevel.text.trim()) ?? 0,
       'trackInventory': _trackInventory,
@@ -242,6 +262,36 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                           enabled: !_saving,
                           decimal: false,
                           prefixIcon: Icons.straighten,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  AppNumberField(
+                    label: s.boxesPerCarton,
+                    controller: _boxesPerCarton,
+                    enabled: !_saving,
+                    decimal: false,
+                    prefixIcon: Icons.view_module_outlined,
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: AppNumberField(
+                          label: s.boxPrice,
+                          controller: _boxPrice,
+                          enabled: !_saving,
+                          prefixIcon: Icons.sell_outlined,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AppNumberField(
+                          label: s.cartonPrice,
+                          controller: _cartonPrice,
+                          enabled: !_saving,
+                          prefixIcon: Icons.inventory_2_outlined,
                         ),
                       ),
                     ],

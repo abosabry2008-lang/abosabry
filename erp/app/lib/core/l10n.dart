@@ -271,6 +271,9 @@ class AppStrings {
   String get salePrice => _t('Sale price', 'سعر البيع');
   String get taxRatePercent => _t('Tax rate %', 'نسبة الضريبة %');
   String get unit => _t('Unit', 'الوحدة');
+  String get boxesPerCarton => _t('Boxes per carton', 'عدد العلب في الكرتونة');
+  String get boxPrice => _t('Box price', 'سعر العلبة');
+  String get cartonPrice => _t('Carton price', 'سعر الكرتونة');
   String get reorderLevel => _t('Reorder level', 'حد إعادة الطلب');
   String get reorderLevelHelper => _t(
         'Trigger a low-stock alert at or below this qty',
@@ -311,20 +314,20 @@ class AppStrings {
   String get importProducts => _t('Import from Excel', 'استيراد من إكسل');
   String get importHowTo => _t('How to import', 'طريقة الاستيراد');
   String get importStep1 => _t(
-        '1. In Excel, put the columns in this order: name, price, quantity, code.',
-        '١. في إكسل رتّب الأعمدة بالترتيب: الاسم، السعر، الكمية، الكود.',
+        '1. In Excel, put the columns in this order: name, boxes per carton, carton price, box price, cost price, sale price, code.',
+        '١. في إكسل رتّب الأعمدة بالترتيب: اسم الصنف، عدد العلب في الكرتونة، سعر الكرتونة، سعر العلبة، سعر التكلفة، سعر البيع، الكود.',
       );
   String get importStep2 => _t(
-        '2. Select the rows and copy them (Ctrl+C).',
-        '٢. حدد الصفوف وانسخها (Ctrl+C).',
+        '2. Leave the code empty to auto-generate a random code. If boxes per carton is 0 the item is sold as-is.',
+        '٢. اترك الكود فارغًا ليتم توليده تلقائيًا. إذا كان عدد العلب في الكرتونة ٠ يباع الصنف كما هو دون تقسيم.',
       );
   String get importStep3 => _t(
         '3. Paste here (Ctrl+V) and press Import. A column left empty is filled automatically — the code is generated for you.',
         '٣. الصق هنا (Ctrl+V) واضغط استيراد. أي عمود تسيبه فاضي بيتعبّى تلقائياً — والكود بيتولّد لك.',
       );
   String get importSample => _t(
-        'Example:\nاندومي\t15\t100\nشيبسي\t5\t50\tCHP-1',
-        'مثال:\nاندومي\t15\t100\nشيبسي\t5\t50\tCHP-1',
+        'Example:\nاندومي\t12\t240\t20\t15\t25\nشيبسي\t0\t0\t0\t3\t6\tCHP-1',
+        'مثال:\nاندومي\t١٢\t٢٤٠\t٢٠\t١٥\t٢٥\nشيبسي\t٠\t٠\t٠\t٣\t٦\tCHP-1',
       );
   String get pasteHere => _t('Paste rows here', 'الصق الصفوف هنا');
   String rowsDetected(int n) => _t('$n row(s) detected', 'تم التعرف على $n صف');

@@ -13,6 +13,7 @@ class SalesOrderLine {
     this.fulfilledQty = 0,
     this.productName,
     this.sku,
+    this.sellUnit = 'unit',
   });
 
   final String id;
@@ -25,6 +26,7 @@ class SalesOrderLine {
   final int fulfilledQty;
   final String? productName;
   final String? sku;
+  final String sellUnit;
 
   double get lineTotal => (quantity * unitPrice) - discount;
 
@@ -45,6 +47,7 @@ class SalesOrderLine {
       productName: asStringOrNull(product['name']) ??
           asStringOrNull(json['productName']),
       sku: asStringOrNull(product['sku']) ?? asStringOrNull(json['sku']),
+      sellUnit: asString(json['sellUnit'], fallback: 'unit'),
     );
   }
 
@@ -54,6 +57,7 @@ class SalesOrderLine {
         'unitPrice': unitPrice,
         'discount': discount,
         'taxRate': taxRate,
+        if (sellUnit != 'unit') 'sellUnit': sellUnit,
       };
 }
 

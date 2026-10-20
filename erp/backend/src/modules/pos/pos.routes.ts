@@ -30,6 +30,7 @@ const saleSchema = z.object({
         unitPrice: z.number().min(0).optional(),
         discount: z.number().min(0).optional(),
         taxRate: z.number().min(0).max(100).optional(),
+        sellUnit: z.enum(['unit', 'box', 'carton']).optional(),
       }),
     )
     .min(1),

@@ -13,7 +13,23 @@ export const salesOrderInclude = {
   warehouse: { select: { id: true, code: true, name: true } },
   currency: { select: { id: true, code: true, symbol: true } },
   user: { select: { id: true, name: true } },
-  lines: { include: { product: { select: { id: true, sku: true, name: true, unit: true } } } },
+  lines: {
+    include: {
+      product: {
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          unit: true,
+          boxesPerCarton: true,
+          boxPrice: true,
+          cartonPrice: true,
+          salePrice: true,
+          costPrice: true,
+        },
+      },
+    },
+  },
 } satisfies Prisma.SalesOrderInclude;
 
 export interface SalesLineInput {
@@ -22,6 +38,7 @@ export interface SalesLineInput {
   unitPrice?: number;
   discount?: number;
   taxRate?: number;
+  sellUnit?: 'unit' | 'box' | 'carton';
 }
 
 interface ResolvedLine {
@@ -30,6 +47,24 @@ interface ResolvedLine {
   unitPrice: number;
   discount: number;
   taxRate: number;
+  sellUnit: string;
+}
+
+function resolvePack(
+  product: { boxesPerCarton: number; boxPrice: unknown; cartonPrice: unknown; salePrice: unknown },
+  sellUnit: string,
+) {
+  const boxesPerCarton = product.boxesPerCarton ?? 0;
+  if (sellUnit === 'box' && boxesPerCarton > 0) {
+    const boxPrice = product.boxPrice != null ? Number(product.boxPrice) : Number(product.salePrice);
+    return { baseQty: boxesPerCarton > 0 ? 1 : 1, qtyInBase: 1, unitPrice: boxPrice, sellUnit: 'box' };
+  }
+  if (sellUnit === 'carton' && boxesPerCarton > 0) {
+    const cartonPrice =
+      product.cartonPrice != null ? Number(product.cartonPrice) : boxesPerCarton * Number(product.salePrice);
+    return { baseQty: boxesPerCarton, qtyInBase: boxesPerCarton, unitPrice: cartonPrice, sellUnit: 'carton' };
+  }
+  return { baseQty: 1, qtyInBase: 1, unitPrice: Number(product.salePrice), sellUnit: 'unit' };
 }
 
 async function resolveLines(
@@ -47,7 +82,9 @@ async function resolveLines(
   return lines.map((line) => {
     const product = byId.get(line.productId);
     if (!product) throw ApiError.badRequest(`Product ${line.productId} not found`, 'PRODUCT_NOT_FOUND');
-    const unitPrice = line.unitPrice ?? Number(product.salePrice);
+    const sellUnit = line.sellUnit === 'box' || line.sellUnit === 'carton' ? line.sellUnit : 'unit';
+    const pack = resolvePack(product, sellUnit);
+    const unitPrice = line.unitPrice ?? pack.unitPrice;
     // لا يُسمح بالبيع بسعر أقل من التكلفة.
     const costPrice = Number(product.costPrice);
     if (unitPrice < costPrice) {
@@ -57,12 +94,16 @@ async function resolveLines(
         { productId: product.id, unitPrice, costPrice },
       );
     }
+    const quantity = sellUnit === 'carton' && (product.boxesPerCarton ?? 0) > 0 ? line.quantity * (product.boxesPerCarton ?? 1) : sellUnit === 'box' ? line.quantity : line.quantity;
+    // quantity stored in base units for inventory
+    const baseQuantity = sellUnit === 'carton' && (product.boxesPerCarton ?? 0) > 0 ? line.quantity * (product.boxesPerCarton ?? 1) : line.quantity;
     return {
       productId: line.productId,
-      quantity: line.quantity,
+      quantity: baseQuantity,
       unitPrice,
       discount: line.discount ?? 0,
       taxRate: taxEnabled ? line.taxRate ?? Number(product.taxRate) : 0,
+      sellUnit,
     };
   });
 }
@@ -116,6 +157,7 @@ export async function createSalesOrderTx(tx: Tx, input: CreateSalesOrderInput) {
           unitPrice: line.unitPrice,
           discount: line.discount,
           taxRate: line.taxRate,
+          sellUnit: line.sellUnit,
         })),
       },
     },
@@ -439,6 +481,7 @@ export async function updateSalesOrder(
           unitPrice: line.unitPrice,
           discount: line.discount,
           taxRate: line.taxRate,
+          sellUnit: line.sellUnit,
         })),
       };
       // Changing the lines of a fulfilment resets it: the order goes back to

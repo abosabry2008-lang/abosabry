@@ -75,14 +75,21 @@ class _ProductImportScreenState extends State<ProductImportScreen> {
         return double.tryParse(value);
       }
 
-      final price = toNum(1);
-      final quantity = toNum(2);
-      final code = cells.length > 3 ? cells[3].trim() : '';
+      // Columns: name (0), boxesPerCarton (1), cartonPrice (2), boxPrice (3), costPrice (4), salePrice (5)
+      final boxesPerCarton = toNum(1);
+      final cartonPrice = toNum(2);
+      final boxPrice = toNum(3);
+      final costPrice = toNum(4);
+      final salePrice = toNum(5);
+      final code = cells.length > 6 ? cells[6].trim() : '';
 
       rows.add(<String, dynamic>{
         'name': name,
-        if (price != null) 'price': price,
-        if (quantity != null) 'quantity': quantity.round(),
+        if (boxesPerCarton != null) 'boxesPerCarton': boxesPerCarton.round(),
+        if (cartonPrice != null) 'cartonPrice': cartonPrice,
+        if (boxPrice != null) 'boxPrice': boxPrice,
+        if (costPrice != null) 'costPrice': costPrice,
+        if (salePrice != null) 'salePrice': salePrice,
         if (code.isNotEmpty) 'sku': code,
       });
     }

@@ -212,6 +212,13 @@ model Product {
   unit           String    @default("pc")
   costPrice      Decimal   @default(0) @db.Decimal(14, 2)
   salePrice      Decimal   @default(0) @db.Decimal(14, 2)
+  // --- Packaging (التعبئة: كرتونة / علبة) ------------------------------------
+  // Inventory is always tracked in the base unit (`unit`). `boxesPerCarton`
+  // says how many boxes one carton holds; 0 means the product is sold as-is
+  // and never split. `boxPrice`/`cartonPrice` are optional per-pack prices.
+  boxesPerCarton Int       @default(0)
+  boxPrice       Decimal?  @db.Decimal(14, 2)
+  cartonPrice    Decimal?  @db.Decimal(14, 2)
   taxRate        Decimal   @default(0) @db.Decimal(6, 3) // percent
   reorderLevel   Int       @default(0)
   trackInventory Boolean   @default(true)
@@ -458,6 +465,7 @@ model SalesOrderLine {
   discount     Decimal @default(0) @db.Decimal(14, 2)
   taxRate      Decimal @default(0) @db.Decimal(6, 3)
   fulfilledQty Int     @default(0)
+  sellUnit     String  @default("unit") // unit/box/carton
 
   salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   product    Product    @relation(fields: [productId], references: [id])
@@ -517,6 +525,7 @@ model ReturnOrderLine {
   unitPrice     Decimal @db.Decimal(14, 2) // سعر المرتجع (سعر البيع للعميل / التكلفة للمورد)
   unitCost      Decimal @default(0) @db.Decimal(14, 2) // تكلفة المنتج وقت الإرجاع
   taxRate       Decimal @default(0) @db.Decimal(6, 3)
+  sellUnit      String  @default("unit") // unit/box/carton
 
   returnOrder ReturnOrder @relation(fields: [returnOrderId], references: [id], onDelete: Cascade)
   product     Product     @relation(fields: [productId], references: [id])
@@ -570,6 +579,7 @@ model InvoiceLine {
   discount    Decimal @default(0) @db.Decimal(14, 2)
   taxRate     Decimal @default(0) @db.Decimal(6, 3)
   total       Decimal @db.Decimal(14, 2)
+  sellUnit    String  @default("unit") // unit/box/carton
 
   invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)

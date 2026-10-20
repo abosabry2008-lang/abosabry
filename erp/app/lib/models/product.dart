@@ -15,6 +15,9 @@ class Product {
     this.unit = 'pc',
     this.costPrice = 0,
     this.salePrice = 0,
+    this.boxesPerCarton = 0,
+    this.boxPrice,
+    this.cartonPrice,
     this.taxRate = 0,
     this.reorderLevel = 0,
     this.trackInventory = true,
@@ -36,6 +39,9 @@ class Product {
   final String unit;
   final double costPrice;
   final double salePrice;
+  final int boxesPerCarton;
+  final double? boxPrice;
+  final double? cartonPrice;
   final double taxRate;
   final int reorderLevel;
   final bool trackInventory;
@@ -72,6 +78,9 @@ class Product {
       unit: asString(json['unit'], fallback: 'pc'),
       costPrice: asDouble(json['costPrice']),
       salePrice: asDouble(json['salePrice']),
+      boxesPerCarton: asInt(json['boxesPerCarton']),
+      boxPrice: asDoubleOrNull(json['boxPrice']),
+      cartonPrice: asDoubleOrNull(json['cartonPrice']),
       taxRate: asDouble(json['taxRate']),
       reorderLevel: asInt(json['reorderLevel']),
       trackInventory: asBool(json['trackInventory'], fallback: true),
@@ -114,6 +123,9 @@ class Product {
         'unit': unit,
         'costPrice': costPrice,
         'salePrice': salePrice,
+        'boxesPerCarton': boxesPerCarton,
+        if (boxPrice != null) 'boxPrice': boxPrice,
+        if (cartonPrice != null) 'cartonPrice': cartonPrice,
         'taxRate': taxRate,
         'reorderLevel': reorderLevel,
         'trackInventory': trackInventory,

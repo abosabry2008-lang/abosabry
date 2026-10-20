@@ -194,6 +194,17 @@ export function renderPage({
   if (company.companyAddress) contact.push(`<div class="muted">${escapeHtml(company.companyAddress)}</div>`);
   if (company.companyPhone) contact.push(`<div class="muted">${escapeHtml(company.companyPhone)}</div>`);
   if (company.companyEmail) contact.push(`<div class="muted">${escapeHtml(company.companyEmail)}</div>`);
+  // Legal identifiers shown on every printed document (invoice, statement, ...).
+  if (company.commercialRegisterNo) {
+    contact.push(
+      `<div class="muted">السجل التجاري / Commercial register: ${escapeHtml(company.commercialRegisterNo)}</div>`,
+    );
+  }
+  if (company.taxCardNo) {
+    contact.push(
+      `<div class="muted">البطاقة الضريبية / Tax card: ${escapeHtml(company.taxCardNo)}</div>`,
+    );
+  }
 
   return `<!doctype html>
 <html lang="${escapeHtml(lang)}" dir="${dir}">

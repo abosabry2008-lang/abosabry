@@ -36,6 +36,8 @@ const lineSchema = z.object({
   unitPrice: z.number().min(0).optional(),
   discount: z.number().min(0).optional(),
   taxRate: z.number().min(0).max(100).optional(),
+  /** When selling in packs: "unit" (default), "box", or "carton". */
+  sellUnit: z.enum(['unit', 'box', 'carton']).optional(),
 });
 
 const createSchema = z.object({

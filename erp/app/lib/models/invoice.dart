@@ -12,6 +12,7 @@ class InvoiceLine {
     this.discount = 0,
     this.taxRate = 0,
     this.total = 0,
+    this.sellUnit = 'unit',
   });
 
   final String id;
@@ -23,6 +24,7 @@ class InvoiceLine {
   final double discount;
   final double taxRate;
   final double total;
+  final String sellUnit;
 
   factory InvoiceLine.fromJson(Map<String, dynamic> json) {
     final product = asMap(json['product']);
@@ -38,6 +40,7 @@ class InvoiceLine {
       discount: asDouble(json['discount']),
       taxRate: asDouble(json['taxRate']),
       total: asDouble(json['total']),
+      sellUnit: asString(json['sellUnit'], fallback: 'unit'),
     );
   }
 
@@ -48,6 +51,7 @@ class InvoiceLine {
         'unitPrice': unitPrice,
         'discount': discount,
         'taxRate': taxRate,
+        if (sellUnit != 'unit') 'sellUnit': sellUnit,
       };
 }
 

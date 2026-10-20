@@ -10,7 +10,23 @@ export const invoiceInclude = {
   customer: { select: { id: true, name: true, email: true, phone: true, address: true } },
   currency: { select: { id: true, code: true, symbol: true } },
   salesOrder: { select: { id: true, number: true } },
-  lines: { include: { product: { select: { id: true, sku: true, name: true, unit: true } } } },
+  lines: {
+    include: {
+      product: {
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          unit: true,
+          boxesPerCarton: true,
+          boxPrice: true,
+          cartonPrice: true,
+          salePrice: true,
+          costPrice: true,
+        },
+      },
+    },
+  },
   payments: {
     where: { cancelledAt: null },
     select: { id: true, number: true, amount: true, method: true, paidAt: true, reference: true },
@@ -24,6 +40,7 @@ export interface InvoiceLineInput {
   unitPrice: number;
   discount?: number;
   taxRate?: number;
+  sellUnit?: 'unit' | 'box' | 'carton';
 }
 
 export interface CreateInvoiceInput {
@@ -214,7 +231,8 @@ async function buildFromSalesOrder(
       discount: Number(line.discount),
       taxRate,
       total,
-    });
+      sellUnit: (line as any).sellUnit ?? 'unit',
+    } as any);
   }
 
   if (lines.length === 0) {
@@ -263,7 +281,8 @@ async function buildFromLines(input: CreateInvoiceInput, taxEnabled = true): Pro
       discount: line.discount ?? 0,
       taxRate,
       total: totals.total,
-    };
+      sellUnit: line.sellUnit ?? 'unit',
+    } as any;
   });
   return {
     customerId: input.customerId ?? null,
@@ -376,6 +395,7 @@ export async function createInvoiceTx(tx: Tx, input: CreateInvoiceInput) {
           discount: line.discount,
           taxRate: line.taxRate,
           total: line.total,
+          sellUnit: (line as any).sellUnit ?? 'unit',
         })),
       },
     },
@@ -579,6 +599,7 @@ export async function updateInvoiceTx(
         discount: line.discount,
         taxRate: line.taxRate,
         total: line.total,
+        sellUnit: (line as any).sellUnit ?? 'unit',
       })),
     };
   }
