@@ -14,12 +14,14 @@ class OrderLineDraft {
     double price = 0,
     double discount = 0,
     double taxRate = 0,
+    this.sellUnit = 'unit',
   })  : quantityController = TextEditingController(text: _format(quantity)),
         priceController = TextEditingController(text: _format(price)),
         discountController = TextEditingController(text: _format(discount)),
         taxController = TextEditingController(text: _format(taxRate));
 
   Product? product;
+  String sellUnit; // unit | box | carton
   final TextEditingController quantityController;
   final TextEditingController priceController;
   final TextEditingController discountController;
@@ -38,6 +40,8 @@ class OrderLineDraft {
 
   double get taxRate => double.tryParse(taxController.text.trim()) ?? 0;
 
+  bool get hasPackaging => (product?.boxesPerCarton ?? 0) > 0;
+
   double get gross => quantity * price;
 
   double get net => (gross - discount).clamp(0.0, double.infinity).toDouble();
@@ -52,6 +56,36 @@ class OrderLineDraft {
   bool get priceBelowCost =>
       product != null && price > 0 && price < product!.costPrice;
 
+  void applyPackPrice({bool preferSalePrice = true}) {
+    final p = product;
+    if (p == null) return;
+    final bpc = p.boxesPerCarton;
+    if (bpc <= 0) {
+      sellUnit = 'unit';
+      if (price == 0) {
+        final suggested = preferSalePrice
+            ? (p.salePrice > 0 ? p.salePrice : p.costPrice)
+            : (p.costPrice > 0 ? p.costPrice : p.salePrice);
+        priceController.text = _format(suggested);
+      }
+      if (taxRate == 0 && p.taxRate > 0) {
+        taxController.text = _format(p.taxRate);
+      }
+      return;
+    }
+    if (sellUnit == 'box') {
+      priceController.text = _format(p.boxPrice ?? p.salePrice);
+    } else if (sellUnit == 'carton') {
+      priceController.text = _format(p.cartonPrice ?? (p.boxPrice ?? p.salePrice) * bpc);
+    } else {
+      sellUnit = 'box';
+      priceController.text = _format(p.boxPrice ?? p.salePrice);
+    }
+    if (taxRate == 0 && p.taxRate > 0) {
+      taxController.text = _format(p.taxRate);
+    }
+  }
+
   Map<String, dynamic> toJson() => <String, dynamic>{
         'productId': product?.id,
         'quantity': quantity,
@@ -59,15 +93,29 @@ class OrderLineDraft {
         'unitCost': price,
         'discount': discount,
         'taxRate': taxRate,
+        if (sellUnit != 'unit') 'sellUnit': sellUnit,
       };
 
   void setProduct(Product value, {bool preferSalePrice = false}) {
     product = value;
+    final bpc = value.boxesPerCarton;
+    if (bpc > 0 && sellUnit == 'unit') {
+      sellUnit = 'box';
+    } else if (bpc <= 0) {
+      sellUnit = 'unit';
+    }
     if (price == 0) {
+      if (bpc > 0) {
+        applyPackPrice(preferSalePrice: preferSalePrice);
+        return;
+      }
       final suggested = preferSalePrice
           ? (value.salePrice > 0 ? value.salePrice : value.costPrice)
           : (value.costPrice > 0 ? value.costPrice : value.salePrice);
       priceController.text = _format(suggested);
+    }
+    if (taxRate == 0 && value.taxRate > 0) {
+      taxController.text = _format(value.taxRate);
     }
   }
 
@@ -171,6 +219,30 @@ class OrderLinesEditor extends StatelessWidget {
                     const SizedBox(height: 8),
                     Row(
                       children: <Widget>[
+                        if (lines[index].hasPackaging) ...<Widget>[
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: lines[index].sellUnit == 'carton' ? 'carton' : 'box',
+                              decoration: InputDecoration(
+                                labelText: s.unit,
+                                isDense: true,
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 'box', child: Text('علبة')),
+                                DropdownMenuItem(value: 'carton', child: Text('كرتونة')),
+                              ],
+                              onChanged: enabled
+                                  ? (value) {
+                                      if (value == null) return;
+                                      lines[index].sellUnit = value;
+                                      lines[index].applyPackPrice(preferSalePrice: preferSalePrice);
+                                      onChanged();
+                                    }
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         Expanded(
                           child: AppNumberField(
                             label: s.qty,

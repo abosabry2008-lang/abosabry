@@ -177,15 +177,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
   }
 
   List<Map<String, dynamic>> _linesJson(List<OrderLineDraft> lines) => lines
-      .map(
-        (line) => <String, dynamic>{
-          'productId': line.product!.id,
-          'quantity': line.quantity,
-          'unitPrice': line.price,
-          'discount': line.discount,
-          'taxRate': line.taxRate,
-        },
-      )
+      .map((line) => line.toJson())
       .toList();
 
   void _snack(String message) {
