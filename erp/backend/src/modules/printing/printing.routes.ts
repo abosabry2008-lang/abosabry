@@ -44,6 +44,7 @@ import {
   collectionsByBoxHtml,
   expenseCategoryStatementHtml,
   orderFulfilmentHtml,
+  settlementsStatementHtml,
 } from './printing.templates';
 import {
   buildCollectionsBySalesperson,
@@ -54,6 +55,7 @@ import {
 } from '../reports/salespeople.service';
 import { buildCollectionsByBox } from '../reports/collections.service';
 import { buildExpenseReport } from '../expenses/expenses.service';
+import { buildSettlementStatement } from '../settlements/settlements.service';
 
 const router = Router();
 
@@ -365,6 +367,22 @@ router.get(
       getSettings(),
     ]);
     sendHtml(res, orderFulfilmentHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/reports/settlements
+router.get(
+  '/reports/settlements',
+  requirePermission('treasury.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildSettlementStatement({ from, to }),
+      getSettings(),
+    ]);
+    sendHtml(res, settlementsStatementHtml(report, settings, lang));
   }),
 );
 

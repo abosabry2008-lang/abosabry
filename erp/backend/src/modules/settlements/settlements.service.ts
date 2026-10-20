@@ -407,3 +407,54 @@ export async function getSettlement(id: string) {
   if (!settlement) throw ApiError.notFound('Settlement not found', 'SETTLEMENT_NOT_FOUND');
   return settlement;
 }
+
+const TARGET_LABEL: Record<SettlementTarget, string> = {
+  CUSTOMER: 'Customer',
+  SUPPLIER: 'Supplier',
+  EXPENSE_CATEGORY: 'Expense category',
+};
+
+/** Builds the data for a printed settlements statement (كشف التسويات). */
+export async function buildSettlementStatement(filter: { from?: Date; to?: Date }) {
+  const now = new Date();
+  const from = filter.from ?? new Date(now.getFullYear(), now.getMonth(), 1);
+  const to = filter.to ?? now;
+  const rows = await prisma.accountSettlement.findMany({
+    where: {
+      cancelledAt: null,
+      settledAt: { gte: from, lte: to },
+    },
+    include: settlementInclude,
+    orderBy: { settledAt: 'asc' },
+  });
+
+  let increaseTotal = 0;
+  let decreaseTotal = 0;
+  const mapped = rows.map((row) => {
+    const amount = Number(row.amount);
+    if (row.direction === 'INCREASE') increaseTotal += amount;
+    else decreaseTotal += amount;
+    return {
+      number: row.number,
+      settledAt: row.settledAt,
+      target: TARGET_LABEL[row.target],
+      accountName:
+        row.customer?.name ?? row.supplier?.name ?? row.category?.name ?? '',
+      direction: row.direction,
+      amount,
+      reference: row.reference,
+      note: row.note,
+      userName: row.user?.name ?? null,
+    };
+  });
+
+  return {
+    rows: mapped,
+    count: mapped.length,
+    increaseTotal: round2(increaseTotal),
+    decreaseTotal: round2(decreaseTotal),
+    netTotal: round2(increaseTotal - decreaseTotal),
+    from,
+    to,
+  };
+}

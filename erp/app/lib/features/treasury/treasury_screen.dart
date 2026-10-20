@@ -495,9 +495,11 @@ class _BoxPrintRequest {
 
 /// Asks for the period to print collection receipts for, defaulting to today.
 class _CollectionsPrintDialog extends StatefulWidget {
-  const _CollectionsPrintDialog({this.boxes});
+  const _CollectionsPrintDialog({this.boxes, this.title, this.hint});
 
   final List<CashBox>? boxes;
+  final String? title;
+  final String? hint;
 
   @override
   State<_CollectionsPrintDialog> createState() =>
@@ -512,12 +514,12 @@ class _CollectionsPrintDialogState extends State<_CollectionsPrintDialog> {
   Widget build(BuildContext context) {
     final s = context.s;
     return AlertDialog(
-      title: Text(s.printCollectionsByBox),
+      title: Text(widget.title ?? s.printCollectionsByBox),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(s.collectionsByBoxHint),
+          Text(widget.hint ?? s.collectionsByBoxHint),
           const SizedBox(height: 12),
           DateRangeButton(
             from: _from,
@@ -977,6 +979,24 @@ class _SettlementsTabState extends State<_SettlementsTab>
     }
   }
 
+  /// Prints the settlements statement for a chosen period.
+  Future<void> _print() async {
+    final s = context.s;
+    final selection = await showDialog<_BoxPrintRequest>(
+      context: context,
+      builder: (_) => _CollectionsPrintDialog(
+        title: s.printSettlements,
+        hint: s.settlementsStatementHint,
+      ),
+    );
+    if (selection == null || !mounted) return;
+    await PrintService.printSettlementsStatement(
+      context,
+      from: selection.from,
+      to: selection.to,
+    );
+  }
+
   String _targetLabel(AppStrings s, SettlementTarget target) {
     switch (target) {
       case SettlementTarget.customer:
@@ -1139,6 +1159,16 @@ class _SettlementsTabState extends State<_SettlementsTab>
               child: const Icon(Icons.add),
             ),
           ),
+        PositionedDirectional(
+          start: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
+            heroTag: 'settlement_print_fab',
+            onPressed: _print,
+            icon: const Icon(Icons.print_outlined),
+            label: Text(s.printSettlements),
+          ),
+        ),
       ],
     );
   }

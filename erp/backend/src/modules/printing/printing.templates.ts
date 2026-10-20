@@ -1328,3 +1328,89 @@ ${sections || `    <p class="muted center">${empty}</p>`}`;
     lang,
   });
 }
+
+/** A settlements statement (كشف التسويات) for a period. */
+export interface SettlementStatementRow {
+  number: string;
+  settledAt: Date;
+  target: string;
+  accountName: string;
+  direction: string;
+  amount: number;
+  reference: string | null;
+  note: string | null;
+  userName: string | null;
+}
+
+export interface SettlementStatementReport {
+  rows: SettlementStatementRow[];
+  count: number;
+  increaseTotal: number;
+  decreaseTotal: number;
+  netTotal: number;
+  from: Date;
+  to: Date;
+}
+
+export function settlementsStatementHtml(
+  report: SettlementStatementReport,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const rows = report.rows
+    .map(
+      (row) => `      <tr>
+        <td>${escapeHtml(formatDate(row.settledAt))}</td>
+        <td>${escapeHtml(row.number)}</td>
+        <td>${escapeHtml(row.target)}</td>
+        <td>${escapeHtml(row.accountName || '—')}</td>
+        <td>${escapeHtml(
+          row.direction === 'INCREASE'
+            ? ar
+              ? 'زيادة'
+              : 'Increase'
+            : ar
+              ? 'خصم'
+              : 'Decrease',
+        )}</td>
+        <td class="num">${money(row.amount)}</td>
+        <td>${escapeHtml(row.note ?? row.reference ?? '—')}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const empty = ar ? 'لا توجد تسويات في هذه الفترة' : 'No settlements in this period';
+
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'عدد التسويات' : 'Entries'}</span><span class="value">${escapeHtml(report.count)}</span></div>
+      <div><span class="label">${ar ? 'إجمالي الزيادة' : 'Increases'}</span><span class="value">${money(report.increaseTotal)}</span></div>
+      <div><span class="label">${ar ? 'إجمالي الخصم' : 'Decreases'}</span><span class="value">${money(report.decreaseTotal)}</span></div>
+      <div><span class="label">${ar ? 'الصافي' : 'Net'}</span><span class="value">${money(report.netTotal)}</span></div>
+      <div><span class="label">${ar ? 'الفترة' : 'Period'}</span><span class="value">${escapeHtml(formatDate(report.from))} → ${escapeHtml(formatDate(report.to))}</span></div>
+    </section>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'التاريخ' : 'Date'}</th>
+          <th>${ar ? 'الرقم' : 'Number'}</th>
+          <th>${ar ? 'النوع' : 'Type'}</th>
+          <th>${ar ? 'الحساب' : 'Account'}</th>
+          <th>${ar ? 'الأثر' : 'Effect'}</th>
+          <th class="num">${ar ? 'المبلغ' : 'Amount'}</th>
+          <th>${ar ? 'ملاحظات' : 'Notes'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows || `        <tr><td colspan="7" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td colspan="5">${ar ? 'الصافي' : 'Net'}</td><td class="num">${money(report.netTotal)}</td><td></td></tr>
+      </tbody>
+    </table>`;
+
+  return renderPage({
+    title: ar ? 'كشف التسويات' : 'Settlements statement',
+    company: settings,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}

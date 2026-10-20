@@ -489,6 +489,28 @@ class PrintService {
         orderFulfilmentUrl(token(context), warehouseId: warehouseId),
       );
 
+  /// URL of the settlements statement (كشف التسويات) for a period.
+  static Uri settlementsStatementUrl(
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      _uri('/print/reports/settlements', <String, String?>{
+        'token': token,
+        if (from != null) 'from': from.toIso8601String(),
+        if (to != null) 'to': to.toIso8601String(),
+      });
+
+  static Future<bool> printSettlementsStatement(
+    BuildContext context, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      open(
+        context,
+        settlementsStatementUrl(token(context), from: from, to: to),
+      );
+
   static Future<bool> printSalespersonStatement(
     BuildContext context,
     String salespersonId, {

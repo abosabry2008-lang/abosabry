@@ -1432,6 +1432,11 @@ class AppStrings {
   String get settlementNoCashEffect =>
       _t('No cash movement — this only adjusts the account balance.',
           'بدون حركة نقدية — هذا يعدّل رصيد الحساب فقط.');
+  String get printSettlements => _t('Print statement', 'طباعة كشف');
+  String get settlementsStatementHint => _t(
+        'Lists the settlements of the chosen period with the net effect.',
+        'يعرض تسويات الفترة المختارة مع صافي الأثر.',
+      );
   String get selectExpenseCategory =>
       _t('Select an expense category', 'اختر بند مصروفات');
   String get accountOptional => _t('Ledger account (optional)', 'حساب الدفتر (اختياري)');
