@@ -4,7 +4,7 @@ import { asyncHandler, ok } from '../../lib/http';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
 import { asDate, asString } from '../../lib/query';
-import { authenticate } from '../../middleware/authenticate';
+import { authenticateToken } from '../../middleware/authenticate-token';
 import { requirePermission } from '../../middleware/authorize';
 import { lowStockProducts } from '../inventory/inventory.service';
 import {
@@ -33,7 +33,9 @@ import {
 } from './salespeople.service';
 
 const router = Router();
-router.use(authenticate);
+// Accepts the bearer header for JSON calls and `?token=` for links opened in a
+// browser (e.g. the Excel backup download).
+router.use(authenticateToken);
 
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());

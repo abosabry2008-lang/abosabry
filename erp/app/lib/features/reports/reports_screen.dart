@@ -20,6 +20,7 @@ import '../customers/customer_statement_screen.dart';
 import '../shell/navigation.dart';
 import '../suppliers/supplier_statement_screen.dart';
 import 'financial_reports_screen.dart';
+import 'expense_report_screen.dart';
 import 'item_movement_screen.dart';
 import 'operations_reports_screen.dart';
 import 'report_widgets.dart';
@@ -229,6 +230,14 @@ class ReportsScreen extends StatelessWidget {
                       onOpen: (controller) => controller.loadBoxes(),
                       builder: (_) => const BoxBalancesReportScreen(),
                     ),
+                    if (session.can('expenses'))
+                      _ReportLeaf(
+                        icon: Icons.call_made,
+                        title: s.expenseReport,
+                        onOpen: (controller) =>
+                            controller.loadExpenseReport(),
+                        builder: (_) => const ExpenseReportScreen(),
+                      ),
                   ],
                 ),
               // --- Accounting --------------------------------------------

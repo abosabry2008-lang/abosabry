@@ -19,7 +19,7 @@ class BoxStatementRow {
 
   final DateTime? date;
 
-  /// `PAYMENT_IN`, `PAYMENT_OUT`, `TRANSFER_IN` or `TRANSFER_OUT`.
+  /// `PAYMENT_IN`, `PAYMENT_OUT`, `TRANSFER_IN`, `TRANSFER_OUT` or `EXPENSE`.
   final String type;
 
   /// `IN` or `OUT`.

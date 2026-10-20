@@ -26,6 +26,9 @@ import type {
   SalespersonProfitReport,
   SalespersonStatement,
 } from '../reports/salespeople.service';
+import type { buildExpenseReport } from '../expenses/expenses.service';
+
+type ExpenseReport = Awaited<ReturnType<typeof buildExpenseReport>>;
 
 type InvoiceWithRelations = Prisma.InvoiceGetPayload<{ include: typeof invoiceInclude }>;
 
@@ -868,7 +871,8 @@ export function collectionsBySalespersonHtml(
   report: SalespersonCollectionsReport,
   settings: AppSettings,
   lang = 'en',
-): string {  const ar = isArabic(lang);
+): string {
+  const ar = isArabic(lang);
   const rows = report.rows
     .map(
       (row) => `      <tr>
@@ -951,6 +955,92 @@ ${rows || `        <tr><td colspan="7" class="muted center">${empty}</td></tr>`}
     title: ar ? 'كشف حساب مندوب' : 'Salesperson statement',
     company: settings,
     subtitle: `${statement.salesperson.name} · ${statement.from} → ${statement.to}`,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}
+
+export function expenseReportHtml(
+  report: ExpenseReport,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const catRows = report.categories
+    .map(
+      (row) => `      <tr>
+        <td>${escapeHtml(row.name)}</td>
+        <td class="num">${escapeHtml(row.count)}</td>
+        <td class="num">${money(row.amount)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const monthRows = report.months
+    .map(
+      (row) => `      <tr>
+        <td>${escapeHtml(row.month)}</td>
+        <td class="num">${money(row.amount)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const boxRows = report.boxes
+    .map(
+      (row) => `      <tr>
+        <td>${escapeHtml(row.name)}</td>
+        <td class="num">${money(row.amount)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const empty = ar ? 'لا مصروفات في هذه الفترة' : 'No expenses in this period';
+
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'عدد المصروفات' : 'Expenses'}</span><span class="value">${escapeHtml(report.count)}</span></div>
+      <div><span class="label">${ar ? 'الإجمالي' : 'Total'}</span><span class="value">${money(report.total)}</span></div>
+    </section>
+    <h3 class="section-title">${ar ? 'حسب التصنيف' : 'By category'}</h3>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'التصنيف' : 'Category'}</th>
+          <th class="num">${ar ? 'العدد' : 'Count'}</th>
+          <th class="num">${ar ? 'المبلغ' : 'Amount'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${catRows || `        <tr><td colspan="3" class="muted center">${empty}</td></tr>`}
+      </tbody>
+    </table>
+    <h3 class="section-title">${ar ? 'حسب الشهر' : 'By month'}</h3>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'الشهر' : 'Month'}</th>
+          <th class="num">${ar ? 'المبلغ' : 'Amount'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${monthRows || `        <tr><td colspan="2" class="muted center">${empty}</td></tr>`}
+      </tbody>
+    </table>
+    <h3 class="section-title">${ar ? 'حسب الخزنة' : 'By cash box'}</h3>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'الخزنة' : 'Cash box'}</th>
+          <th class="num">${ar ? 'المبلغ' : 'Amount'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${boxRows || `        <tr><td colspan="2" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td>${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${money(report.total)}</td></tr>
+      </tbody>
+    </table>`;
+
+  return renderPage({
+    title: ar ? 'تقرير المصروفات' : 'Expense report',
+    company: settings,
+    subtitle: rangeLabel(report),
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,

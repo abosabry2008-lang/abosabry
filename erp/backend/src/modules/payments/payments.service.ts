@@ -92,7 +92,7 @@ export async function resolveCashBoxTx(tx: Tx, cashBoxId?: string | null): Promi
  * figure correct even after an admin edits or cancels a movement.
  */
 export async function cashBoxBalanceTx(tx: Tx, box: Pick<CashBox, 'id' | 'openingBalance'>): Promise<number> {
-  const [paymentsIn, paymentsOut, transfersIn, transfersOut] = await Promise.all([
+  const [paymentsIn, paymentsOut, transfersIn, transfersOut, expenses] = await Promise.all([
     tx.payment.aggregate({
       where: { cashBoxId: box.id, direction: 'INBOUND', cancelledAt: null },
       _sum: { amount: true },
@@ -109,6 +109,10 @@ export async function cashBoxBalanceTx(tx: Tx, box: Pick<CashBox, 'id' | 'openin
       where: { fromBoxId: box.id, cancelledAt: null },
       _sum: { amount: true },
     }),
+    tx.expense.aggregate({
+      where: { cashBoxId: box.id, cancelledAt: null },
+      _sum: { amount: true },
+    }),
   ]);
 
   return round2(
@@ -116,11 +120,12 @@ export async function cashBoxBalanceTx(tx: Tx, box: Pick<CashBox, 'id' | 'openin
       Number(paymentsIn._sum.amount ?? 0) -
       Number(paymentsOut._sum.amount ?? 0) +
       Number(transfersIn._sum.amount ?? 0) -
-      Number(transfersOut._sum.amount ?? 0),
+      Number(transfersOut._sum.amount ?? 0) -
+      Number(expenses._sum.amount ?? 0),
   );
 }
 
-/** Balances for many boxes with three aggregate queries (used by the list screen). */
+/** Balances for many boxes with aggregate queries (used by the list screen). */
 export async function cashBoxBalancesTx(
   tx: Tx,
   boxes: Pick<CashBox, 'id' | 'openingBalance'>[],
@@ -129,7 +134,7 @@ export async function cashBoxBalancesTx(
   if (boxes.length === 0) return balances;
 
   const ids = boxes.map((box) => box.id);
-  const [payments, transfersIn, transfersOut] = await Promise.all([
+  const [payments, transfersIn, transfersOut, expenses] = await Promise.all([
     tx.payment.groupBy({
       by: ['cashBoxId', 'direction'],
       where: { cashBoxId: { in: ids }, cancelledAt: null },
@@ -143,6 +148,11 @@ export async function cashBoxBalancesTx(
     tx.cashTransfer.groupBy({
       by: ['fromBoxId'],
       where: { fromBoxId: { in: ids }, cancelledAt: null },
+      _sum: { amount: true },
+    }),
+    tx.expense.groupBy({
+      by: ['cashBoxId'],
+      where: { cashBoxId: { in: ids }, cancelledAt: null },
       _sum: { amount: true },
     }),
   ]);
@@ -162,6 +172,11 @@ export async function cashBoxBalancesTx(
   for (const row of transfersOut) {
     const current = balances.get(row.fromBoxId) ?? 0;
     balances.set(row.fromBoxId, round2(current - Number(row._sum.amount ?? 0)));
+  }
+  for (const row of expenses) {
+    if (!row.cashBoxId) continue;
+    const current = balances.get(row.cashBoxId) ?? 0;
+    balances.set(row.cashBoxId, round2(current - Number(row._sum.amount ?? 0)));
   }
 
   return balances;

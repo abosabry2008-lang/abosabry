@@ -13,6 +13,7 @@ import 'state/accounting_controller.dart';
 import 'state/categories_controller.dart';
 import 'state/currencies_controller.dart';
 import 'state/customers_controller.dart';
+import 'state/expenses_controller.dart';
 import 'state/inventory_controller.dart';
 import 'state/invoices_controller.dart';
 import 'state/payments_controller.dart';
@@ -61,6 +62,7 @@ class _ErpAppState extends State<ErpApp> {
   late final UsersController _users;
   late final InvoicesController _invoices;
   late final PaymentsController _payments;
+  late final ExpensesController _expenses;
   late final PurchaseOrdersController _purchaseOrders;
   late final SalesOrdersController _salesOrders;
   late final ReturnsController _returns;
@@ -91,6 +93,7 @@ class _ErpAppState extends State<ErpApp> {
     _users = UsersController(_api);
     _invoices = InvoicesController(_api);
     _payments = PaymentsController(_api);
+    _expenses = ExpensesController(_api);
     _purchaseOrders = PurchaseOrdersController(_api);
     _salesOrders = SalesOrdersController(_api);
     _returns = ReturnsController(_api);
@@ -129,6 +132,7 @@ class _ErpAppState extends State<ErpApp> {
         ChangeNotifierProvider<UsersController>.value(value: _users),
         ChangeNotifierProvider<InvoicesController>.value(value: _invoices),
         ChangeNotifierProvider<PaymentsController>.value(value: _payments),
+        ChangeNotifierProvider<ExpensesController>.value(value: _expenses),
         ChangeNotifierProvider<PurchaseOrdersController>.value(
           value: _purchaseOrders,
         ),

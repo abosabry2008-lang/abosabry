@@ -129,6 +129,10 @@ class ReportsController extends ChangeNotifier {
   bool loadingBoxes = false;
   String? boxesError;
 
+  Map<String, dynamic> expenseReport = <String, dynamic>{};
+  bool loadingExpenseReport = false;
+  String? expenseReportError;
+
   Map<String, dynamic> trialBalanceReport = <String, dynamic>{};
   bool loadingTrialBalance = false;
   String? trialBalanceError;
@@ -540,6 +544,20 @@ class ReportsController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> loadExpenseReport({DateTime? from, DateTime? to}) => _loadSection(
+        path: '/expenses/report',
+        query: <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+        },
+        setStatus: (loading, error) {
+          loadingExpenseReport = loading;
+          expenseReportError = error;
+        },
+        setData: (data) => expenseReport = data,
+        errorMessage: 'Could not load the expense report',
+      );
 
   Future<void> loadTrialBalance() => _loadSection(
         path: '/accounting/trial-balance',

@@ -351,6 +351,24 @@ class PrintService {
         ),
       );
 
+  static Uri expenseReportUrl(
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      _uri('/print/reports/expenses', <String, String?>{
+        'token': token,
+        if (from != null) 'from': Formatters.isoDate(from),
+        if (to != null) 'to': Formatters.isoDate(to),
+      });
+
+  static Future<bool> printExpenseReport(
+    BuildContext context, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      open(context, expenseReportUrl(token(context), from: from, to: to));
+
   static Future<bool> printSalespersonStatement(
     BuildContext context,
     String salespersonId, {

@@ -144,7 +144,7 @@ export async function deleteCashBox(id: string) {
 
 export interface BoxStatementRow {
   date: string;
-  type: 'PAYMENT_IN' | 'PAYMENT_OUT' | 'TRANSFER_IN' | 'TRANSFER_OUT';
+  type: 'PAYMENT_IN' | 'PAYMENT_OUT' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'EXPENSE';
   direction: 'IN' | 'OUT';
   number: string;
   description: string;
@@ -154,6 +154,7 @@ export interface BoxStatementRow {
   reference?: string | null;
   paymentId?: string;
   transferId?: string;
+  expenseId?: string;
   cancelled?: boolean;
 }
 
@@ -201,7 +202,7 @@ export async function buildCashBoxStatement(
   const period = rangeFilter(from, to);
   const before = from ? { lt: from } : undefined;
 
-  const [payments, transfersOut, transfersIn, beforeTotals] = await Promise.all([
+  const [payments, transfersOut, transfersIn, expenses, beforeTotals] = await Promise.all([
     prisma.payment.findMany({
       where: {
         cashBoxId: boxId,
@@ -232,6 +233,15 @@ export async function buildCashBoxStatement(
       include: { fromBox: { select: { name: true } } },
       orderBy: [{ transferDate: 'asc' }, { createdAt: 'asc' }],
     }),
+    prisma.expense.findMany({
+      where: {
+        cashBoxId: boxId,
+        cancelledAt: null,
+        ...(period ? { spentAt: period } : {}),
+      },
+      include: { category: { select: { name: true } } },
+      orderBy: [{ spentAt: 'asc' }, { createdAt: 'asc' }],
+    }),
     before
       ? Promise.all([
           prisma.payment.aggregate({
@@ -250,19 +260,24 @@ export async function buildCashBoxStatement(
             where: { fromBoxId: boxId, cancelledAt: null, transferDate: before },
             _sum: { amount: true },
           }),
+          prisma.expense.aggregate({
+            where: { cashBoxId: boxId, cancelledAt: null, spentAt: before },
+            _sum: { amount: true },
+          }),
         ])
       : null,
   ]);
 
   let opening = round2(Number(box.openingBalance));
   if (beforeTotals) {
-    const [pIn, pOut, tIn, tOut] = beforeTotals;
+    const [pIn, pOut, tIn, tOut, exp] = beforeTotals;
     opening = round2(
       opening +
         Number(pIn._sum.amount ?? 0) -
         Number(pOut._sum.amount ?? 0) +
         Number(tIn._sum.amount ?? 0) -
-        Number(tOut._sum.amount ?? 0),
+        Number(tOut._sum.amount ?? 0) -
+        Number(exp._sum.amount ?? 0),
     );
   }
 
@@ -323,6 +338,28 @@ export async function buildCashBoxStatement(
         amount: round2(Number(transfer.amount)),
         reference: transfer.reference,
         transferId: transfer.id,
+      },
+    });
+  }
+
+  for (const expense of expenses) {
+    const description =
+      [expense.category?.name, expense.payee, expense.note].filter(Boolean).join(' · ') ||
+      `Expense ${expense.number}`;
+    dated.push({
+      when: expense.spentAt,
+      createdAt: expense.createdAt,
+      kind: 0,
+      row: {
+        date: expense.spentAt.toISOString(),
+        type: 'EXPENSE',
+        direction: 'OUT',
+        number: expense.number,
+        description,
+        amount: round2(Number(expense.amount)),
+        method: expense.method,
+        reference: expense.reference,
+        expenseId: expense.id,
       },
     });
   }

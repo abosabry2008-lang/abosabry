@@ -125,6 +125,9 @@ model User {
   /// Collection vouchers assigned to this salesperson.
   collectionsAsSalesperson CollectionVoucher[] @relation("SalespersonCollections")
 
+  /// Expenses recorded by this user.
+  expenses Expense[]
+
   @@index([role])
 }
 
@@ -602,7 +605,8 @@ model Account {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  journalLines JournalLine[]
+  journalLines      JournalLine[]
+  expenseCategories ExpenseCategory[]
 }
 
 model JournalEntry {
@@ -663,6 +667,7 @@ model CashBox {
   transfersIn    CashTransfer[]      @relation("CashTransferTo")
   collections    CollectionVoucher[]
   collectionLine CollectionLine[]
+  expenses       Expense[]
 }
 
 model CashTransfer {
@@ -729,6 +734,53 @@ model CollectionLine {
 }
 
 // ---------------------------------------------------------------------------
+// Expenses (المصروفات)
+// ---------------------------------------------------------------------------
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  /// حساب المصروف في دليل الحسابات (يُستخدم في القيد المحاسبي).
+  accountId String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account  Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  expenses Expense[]
+
+  @@index([name])
+}
+
+model Expense {
+  id          String    @id @default(cuid())
+  number      String    @unique
+  categoryId  String?
+  cashBoxId   String?
+  /// حساب المصروف المستخدم في القيد (يُنسخ من التصنيف عند الإنشاء).
+  accountCode String?
+  amount      Decimal   @db.Decimal(14, 2)
+  method      PaymentMethod @default(CASH)
+  payee       String?
+  reference   String?
+  note        String?
+  spentAt     DateTime  @default(now())
+  userId      String?
+  cancelledAt DateTime?
+  cancelledBy String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  category ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  cashBox  CashBox?         @relation(fields: [cashBoxId], references: [id], onDelete: SetNull)
+  user     User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([spentAt])
+  @@index([categoryId])
+  @@index([cashBoxId])
+}
+
+// ---------------------------------------------------------------------------
 // System
 // ---------------------------------------------------------------------------
 
@@ -758,6 +810,7 @@ model Setting {
   purchaseOrderPrefix  String   @default("PO")
   paymentPrefix        String   @default("PAY")
   journalPrefix        String   @default("JE")
+  expensePrefix        String   @default("EXP")
   lowStockAlerts       Boolean  @default(true)
   updatedAt            DateTime @updatedAt
 }

@@ -19,6 +19,7 @@ export interface AppSettings {
   purchaseOrderPrefix: string;
   paymentPrefix: string;
   journalPrefix: string;
+  expensePrefix: string;
   lowStockAlerts: boolean;
 }
 
@@ -46,6 +47,7 @@ export async function getSettings(client: Client = prisma): Promise<AppSettings>
       purchaseOrderPrefix: existing.purchaseOrderPrefix,
       paymentPrefix: existing.paymentPrefix,
       journalPrefix: existing.journalPrefix,
+      expensePrefix: existing.expensePrefix,
       lowStockAlerts: existing.lowStockAlerts,
     };
   }
@@ -69,6 +71,7 @@ export async function getSettings(client: Client = prisma): Promise<AppSettings>
     purchaseOrderPrefix: settings.purchaseOrderPrefix,
     paymentPrefix: settings.paymentPrefix,
     journalPrefix: settings.journalPrefix,
+    expensePrefix: settings.expensePrefix,
     lowStockAlerts: settings.lowStockAlerts,
   };
 }

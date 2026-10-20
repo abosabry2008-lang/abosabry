@@ -1263,6 +1263,60 @@ class AppStrings {
         'Only an administrator can download a full backup.',
         'تنزيل النسخة الاحتياطية الكاملة متاح للمدير فقط.',
       );
+
+  // --- Expenses (المصروفات) -------------------------------------------------
+  String get expensesTitle => _t('Expenses', 'المصروفات');
+  String get expense => _t('Expense', 'مصروف');
+  String get newExpense => _t('New expense', 'مصروف جديد');
+  String get editExpense => _t('Edit expense', 'تعديل مصروف');
+  String get noExpenses => _t('No expenses recorded', 'لا توجد مصروفات مسجلة');
+  String get expensesHint => _t(
+        'Record rent, salaries, utilities and any other cash outflow that is not tied to a supplier.',
+        'سجّل الإيجار والرواتب والمرافق وأي مصروف نقدي آخر غير مرتبط بمورد.',
+      );
+  String get expenseSaved => _t('Expense recorded', 'تم تسجيل المصروف');
+  String get expenseUpdated => _t('Expense updated', 'تم تحديث المصروف');
+  String get expenseCancelled => _t('Expense cancelled', 'تم إلغاء المصروف');
+  String get cancelExpenseQ => _t('Cancel this expense?', 'إلغاء هذا المصروف؟');
+  String get expenseCategory => _t('Expense category', 'تصنيف المصروف');
+  String get expenseCategories => _t('Expense categories', 'تصنيفات المصروفات');
+  String get newExpenseCategory => _t('New category', 'تصنيف جديد');
+  String get editExpenseCategory => _t('Edit category', 'تعديل تصنيف');
+  String get noExpenseCategories =>
+      _t('No expense categories yet', 'لا توجد تصنيفات مصروفات بعد');
+  String get expenseCategoriesHint => _t(
+        'Categories let you group expenses (rent, salaries, …) for reporting.',
+        'التصنيفات تتيح تجميع المصروفات (إيجار، رواتب…) لأغراض التقارير.',
+      );
+  String get uncategorized => _t('Uncategorized', 'غير مصنّف');
+  String get categorySaved => _t('Category saved', 'تم حفظ التصنيف');
+  String get expenseCategoryUpdated => _t('Category updated', 'تم تحديث التصنيف');
+  String get expenseCategoryDeleted => _t('Category deleted', 'تم حذف التصنيف');
+  String get deleteExpenseCategoryQ =>
+      _t('Delete this category?', 'حذف هذا التصنيف؟');
+  String get categoryInUse => _t(
+        'This category is used by recorded expenses — deactivate it instead.',
+        'هذا التصنيف مستخدم في مصروفات مسجلة — أوقفه بدلاً من حذفه.',
+      );
+  String get payee => _t('Payee', 'المستفيد');
+  String get expenseAmount => _t('Amount', 'المبلغ');
+  String get expenseDate => _t('Expense date', 'تاريخ المصروف');
+  String get expenseReport => _t('Expense report', 'تقرير المصروفات');
+  String get expenseReportHint => _t(
+        'Expenses grouped by category, month and cash box for the chosen period.',
+        'المصروفات مجمّعة حسب التصنيف والشهر والخزنة خلال الفترة المختارة.',
+      );
+  String get expensesByCategory => _t('By category', 'حسب التصنيف');
+  String get expensesByMonth => _t('By month', 'حسب الشهر');
+  String get expensesByBox => _t('By cash box', 'حسب الخزنة');
+  String get allExpenseCategories => _t('All categories', 'كل التصنيفات');
+  String get allBoxes => _t('All cash boxes', 'كل الخزائن');
+  String get cancelled => _t('Cancelled', 'ملغى');
+  String get searchExpensesHint =>
+      _t('Search expenses by number, payee or note…', 'ابحث في المصروفات بالرقم أو المستفيد أو الملاحظة…');
+  String get ledgerAccount => _t('Account', 'الحساب');
+  String get accountOptional => _t('Ledger account (optional)', 'حساب الدفتر (اختياري)');
+  String get expenseCount => _t('Expenses', 'عدد المصروفات');
 }
 
 /// [LocalizationsDelegate] for [AppStrings] supporting English and Arabic.

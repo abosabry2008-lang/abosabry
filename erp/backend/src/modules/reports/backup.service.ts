@@ -106,6 +106,8 @@ async function collectBackupSheets(): Promise<BackupSheet[]> {
     collectionVouchers,
     collectionLines,
     cashTransfers,
+    expenseCategories,
+    expenses,
     journalEntries,
     journalLines,
     stockMovements,
@@ -128,6 +130,8 @@ async function collectBackupSheets(): Promise<BackupSheet[]> {
     prismaCollectionVoucher(),
     prismaCollectionLine(),
     prismaCashTransfer(),
+    prismaExpenseCategory(),
+    prismaExpense(),
     prismaJournalEntry(),
     prismaJournalLine(),
     prismaStockMovement(),
@@ -152,6 +156,8 @@ async function collectBackupSheets(): Promise<BackupSheet[]> {
     collectionVouchers,
     collectionLines,
     cashTransfers,
+    expenseCategories,
+    expenses,
     journalEntries,
     journalLines,
     stockMovements,
@@ -356,7 +362,7 @@ async function prismaStockLevel(): Promise<BackupSheet> {
 }
 
 async function prismaCashBox(): Promise<BackupSheet> {
-  const [boxes, payments, transfers] = await Promise.all([
+  const [boxes, payments, transfers, expenses] = await Promise.all([
     prisma.cashBox.findMany({ orderBy: { code: 'asc' } }),
     prisma.payment.findMany({
       where: { cancelledAt: null, cashBoxId: { not: null } },
@@ -365,6 +371,10 @@ async function prismaCashBox(): Promise<BackupSheet> {
     prisma.cashTransfer.findMany({
       where: { cancelledAt: null },
       select: { fromBoxId: true, toBoxId: true, amount: true },
+    }),
+    prisma.expense.findMany({
+      where: { cancelledAt: null, cashBoxId: { not: null } },
+      select: { cashBoxId: true, amount: true },
     }),
   ]);
 
@@ -377,6 +387,9 @@ async function prismaCashBox(): Promise<BackupSheet> {
     for (const transfer of transfers) {
       if (transfer.fromBoxId === boxId) balance -= n(transfer.amount);
       if (transfer.toBoxId === boxId) balance += n(transfer.amount);
+    }
+    for (const expense of expenses) {
+      if (expense.cashBoxId === boxId) balance -= n(expense.amount);
     }
     return Math.round(balance * 100) / 100;
   };
@@ -762,6 +775,69 @@ async function prismaCashTransfer(): Promise<BackupSheet> {
       amount: n(row.amount),
       cancelled: row.cancelledAt ? stamp(row.cancelledAt) : '',
     })),
+  };
+}
+
+async function prismaExpenseCategory(): Promise<BackupSheet> {
+  const rows = await prisma.expenseCategory.findMany({
+    include: { account: { select: { code: true } } },
+    orderBy: { name: 'asc' },
+  });
+  return {
+    name: 'Expense Categories',
+    columns: [
+      { header: 'Name', key: 'name', width: 26 },
+      { header: 'Account', key: 'account', width: 12 },
+      { header: 'Active', key: 'active', width: 10 },
+    ],
+    rows: rows.map((row) => ({
+      name: row.name,
+      account: row.account?.code ?? '',
+      active: row.active ? 'Yes' : 'No',
+    })),
+  };
+}
+
+async function prismaExpense(): Promise<BackupSheet> {
+  const rows = await prisma.expense.findMany({
+    include: {
+      category: { select: { name: true } },
+      cashBox: { select: { code: true } },
+      user: { select: { name: true } },
+    },
+    orderBy: { spentAt: 'desc' },
+  });
+  const live = rows.filter((row) => !row.cancelledAt);
+  return {
+    name: 'Expenses',
+    columns: [
+      { header: 'Number', key: 'number', width: 16 },
+      { header: 'Date', key: 'spentAt', width: 12 },
+      { header: 'Category', key: 'category', width: 20 },
+      { header: 'Cash Box', key: 'cashBox', width: 14 },
+      { header: 'Method', key: 'method', width: 12 },
+      { header: 'Payee', key: 'payee', width: 22 },
+      { header: 'Amount', key: 'amount', width: 16, money: true },
+      { header: 'Note', key: 'note', width: 28 },
+      { header: 'Created By', key: 'user', width: 18 },
+      { header: 'Cancelled', key: 'cancelled', width: 18 },
+    ],
+    rows: rows.map((row) => ({
+      number: row.number,
+      spentAt: dateOnly(row.spentAt),
+      category: row.category?.name ?? '',
+      cashBox: row.cashBox?.code ?? '',
+      method: row.method,
+      payee: row.payee ?? '',
+      amount: n(row.amount),
+      note: row.note ?? '',
+      user: row.user?.name ?? '',
+      cancelled: row.cancelledAt ? stamp(row.cancelledAt) : '',
+    })),
+    totals: {
+      number: 'TOTAL',
+      amount: Math.round(live.reduce((sum, row) => sum + n(row.amount), 0) * 100) / 100,
+    },
   };
 }
 

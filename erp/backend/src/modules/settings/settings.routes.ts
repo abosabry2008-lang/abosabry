@@ -27,6 +27,7 @@ const updateSchema = z.object({
   purchaseOrderPrefix: z.string().min(1).max(8).optional(),
   paymentPrefix: z.string().min(1).max(8).optional(),
   journalPrefix: z.string().min(1).max(8).optional(),
+  expensePrefix: z.string().min(1).max(8).optional(),
   lowStockAlerts: z.boolean().optional(),
 });
 

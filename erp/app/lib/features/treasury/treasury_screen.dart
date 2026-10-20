@@ -18,6 +18,7 @@ import 'box_form_screen.dart';
 import 'collection_detail_screen.dart';
 import 'collection_form_screen.dart';
 import 'transfer_form_screen.dart';
+import '../expenses/expenses_screen.dart';
 
 /// Treasury (الخزينة): cash boxes, agent collection receipts and payments.
 class TreasuryScreen extends StatefulWidget {
@@ -29,7 +30,7 @@ class TreasuryScreen extends StatefulWidget {
 
 class _TreasuryScreenState extends State<TreasuryScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 4, vsync: this);
 
   List<CashBox> _boxes = <CashBox>[];
   bool _loading = true;
@@ -157,6 +158,7 @@ class _TreasuryScreenState extends State<TreasuryScreen>
               Tab(text: s.cashBoxes, icon: const Icon(Icons.account_balance_wallet_outlined)),
               Tab(text: s.collections, icon: const Icon(Icons.receipt_long_outlined)),
               Tab(text: s.payments, icon: const Icon(Icons.payments_outlined)),
+              Tab(text: s.expensesTitle, icon: const Icon(Icons.call_made)),
             ],
           ),
         ),
@@ -167,6 +169,7 @@ class _TreasuryScreenState extends State<TreasuryScreen>
               _boxesTab(s, canManage),
               const _CollectionsTab(),
               const PaymentsScreen(),
+              const ExpensesScreen(),
             ],
           ),
         ),

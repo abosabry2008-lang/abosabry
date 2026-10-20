@@ -533,6 +533,7 @@ class _StatementRowTile extends StatelessWidget {
       'PAYMENT_OUT' => s.paymentOut,
       'TRANSFER_IN' => s.transferIn,
       'TRANSFER_OUT' => s.transferOut,
+      'EXPENSE' => s.expense,
       _ => row.type,
     };
 

@@ -34,6 +34,7 @@ import {
   topProductsHtml,
   collectionsBySalespersonHtml,
   consolidatedSalesNoteHtml,
+  expenseReportHtml,
   profitBySalespersonHtml,
   salespersonStatementHtml,
 } from './printing.templates';
@@ -43,6 +44,7 @@ import {
   buildProfitBySalesperson,
   buildSalespersonStatement,
 } from '../reports/salespeople.service';
+import { buildExpenseReport } from '../expenses/expenses.service';
 
 const router = Router();
 
@@ -268,6 +270,22 @@ router.get(
       getSettings(),
     ]);
     sendHtml(res, salespersonStatementHtml(statement, settings, lang));
+  }),
+);
+
+// GET /print/reports/expenses
+router.get(
+  '/reports/expenses',
+  requirePermission('expenses.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildExpenseReport({ from, to }),
+      getSettings(),
+    ]);
+    sendHtml(res, expenseReportHtml(report, settings, lang));
   }),
 );
 
