@@ -40,6 +40,8 @@ import {
   salespersonStatementHtml,
   salespersonCustomerDebtHtml,
   shortagesHtml,
+  collectionsByBoxHtml,
+  expenseCategoryStatementHtml,
 } from './printing.templates';
 import {
   buildCollectionsBySalesperson,
@@ -48,6 +50,7 @@ import {
   buildSalespersonCustomerDebt,
   buildSalespersonStatement,
 } from '../reports/salespeople.service';
+import { buildCollectionsByBox } from '../reports/collections.service';
 import { buildExpenseReport } from '../expenses/expenses.service';
 
 const router = Router();
@@ -305,6 +308,46 @@ router.get(
       getSettings(),
     ]);
     sendHtml(res, salespersonCustomerDebtHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/reports/collections-by-box
+router.get(
+  '/reports/collections-by-box',
+  requirePermission('payments.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const cashBoxId = asString(req.query.cashBoxId);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildCollectionsByBox(from, to, cashBoxId),
+      getSettings(),
+    ]);
+    sendHtml(res, collectionsByBoxHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/reports/expenses/category/:id
+router.get(
+  '/reports/expenses/category/:id',
+  requirePermission('expenses.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const lang = asString(req.query.lang) ?? 'en';
+    const category = await prisma.expenseCategory.findUnique({
+      where: { id: req.params.id },
+      select: { name: true },
+    });
+    const [report, settings] = await Promise.all([
+      buildExpenseReport({ from, to, categoryId: req.params.id }),
+      getSettings(),
+    ]);
+    sendHtml(
+      res,
+      expenseCategoryStatementHtml(report, category?.name ?? '—', settings, lang),
+    );
   }),
 );
 

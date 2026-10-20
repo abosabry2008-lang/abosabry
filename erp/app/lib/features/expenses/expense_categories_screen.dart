@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
 import '../../core/l10n.dart';
+import '../../core/print_service.dart';
 import '../../core/session.dart';
 import '../../models/account.dart';
 import '../../models/expense.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/date_range_button.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
@@ -61,6 +63,21 @@ class _ExpenseCategoriesScreenState extends State<ExpenseCategoriesScreen> {
       builder: (_) => _CategoryFormDialog(category: category),
     );
     if (saved == true && mounted) await _load();
+  }
+
+  Future<void> _printStatement(ExpenseCategory category) async {
+    final s = context.s;
+    final range = await showDialog<DateTimeRange>(
+      context: context,
+      builder: (_) => _StatementRangeDialog(title: s.printCategoryStatement),
+    );
+    if (range == null || !mounted) return;
+    await PrintService.printExpenseCategoryStatement(
+      context,
+      category.id,
+      from: range.start,
+      to: range.end,
+    );
   }
 
   Future<void> _delete(ExpenseCategory category) async {
@@ -135,6 +152,11 @@ class _ExpenseCategoriesScreenState extends State<ExpenseCategoriesScreen> {
                           icon: const Icon(Icons.edit_outlined),
                           onPressed: () => _openForm(category: category),
                         ),
+                      IconButton(
+                        tooltip: s.printCategoryStatement,
+                        icon: const Icon(Icons.print_outlined),
+                        onPressed: () => _printStatement(category),
+                      ),
                       if (canWrite)
                         IconButton(
                           tooltip: s.delete,
@@ -279,6 +301,58 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
         FilledButton(
           onPressed: _saving ? null : _submit,
           child: Text(_saving ? s.saving : s.save),
+        ),
+      ],
+    );
+  }
+}
+
+/// Asks for a statement period, defaulting to the current month.
+class _StatementRangeDialog extends StatefulWidget {
+  const _StatementRangeDialog({required this.title});
+
+  final String title;
+
+  @override
+  State<_StatementRangeDialog> createState() => _StatementRangeDialogState();
+}
+
+class _StatementRangeDialogState extends State<_StatementRangeDialog> {
+  late DateTime _from = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  late DateTime _to = DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(s.categoryStatementRange),
+          const SizedBox(height: 12),
+          DateRangeButton(
+            from: _from,
+            to: _to,
+            onChanged: (from, to) => setState(() {
+              _from = from ?? _from;
+              _to = to ?? _to;
+            }),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(s.cancel),
+        ),
+        FilledButton.icon(
+          onPressed: () => Navigator.of(context).pop(
+            DateTimeRange(start: _from, end: _to),
+          ),
+          icon: const Icon(Icons.print_outlined),
+          label: Text(s.print),
         ),
       ],
     );

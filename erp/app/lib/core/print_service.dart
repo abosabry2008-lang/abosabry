@@ -413,6 +413,65 @@ class PrintService {
   }) =>
       open(context, expenseReportUrl(token(context), from: from, to: to));
 
+  /// URL of one expense category's statement (`GET /print/reports/expenses/category/:id`).
+  static Uri expenseCategoryStatementUrl(
+    String categoryId,
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      _uri('/print/reports/expenses/category/$categoryId', <String, String?>{
+        'token': token,
+        if (from != null) 'from': Formatters.isoDate(from),
+        if (to != null) 'to': Formatters.isoDate(to),
+      });
+
+  static Future<bool> printExpenseCategoryStatement(
+    BuildContext context,
+    String categoryId, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      open(
+        context,
+        expenseCategoryStatementUrl(
+          categoryId,
+          token(context),
+          from: from,
+          to: to,
+        ),
+      );
+
+  /// URL of the collections-by-cash-box receipt report.
+  static Uri collectionsByBoxUrl(
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+    String? cashBoxId,
+  }) =>
+      _uri('/print/reports/collections-by-box', <String, String?>{
+        'token': token,
+        if (from != null) 'from': Formatters.isoDate(from),
+        if (to != null) 'to': Formatters.isoDate(to),
+        if (cashBoxId != null && cashBoxId.isNotEmpty) 'cashBoxId': cashBoxId,
+      });
+
+  static Future<bool> printCollectionsByBox(
+    BuildContext context, {
+    DateTime? from,
+    DateTime? to,
+    String? cashBoxId,
+  }) =>
+      open(
+        context,
+        collectionsByBoxUrl(
+          token(context),
+          from: from,
+          to: to,
+          cashBoxId: cashBoxId,
+        ),
+      );
+
   static Future<bool> printSalespersonStatement(
     BuildContext context,
     String salespersonId, {

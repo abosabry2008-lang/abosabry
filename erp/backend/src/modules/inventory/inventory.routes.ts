@@ -261,4 +261,29 @@ router.post(
   }),
 );
 
+// DELETE /inventory/stock/:productId
+// Removes a product from inventory entirely: the stock levels are deleted and,
+// when the product record still exists, it is soft-deleted and deactivated too.
+// Works even for rows whose product was already deleted, so leftover stock can
+// always be cleaned up.
+router.delete(
+  '/stock/:productId',
+  requirePermission('inventory.write'),
+  asyncHandler(async (req, res) => {
+    const productId = req.params.productId;
+    const removed = await prisma.$transaction(async (tx) => {
+      const deleted = await tx.stockLevel.deleteMany({ where: { productId } });
+      const product = await tx.product.findUnique({ where: { id: productId } });
+      if (product) {
+        await tx.product.update({
+          where: { id: productId },
+          data: { deletedAt: product.deletedAt ?? new Date(), active: false },
+        });
+      }
+      return deleted.count;
+    });
+    ok(res, { productId, stockLevelsRemoved: removed });
+  }),
+);
+
 export default router;

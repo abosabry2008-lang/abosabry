@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_exception.dart';
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
+import '../../core/print_service.dart';
 import '../../core/session.dart';
 import '../../models/cash_box.dart';
 import '../../models/cash_transfer.dart';
@@ -12,6 +13,7 @@ import '../../state/collections_controller.dart';
 import '../../state/transfers_controller.dart';
 import '../../widgets/async_list_view.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/date_range_button.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/money_text.dart';
@@ -477,6 +479,67 @@ class _CashBoxCard extends StatelessWidget {
   }
 }
 
+/// A chosen period for the collections-by-box print.
+class _BoxPrintRequest {
+  const _BoxPrintRequest({this.from, this.to});
+
+  final DateTime? from;
+  final DateTime? to;
+}
+
+/// Asks for the period to print collection receipts for, defaulting to today.
+class _CollectionsPrintDialog extends StatefulWidget {
+  const _CollectionsPrintDialog({this.boxes});
+
+  final List<CashBox>? boxes;
+
+  @override
+  State<_CollectionsPrintDialog> createState() =>
+      _CollectionsPrintDialogState();
+}
+
+class _CollectionsPrintDialogState extends State<_CollectionsPrintDialog> {
+  late DateTime _from = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  late DateTime _to = DateTime.now();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    return AlertDialog(
+      title: Text(s.printCollectionsByBox),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(s.collectionsByBoxHint),
+          const SizedBox(height: 12),
+          DateRangeButton(
+            from: _from,
+            to: _to,
+            onChanged: (from, to) => setState(() {
+              _from = from ?? _from;
+              _to = to ?? _to;
+            }),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(s.cancel),
+        ),
+        FilledButton.icon(
+          onPressed: () => Navigator.of(context).pop(
+            _BoxPrintRequest(from: _from, to: _to),
+          ),
+          icon: const Icon(Icons.print_outlined),
+          label: Text(s.print),
+        ),
+      ],
+    );
+  }
+}
+
 class _Tag extends StatelessWidget {
   const _Tag({required this.label, required this.color});
 
@@ -628,7 +691,36 @@ class _CollectionsTabState extends State<_CollectionsTab>
               child: const Icon(Icons.add),
             ),
           ),
+        PositionedDirectional(
+          start: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
+            heroTag: 'collection_print_fab',
+            onPressed: _printByBox,
+            icon: const Icon(Icons.print_outlined),
+            label: Text(s.printCollectionsByBox),
+          ),
+        ),
       ],
+    );
+  }
+
+  /// Prints the collection receipts grouped by the cash box for a period.
+  Future<void> _printByBox() async {
+    final s = context.s;
+    final selection = await showDialog<_BoxPrintRequest>(
+      context: context,
+      builder: (_) => _CollectionsPrintDialog(boxes: null),
+    );
+    if (selection == null || !mounted) return;
+    await PrintService.printCollectionsByBox(
+      context,
+      from: selection.from,
+      to: selection.to,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(s.collectionsByBoxHint)),
     );
   }
 }

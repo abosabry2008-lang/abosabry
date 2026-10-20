@@ -1367,6 +1367,16 @@ class AppStrings {
   String get expenseAmount => _t('Amount', 'المبلغ');
   String get expenseDate => _t('Expense date', 'تاريخ المصروف');
   String get expenseReport => _t('Expense report', 'تقرير المصروفات');
+  String get printCategoryStatement =>
+      _t('Print category statement', 'طباعة كشف البند');
+  String get categoryStatementRange =>
+      _t('Statement period', 'فترة الكشف');
+  String get printCollectionsByBox =>
+      _t('Collections by cash box', 'إيصالات التحصيل حسب الخزنة');
+  String get collectionsByBoxHint => _t(
+        'Shows the cash each box received from collections within the chosen period.',
+        'يوضح النقدية الواردة لكل خزنة من التحصيلات خلال الفترة المختارة.',
+      );
   String get expenseReportHint => _t(
         'Expenses grouped by category, month and cash box for the chosen period.',
         'المصروفات مجمّعة حسب التصنيف والشهر والخزنة خلال الفترة المختارة.',

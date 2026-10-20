@@ -28,6 +28,7 @@ import type {
   SalespersonStatement,
 } from '../reports/salespeople.service';
 import type { ShortagesReport } from '../reports/analytics.service';
+import type { CollectionsByBoxReport } from '../reports/collections.service';
 import type { buildExpenseReport } from '../expenses/expenses.service';
 
 type ExpenseReport = Awaited<ReturnType<typeof buildExpenseReport>>;
@@ -1146,6 +1147,117 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
 
   return renderPage({
     title: ar ? 'مديونية عملاء المندوب' : 'Salesperson customer debt',
+    company: settings,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}
+
+/** Collection receipts grouped by the cash box that received the money. */
+export function collectionsByBoxHtml(
+  report: CollectionsByBoxReport,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const sections = report.boxes
+    .map((box) => {
+      const rows = box.vouchers
+        .map(
+          (voucher) => `      <tr>
+        <td>${escapeHtml(formatDate(voucher.collectedAt))}</td>
+        <td>${escapeHtml(voucher.number)}</td>
+        <td>${escapeHtml(voucher.salesperson ?? '—')}</td>
+        <td>${escapeHtml(voucher.lines.map((line) => line.customer ?? '—').join('، '))}</td>
+        <td class="num">${money(voucher.total)}</td>
+      </tr>`,
+        )
+        .join('\n');
+      return `    <h3 class="section-title">${escapeHtml(box.cashBoxCode)} — ${escapeHtml(box.cashBoxName)} (${money(box.total)})</h3>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'التاريخ' : 'Date'}</th>
+          <th>${ar ? 'رقم الإيصال' : 'Receipt'}</th>
+          <th>${ar ? 'المندوب' : 'Salesperson'}</th>
+          <th>${ar ? 'العملاء' : 'Customers'}</th>
+          <th class="num">${ar ? 'المبلغ' : 'Amount'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows}
+        <tr class="total"><td colspan="4">${ar ? 'إجمالي الخزنة' : 'Box total'}</td><td class="num">${money(box.total)}</td></tr>
+      </tbody>
+    </table>`;
+    })
+    .join('\n');
+  const empty = ar ? 'لا توجد تحصيلات في هذه الفترة' : 'No collections in this period';
+
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'عدد الإيصالات' : 'Receipts'}</span><span class="value">${escapeHtml(report.count)}</span></div>
+      <div><span class="label">${ar ? 'الإجمالي' : 'Total'}</span><span class="value">${money(report.total)}</span></div>
+      <div><span class="label">${ar ? 'من' : 'From'}</span><span class="value">${escapeHtml(formatDate(report.from))}</span></div>
+      <div><span class="label">${ar ? 'إلى' : 'To'}</span><span class="value">${escapeHtml(formatDate(report.to))}</span></div>
+    </section>
+${sections || `    <p class="muted center">${empty}</p>`}`;
+
+  return renderPage({
+    title: ar ? 'إيصالات التحصيل حسب الخزنة' : 'Collections by cash box',
+    company: settings,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}
+
+/** A statement of every expense under one category over a period. */
+export function expenseCategoryStatementHtml(
+  report: ExpenseReport,
+  categoryName: string,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const rows = report.expenses
+    .map(
+      (expense) => `      <tr>
+        <td>${escapeHtml(formatDate(expense.spentAt))}</td>
+        <td>${escapeHtml(expense.number)}</td>
+        <td>${escapeHtml(expense.payee ?? '—')}</td>
+        <td>${escapeHtml(expense.cashBox?.name ?? '—')}</td>
+        <td>${escapeHtml(expense.note ?? expense.reference ?? '—')}</td>
+        <td class="num">${money(expense.amount)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const empty = ar ? 'لا توجد مصروفات في هذه الفترة' : 'No expenses in this period';
+
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'البند' : 'Category'}</span><span class="value">${escapeHtml(categoryName)}</span></div>
+      <div><span class="label">${ar ? 'عدد المصروفات' : 'Entries'}</span><span class="value">${escapeHtml(report.count)}</span></div>
+      <div><span class="label">${ar ? 'الإجمالي' : 'Total'}</span><span class="value">${money(report.total)}</span></div>
+      <div><span class="label">${ar ? 'الفترة' : 'Period'}</span><span class="value">${escapeHtml(formatDate(report.from))} → ${escapeHtml(formatDate(report.to))}</span></div>
+    </section>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'التاريخ' : 'Date'}</th>
+          <th>${ar ? 'الرقم' : 'Number'}</th>
+          <th>${ar ? 'المستفيد' : 'Payee'}</th>
+          <th>${ar ? 'الخزنة' : 'Cash box'}</th>
+          <th>${ar ? 'ملاحظات' : 'Notes'}</th>
+          <th class="num">${ar ? 'المبلغ' : 'Amount'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td colspan="5">${ar ? 'الإجمالي' : 'Total'}</td><td class="num">${money(report.total)}</td></tr>
+      </tbody>
+    </table>`;
+
+  return renderPage({
+    title: ar ? `كشف بند: ${categoryName}` : `Expense statement: ${categoryName}`,
     company: settings,
     body,
     dir: ar ? 'rtl' : 'ltr',
