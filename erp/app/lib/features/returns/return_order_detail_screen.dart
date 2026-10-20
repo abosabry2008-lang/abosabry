@@ -12,6 +12,8 @@ import '../../widgets/error_view.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
+import '../shell/navigation.dart';
+import 'return_order_form_screen.dart';
 
 /// Read-only return order with post / cancel actions.
 class ReturnOrderDetailScreen extends StatefulWidget {
@@ -104,6 +106,17 @@ class _ReturnOrderDetailScreenState extends State<ReturnOrderDetailScreen> {
     }
   }
 
+  Future<void> _edit() async {
+    final order = _order;
+    if (order == null) return;
+    final saved = await pushScreen<bool>(
+      context,
+      context.s.editReturnOrder,
+      ReturnOrderFormScreen(order: order),
+    );
+    if (saved == true && mounted) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = context.s;
@@ -120,11 +133,15 @@ class _ReturnOrderDetailScreenState extends State<ReturnOrderDetailScreen> {
       );
     }
 
-    final canManage =
-        context.watch<Session>().canAny(const <String>['sales', 'purchases']);
+    final session = context.watch<Session>();
+    final canManage = session.canAny(const <String>['sales', 'purchases']);
+    final canEdit = session.can('returns.edit');
+    final canCancelPosted = session.can('returns.cancel');
     final theme = Theme.of(context);
     final canPost = order.isDraft;
-    final canCancel = order.isDraft;
+    final canCancel = order.isDraft || (order.isPosted && canCancelPosted);
+    final canEditOrder =
+        order.status != 'CANCELLED' && (order.isDraft || canEdit);
 
     return Scaffold(
       body: RefreshIndicator(
@@ -194,12 +211,18 @@ class _ReturnOrderDetailScreenState extends State<ReturnOrderDetailScreen> {
                 ],
               ),
             ),
-            if (canManage && (canPost || canCancel)) ...<Widget>[
+            if (canManage && (canPost || canCancel || canEditOrder)) ...<Widget>[
               const SizedBox(height: 12),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: <Widget>[
+                  if (canEditOrder)
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _edit,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: Text(s.edit),
+                    ),
                   if (canPost)
                     FilledButton.icon(
                       onPressed: _busy

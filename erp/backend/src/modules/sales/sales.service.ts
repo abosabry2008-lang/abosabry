@@ -135,10 +135,117 @@ export async function confirmSalesOrderTx(tx: Tx, id: string) {
 export interface FulfillInput {
   lines?: { lineId: string; quantity: number }[];
   userId?: string;
+  /**
+   * When true, lines are fulfilled only up to what is physically on hand
+   * instead of failing with `INSUFFICIENT_STOCK`. Used after the operator is
+   * warned that some items are missing (نواقص).
+   */
+  onlyAvailable?: boolean;
+}
+
+/** Available stock of a product across the active locations of a warehouse. */
+async function availableInWarehouse(
+  tx: Tx,
+  warehouseId: string,
+  productId: string,
+): Promise<number> {
+  const locations = await tx.location.findMany({
+    where: { warehouseId, active: true },
+    select: { id: true },
+  });
+  if (locations.length === 0) return 0;
+  const levels = await tx.stockLevel.findMany({
+    where: {
+      productId,
+      locationId: { in: locations.map((location) => location.id) },
+      quantity: { gt: 0 },
+    },
+    select: { quantity: true },
+  });
+  return levels.reduce((sum, level) => sum + level.quantity, 0);
+}
+
+export interface LineAvailability {
+  lineId: string;
+  productId: string;
+  productName: string;
+  sku: string | null;
+  /** Quantity still to be delivered on this line. */
+  requested: number;
+  /** Quantity on hand in the order's warehouse. */
+  available: number;
+  /** How much of the request cannot be met. */
+  shortfall: number;
+}
+
+export interface OrderAvailability {
+  orderId: string;
+  orderNumber: string;
+  warehouseId: string;
+  canFulfillEverything: boolean;
+  lines: LineAvailability[];
+  totals: { requested: number; available: number; shortfall: number };
+}
+
+/**
+ * Compares every open line of an order with the stock on hand, so the UI can
+ * warn before fulfilling that some items are missing.
+ */
+export async function checkSalesOrderAvailability(id: string): Promise<OrderAvailability> {
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.salesOrder.findUnique({
+      where: { id },
+      include: {
+        lines: {
+          include: {
+            product: { select: { id: true, name: true, sku: true } },
+          },
+        },
+      },
+    });
+    if (!order) throw ApiError.notFound('Sales order not found');
+
+    const lines: LineAvailability[] = [];
+    for (const line of order.lines) {
+      const requested = line.quantity - line.fulfilledQty;
+      if (requested <= 0) continue;
+      const available = await availableInWarehouse(tx, order.warehouseId, line.productId);
+      lines.push({
+        lineId: line.id,
+        productId: line.productId,
+        productName: line.product.name,
+        sku: line.product.sku,
+        requested,
+        available,
+        shortfall: Math.max(0, requested - available),
+      });
+    }
+
+    const totals = lines.reduce(
+      (acc, line) => ({
+        requested: acc.requested + line.requested,
+        available: acc.available + line.available,
+        shortfall: acc.shortfall + line.shortfall,
+      }),
+      { requested: 0, available: 0, shortfall: 0 },
+    );
+
+    return {
+      orderId: order.id,
+      orderNumber: order.number,
+      warehouseId: order.warehouseId,
+      canFulfillEverything: totals.shortfall === 0,
+      lines,
+      totals,
+    };
+  });
 }
 
 export async function fulfillSalesOrderTx(tx: Tx, id: string, input: FulfillInput) {
-  const order = await tx.salesOrder.findUnique({ where: { id }, include: { lines: true } });
+  const order = await tx.salesOrder.findUnique({
+    where: { id },
+    include: { lines: { include: { product: { select: { name: true } } } } },
+  });
   if (!order) throw ApiError.notFound('Sales order not found');
   if (order.status === 'CANCELLED') throw ApiError.badRequest('A cancelled order cannot be fulfilled');
   if (order.status === 'FULFILLED') throw ApiError.badRequest('This order has already been fulfilled');
@@ -149,8 +256,16 @@ export async function fulfillSalesOrderTx(tx: Tx, id: string, input: FulfillInpu
       : line.quantity - line.fulfilledQty;
 
     const remaining = line.quantity - line.fulfilledQty;
-    const quantity = Math.min(Math.max(0, requested), remaining);
+    let quantity = Math.min(Math.max(0, requested), remaining);
     if (quantity <= 0) continue;
+
+    // When the operator chose to skip missing items, cap the draw at what is
+    // actually on the shelf instead of failing the whole fulfilment.
+    if (input.onlyAvailable) {
+      const available = await availableInWarehouse(tx, order.warehouseId, line.productId);
+      quantity = Math.min(quantity, available);
+      if (quantity <= 0) continue;
+    }
 
     await drawFromWarehouse(tx, {
       warehouseId: order.warehouseId,

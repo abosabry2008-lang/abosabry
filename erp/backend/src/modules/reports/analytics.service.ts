@@ -600,3 +600,158 @@ export async function buildAgingReport(
 
   return { side, asOf: asOf.toISOString(), rows, totals };
 }
+
+// ---------------------------------------------------------------------------
+// Sales shortages / what needs purchasing (نواقص أوامر البيع)
+// ---------------------------------------------------------------------------
+
+export interface ShortageOrderRef {
+  orderId: string;
+  orderNumber: string;
+  customer: string | null;
+  orderDate: string;
+  /** What this order still needs of the product. */
+  outstanding: number;
+}
+
+export interface ShortageRow {
+  productId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  /** Units on hand across all warehouses (respecting reserved). */
+  onHand: number;
+  /** Units still to be delivered across every open sales order. */
+  required: number;
+  /** Units that must be bought/received to satisfy the open orders. */
+  shortage: number;
+  unitCost: number;
+  /** Rough purchase value (shortage × cost). */
+  purchaseValue: number;
+  /** Orders waiting on this product. */
+  orders: ShortageOrderRef[];
+}
+
+export interface ShortagesReport {
+  generatedAt: string;
+  rows: ShortageRow[];
+  totals: {
+    products: number;
+    required: number;
+    onHand: number;
+    shortage: number;
+    purchaseValue: number;
+  };
+}
+
+/**
+ * Lists the products that open sales orders still need but that are not (fully)
+ * on hand, so the shop knows exactly what to purchase to keep going.
+ *
+ * "Open" orders are any that are not cancelled and not fully fulfilled. For
+ * each line we look at what is still to be delivered (`quantity - fulfilledQty`)
+ * and compare it against the physical stock on hand.
+ */
+export async function buildShortagesReport(warehouseId?: string): Promise<ShortagesReport> {
+  const lines = await prisma.salesOrderLine.findMany({
+    where: {
+      salesOrder: {
+        status: { in: ['DRAFT', 'CONFIRMED', 'PARTIALLY_FULFILLED'] },
+        ...(warehouseId ? { warehouseId } : {}),
+      },
+    },
+    select: {
+      productId: true,
+      quantity: true,
+      fulfilledQty: true,
+      salesOrder: {
+        select: {
+          id: true,
+          number: true,
+          orderDate: true,
+          customer: { select: { name: true } },
+        },
+      },
+      product: {
+        select: {
+          sku: true,
+          name: true,
+          unit: true,
+          costPrice: true,
+          deletedAt: true,
+        },
+      },
+    },
+  });
+
+  const levels = await prisma.stockLevel.findMany({
+    where: warehouseId ? { warehouseId } : {},
+    select: { productId: true, quantity: true, reserved: true },
+  });
+  const onHandById = new Map<string, number>();
+  for (const level of levels) {
+    const available = level.quantity - level.reserved;
+    onHandById.set(level.productId, round2((onHandById.get(level.productId) ?? 0) + available));
+  }
+
+  const map = new Map<string, ShortageRow>();
+  for (const line of lines) {
+    const outstanding = line.quantity - line.fulfilledQty;
+    if (outstanding <= 0) continue;
+
+    const row =
+      map.get(line.productId) ??
+      ({
+        productId: line.productId,
+        sku: line.product.sku,
+        name: line.product.name,
+        unit: line.product.unit,
+        onHand: onHandById.get(line.productId) ?? 0,
+        required: 0,
+        shortage: 0,
+        unitCost: Number(line.product.costPrice),
+        purchaseValue: 0,
+        orders: [],
+      } satisfies ShortageRow);
+
+    row.required = round2(row.required + outstanding);
+    row.orders.push({
+      orderId: line.salesOrder.id,
+      orderNumber: line.salesOrder.number,
+      customer: line.salesOrder.customer?.name ?? null,
+      orderDate: line.salesOrder.orderDate.toISOString(),
+      outstanding,
+    });
+    map.set(line.productId, row);
+  }
+
+  const rows = [...map.values()];
+  for (const row of rows) {
+    row.shortage = round2(Math.max(0, row.required - row.onHand));
+    row.purchaseValue = round2(row.shortage * row.unitCost);
+    row.orders.sort((a, b) => a.orderDate.localeCompare(b.orderDate));
+  }
+
+  // Only surface products that are actually short; fully-covered products are
+  // still returned with `shortage: 0` only when nothing at all is missing.
+  const shortRows = rows
+    .filter((row) => row.shortage > 0)
+    .sort((a, b) => b.purchaseValue - a.purchaseValue || a.name.localeCompare(b.name));
+
+  const totals = shortRows.reduce(
+    (acc, row) => ({
+      products: acc.products + 1,
+      required: round2(acc.required + row.required),
+      onHand: round2(acc.onHand + row.onHand),
+      shortage: round2(acc.shortage + row.shortage),
+      purchaseValue: round2(acc.purchaseValue + row.purchaseValue),
+    }),
+    { products: 0, required: 0, onHand: 0, shortage: 0, purchaseValue: 0 },
+  );
+
+  return {
+    generatedAt: new Date().toISOString(),
+    rows: shortRows,
+    totals,
+  };
+}

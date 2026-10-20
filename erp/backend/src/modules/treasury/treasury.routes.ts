@@ -185,11 +185,28 @@ router.get(
   '/transfers',
   requirePermission('treasury.read'),
   asyncHandler(async (req, res) => {
-    const transfers = await listTransfers({
-      boxId: asString(req.query.boxId),
-      from: asDate(req.query.from),
-      to: asDate(req.query.to),
-    });
+    const query = req.query as Record<string, unknown>;
+    const boxId = asString(query.boxId);
+    const from = asDate(query.from);
+    const to = asDate(query.to);
+
+    // Paged mode: used by the treasury "التحويلات" tab for lazy loading.
+    if (asBool(query.paged) === true) {
+      const paging = getPaging(query, 25);
+      const result = await listTransfers({
+        boxId,
+        from,
+        to,
+        limit: paging.take,
+        skip: paging.skip,
+        includeCancelled: asBool(query.includeCancelled) === true,
+        paged: true,
+      });
+      paginated(res, result.items.map(serializeTransfer), result.total, paging);
+      return;
+    }
+
+    const transfers = await listTransfers({ boxId, from, to });
     ok(res, transfers.map(serializeTransfer));
   }),
 );

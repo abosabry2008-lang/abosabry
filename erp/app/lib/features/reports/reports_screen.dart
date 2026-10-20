@@ -25,6 +25,8 @@ import 'item_movement_screen.dart';
 import 'operations_reports_screen.dart';
 import 'report_widgets.dart';
 import 'salespeople_reports_screen.dart';
+import 'shortages_report_screen.dart';
+import 'salesperson_customer_debt_screen.dart';
 import 'statement_hub_screen.dart';
 
 /// Every report, organised as a branch tree: pick a category, then a report.
@@ -72,6 +74,12 @@ class ReportsScreen extends StatelessWidget {
                     onOpen: (controller) => controller.loadReceivables(),
                     builder: (_) => const _ReceivablesTab(),
                   ),
+                  _ReportLeaf(
+                    icon: Icons.production_quantity_limits_outlined,
+                    title: s.shortages,
+                    onOpen: (controller) => controller.loadShortagesReport(),
+                    builder: (_) => const ShortagesReportScreen(),
+                  ),
                 ],
               ),
               // --- Salespeople (تقارير المناديب) --------------------------
@@ -104,6 +112,11 @@ class ReportsScreen extends StatelessWidget {
                     icon: Icons.account_balance_wallet_outlined,
                     title: s.salespersonStatement,
                     builder: (_) => const SalespersonStatementScreen(),
+                  ),
+                  _ReportLeaf(
+                    icon: Icons.table_chart_outlined,
+                    title: s.salespersonCustomerDebt,
+                    builder: (_) => const SalespersonCustomerDebtScreen(),
                   ),
                 ],
               ),

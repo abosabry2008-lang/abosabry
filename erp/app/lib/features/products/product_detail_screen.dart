@@ -55,6 +55,34 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
+  Future<void> _toggleActive() async {
+    final product = _product;
+    if (product == null) return;
+    final s = context.s;
+    final controller = context.read<ProductsController>();
+    try {
+      await controller.api.patch(
+        '/products/${product.id}',
+        body: <String, dynamic>{'active': !product.active},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            product.active
+                ? s.productDeactivated(product.name)
+                : s.productActivated(product.name),
+          ),
+        ),
+      );
+      await _load();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
   Future<void> _delete() async {
     final product = _product;
     if (product == null) return;
@@ -185,6 +213,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _toggleActive,
+              icon: Icon(
+                product.active
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+              ),
+              label: Text(
+                product.active ? s.deactivateProduct : s.activateProduct,
+              ),
             ),
           ],
         ],

@@ -213,6 +213,9 @@ class AppStrings {
   String get qty => _t('Qty', 'الكمية');
   String get lineTotal => _t('Line total', 'إجمالي السطر');
   String get addLine => _t('Add line', 'إضافة سطر');
+  String get noLinesYet =>
+      _t('No items yet — add the first one above.', 'لا توجد أصناف بعد — أضف أول صنف بالأعلى.');
+  String get item => _t('Item', 'صنف');
   String get change => _t('Change', 'الباقي');
   String get processing => _t('Processing…', 'جارٍ المعالجة…');
   String get completeSale => _t('Complete sale', 'إتمام البيع');
@@ -279,6 +282,12 @@ class AppStrings {
   String productWillBeRemoved(String name) =>
       _t('“$name” will be removed from the catalogue.', 'سيتم حذف «$name» من الكتالوج.');
   String productDeleted(String name) => _t('$name deleted.', 'تم حذف $name.');
+  String get activateProduct => _t('Activate', 'تنشيط');
+  String get deactivateProduct => _t('Deactivate product', 'إلغاء تنشيط المنتج');
+  String productDeactivated(String name) =>
+      _t('$name deactivated.', 'تم إلغاء تنشيط $name.');
+  String productActivated(String name) =>
+      _t('$name activated.', 'تم تنشيط $name.');
   String skuLabel(String sku) => _t('SKU $sku', 'الرمز $sku');
   String get taxRate => _t('Tax rate', 'نسبة الضريبة');
   String get onHand => _t('On hand', 'المتوفر');
@@ -673,6 +682,12 @@ class AppStrings {
   String get totalIn => _t('Total in', 'إجمالي الوارد');
   String get totalOut => _t('Total out', 'إجمالي الصادر');
   String get newTransfer => _t('Transfer between boxes', 'تحويل بين الخزائن');
+  String get transfersTitle => _t('Transfers', 'التحويلات');
+  String get noTransfers => _t('No transfers yet', 'لا توجد تحويلات بعد');
+  String get transfersHint => _t(
+        'Movements between cash boxes appear here.',
+        'تظهر هنا الحركات بين الخزائن.',
+      );
   String get editTransfer => _t('Edit transfer', 'تعديل التحويل');
   String get fromBox => _t('From box', 'من خزنة');
   String get toBox => _t('To box', 'إلى خزنة');
@@ -681,6 +696,7 @@ class AppStrings {
   String get transferUpdated => _t('Transfer updated.', 'تم تحديث التحويل.');
   String get transferCancelled => _t('Transfer cancelled.', 'تم إلغاء التحويل.');
   String get cancelTransferQ => _t('Cancel this transfer?', 'إلغاء هذا التحويل؟');
+  String get cancelTransfer => _t('Cancel transfer', 'إلغاء التحويل');
   String get sameBox => _t('Choose two different boxes', 'اختر خزنتين مختلفتين');
   String get insufficientFunds => _t(
         'The selected cash box does not have enough funds.',
@@ -694,8 +710,7 @@ class AppStrings {
   String get box => _t('Box', 'الخزنة');
   String get paymentIn => _t('Receipt', 'وارد');
   String get paymentOut => _t('Payment', 'صادر');
-  String get transferIn => _t('Transfer in', 'تحويل وارد');
-  String get transferOut => _t('Transfer out', 'تحويل صادر');
+  String get transferIn => _t('Transfer in', 'تحويل وارد');  String get transferOut => _t('Transfer out', 'تحويل صادر');
   String get collections => _t('Collections', 'إيصالات التحصيل');
   String get none => _t('None', 'بدون');
   String get noSalesperson => _t('No salesperson', 'بدون مندوب');
@@ -1092,6 +1107,8 @@ class AppStrings {
   String get supplierReturns => _t('Supplier returns', 'مرتجعات الموردين');
   String get returnOrder => _t('Return order', 'أمر مرتجع');
   String get returnOrderCreated => _t('Return order created.', 'تم إنشاء أمر المرتجع.');
+  String get returnOrderUpdated => _t('Return order updated.', 'تم تحديث أمر المرتجع.');
+  String get editReturnOrder => _t('Edit return order', 'تعديل أمر المرتجع');
   String get returnPosted => _t('Return posted. Stock and balances updated.', 'تم ترحيل المرتجع. تم تحديث المخزون والأرصدة.');
   String get returnCancelled => _t('Return order cancelled.', 'تم إلغاء أمر المرتجع.');
   String get postReturn => _t('Post return', 'ترحيل المرتجع');
@@ -1317,6 +1334,95 @@ class AppStrings {
   String get ledgerAccount => _t('Account', 'الحساب');
   String get accountOptional => _t('Ledger account (optional)', 'حساب الدفتر (اختياري)');
   String get expenseCount => _t('Expenses', 'عدد المصروفات');
+
+  // ---------------------------------------------------------------------------
+  // Opening balances (مديونية سابقة / قيد رأس المال)
+  // ---------------------------------------------------------------------------
+  String get openingBalances => _t('Opening balances', 'الأرصدة الافتتاحية');
+  String get openingBalancesTitle => _t('Opening balances', 'الأرصدة الافتتاحية');
+  String get openingBalancesHint => _t(
+        'Enter what customers owe you, what you owe suppliers and the value of '
+            'stock on hand before you started using the system. One capital '
+            'entry is posted for everything.',
+        'سجّل ما لك على العملاء وما عليك للموردين وقيمة المخزون قبل بدء '
+            'استخدام النظام. يُرحَّل قيد رأس مال واحد لكل ذلك.',
+      );
+  String get newOpeningBalance => _t('New opening balance', 'أرصدة افتتاحية جديدة');
+  String get noOpeningBalances =>
+      _t('No opening balances recorded', 'لا توجد أرصدة افتتاحية مسجلة');
+  String get asOfDate => _t('As of date', 'تاريخ الاستحقاق');
+  String get openingCustomers => _t('Customer debts', 'مديونية العملاء');
+  String get openingCustomersHint => _t(
+        'Amount each customer already owes you.',
+        'المبلغ المستحق على كل عميل.',
+      );
+  String get openingSuppliers => _t('Supplier debts', 'مديونية الموردين');
+  String get openingSuppliersHint => _t(
+        'Amount you already owe each supplier.',
+        'المبلغ المستحق لكل مورد عليك.',
+      );
+  String get openingInventory => _t('Opening stock', 'المخزون الافتتاحي');
+  String get openingInventoryHint => _t(
+        'Quantity and cost of each product you already have on hand.',
+        'الكمية والتكلفة لكل منتج موجود لديك بالفعل.',
+      );
+  String get addOpeningLine => _t('Add line', 'إضافة سطر');
+  String get openingCapital => _t('Opening capital', 'رأس المال الافتتاحي');
+  String get openingSaved => _t('Opening balances posted', 'تم ترحيل الأرصدة الافتتاحية');
+  String get openingCancelled => _t('Opening balances cancelled', 'تم إلغاء الأرصدة الافتتاحية');
+  String get cancelOpeningBalanceQ =>
+      _t('Cancel these opening balances?', 'إلغاء هذه الأرصدة الافتتاحية؟');
+  String get cancelOpeningBalanceHint => _t(
+        'The capital entry will be reversed and partner balances and stock reset.',
+        'سيتم عكس قيد رأس المال وإرجاع أرصدة العملاء والموردين والمخزون.',
+      );
+  String get emptyOpeningBalance => _t(
+        'Add at least one line before saving.',
+        'أضف بندًا واحدًا على الأقل قبل الحفظ.',
+      );
+  String openingBalanceSaved(String number) =>
+      _t('$number posted.', 'تم ترحيل $number.');
+  String get openingBalanceTotals => _t('Totals', 'الإجماليات');
+  String get needProduct => _t('Pick a product', 'اختر منتجًا');
+  String get needWarehouse => _t('Pick a warehouse', 'اختر مستودعًا');
+  String get needPartner => _t('Pick a partner', 'اختر عميلًا أو موردًا');
+
+  // ---------------------------------------------------------------------------
+  // Sales shortages (نواقص أوامر البيع)
+  // ---------------------------------------------------------------------------
+  String get shortages => _t('Sales shortages', 'نواقص أوامر البيع');
+  String get shortagesHint => _t(
+        'Products that open sales orders still need but are not on hand — buy '
+            'these to keep the orders moving.',
+        'أصناف تحتاجها أوامر بيع مفتوحة وليست موجودة بالمخزون — اشترِها '
+            'لمتابعة تنفيذ الأوامر.',
+      );
+  String get noShortages =>
+      _t('Nothing is short — every open order is covered by stock.', 'لا توجد نواقص — كل الأوامر المفتوحة مغطاة بالمخزون.');
+  String get requiredQty => _t('Required', 'المطلوب');
+  String get onHandQty => _t('On hand', 'المتوفر');
+  String get shortageQty => _t('Shortage', 'الناقص');
+  String get purchaseValue => _t('Purchase value', 'قيمة الشراء');
+  String get waitingOrders => _t('Waiting orders', 'أوامر في الانتظار');
+  String get shortageProducts => _t('Short products', 'أصناف ناقصة');
+  String get salespersonCustomerDebt =>
+      _t('Salesperson customer debt', 'مديونية عملاء المندوب');
+  String get previousBalance => _t('Previous', 'حساب سابق');
+  String get shortageWarningTitle =>
+      _t('Some items are out of stock', 'بعض الأصناف غير موجودة');
+  String get shortageWarningMessage => _t(
+        'A few items are not on hand. You can deliver only what is available '
+            'and keep the rest pending, or cancel and buy them first.',
+        'بعض الأصناف غير متوفرة بالمخزون. يمكنك تسليم المتاح فقط وترك الباقي '
+            'قيد الانتظار، أو الإلغاء وشراؤها أولاً.',
+      );
+  String get fulfilAvailableOnly =>
+      _t('Deliver available only', 'تسليم المتاح فقط');
+  String get fulfilOnlyAvailableDone => _t(
+        'Delivered what was on hand; the rest stays pending.',
+        'تم تسليم المتاح، والباقي قيد الانتظار.',
+      );
+  String get shortageDetails => _t('Missing items', 'الأصناف الناقصة');
 }
 
 /// [LocalizationsDelegate] for [AppStrings] supporting English and Arabic.

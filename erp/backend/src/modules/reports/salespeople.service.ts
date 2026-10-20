@@ -646,3 +646,169 @@ export async function buildSalespersonStatement(
     byProduct: ownRow?.lines ?? [],
   };
 }
+
+// ---------------------------------------------------------------------------
+// Salesperson customer debt table (مديونية مناديب العملاء)
+// ---------------------------------------------------------------------------
+
+export interface SalespersonCustomerRow {
+  customerId: string;
+  customer: string;
+  phone: string | null;
+  /** Balance carried in before the period start (opening). */
+  previous: number;
+  /** Invoices issued during the period. */
+  debit: number;
+  /** Collections received during the period. */
+  credit: number;
+  /** previous + debit − credit. */
+  balance: number;
+}
+
+export interface SalespersonCustomerDebt {
+  salesperson: { id: string; name: string };
+  from: string;
+  to: string;
+  rows: SalespersonCustomerRow[];
+  totals: {
+    previous: number;
+    debit: number;
+    credit: number;
+    balance: number;
+  };
+}
+
+/**
+ * One row per customer handled by a salesperson, in the classic ledger shape:
+ * `# | customer | previous | debit | credit | balance`.
+ *
+ * Sales come from issued invoices, collections from non-cancelled vouchers,
+ * and the "previous" column is whatever balance existed before the period.
+ */
+export async function buildSalespersonCustomerDebt(
+  salespersonId: string,
+  fromInput?: Date,
+  toInput?: Date,
+): Promise<SalespersonCustomerDebt> {
+  const now = new Date();
+  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const to = toInput ?? now;
+  const fromKey = dayKey(from);
+  const toKey = dayKey(to);
+
+  const salesperson = await prisma.user.findUnique({
+    where: { id: salespersonId },
+    select: { id: true, name: true },
+  });
+  if (!salesperson) throw new Error('SALESPERSON_NOT_FOUND');
+
+  const [invoices, voucherLines] = await Promise.all([
+    prisma.invoice.findMany({
+      where: {
+        status: { notIn: ['DRAFT', 'VOID'] },
+        issueDate: { lte: to },
+        OR: [
+          { customer: { salespersonId } },
+          { customer: { salespersonId: null }, salesOrder: { userId: salespersonId } },
+        ],
+      },
+      select: {
+        issueDate: true,
+        total: true,
+        amountPaid: true,
+        customer: { select: { id: true, name: true, phone: true } },
+      },
+    }),
+    prisma.collectionLine.findMany({
+      where: {
+        collection: { salespersonId, cancelledAt: null, collectedAt: { lte: to } },
+      },
+      select: {
+        amount: true,
+        customer: { select: { id: true, name: true, phone: true } },
+        collection: { select: { collectedAt: true } },
+      },
+    }),
+  ]);
+
+  interface Bucket {
+    customerId: string;
+    customer: string;
+    phone: string | null;
+    previous: number;
+    debit: number;
+    credit: number;
+  }
+  const map = new Map<string, Bucket>();
+  const bucketFor = (
+    id: string | null,
+    name: string | null,
+    phone: string | null,
+  ): Bucket => {
+    const key = id ?? 'walk-in';
+    const existing = map.get(key);
+    if (existing) return existing;
+    const created: Bucket = {
+      customerId: key,
+      customer: name ?? 'Walk-in',
+      phone,
+      previous: 0,
+      debit: 0,
+      credit: 0,
+    };
+    map.set(key, created);
+    return created;
+  };
+
+  for (const invoice of invoices) {
+    const bucket = bucketFor(
+      invoice.customer?.id ?? null,
+      invoice.customer?.name ?? null,
+      invoice.customer?.phone ?? null,
+    );
+    const key = dayKey(invoice.issueDate);
+    const amount = Number(invoice.total);
+    // Anything issued before the period (and unpaid) rolls into "previous".
+    const settled = Number(invoice.amountPaid);
+    if (key < fromKey) {
+      bucket.previous = round2(bucket.previous + (amount - settled));
+    } else {
+      bucket.debit = round2(bucket.debit + amount);
+    }
+  }
+
+  for (const line of voucherLines) {
+    const bucket = bucketFor(
+      line.customer?.id ?? null,
+      line.customer?.name ?? null,
+      line.customer?.phone ?? null,
+    );
+    const key = dayKey(line.collection.collectedAt);
+    const amount = Number(line.amount);
+    if (key < fromKey) {
+      bucket.previous = round2(bucket.previous - amount);
+    } else {
+      bucket.credit = round2(bucket.credit + amount);
+    }
+  }
+
+  const rows: SalespersonCustomerRow[] = [...map.values()]
+    .map((bucket) => ({
+      ...bucket,
+      balance: round2(bucket.previous + bucket.debit - bucket.credit),
+    }))
+    .filter((row) => row.previous !== 0 || row.debit !== 0 || row.credit !== 0)
+    .sort((a, b) => b.balance - a.balance || a.customer.localeCompare(b.customer));
+
+  const totals = rows.reduce(
+    (acc, row) => ({
+      previous: round2(acc.previous + row.previous),
+      debit: round2(acc.debit + row.debit),
+      credit: round2(acc.credit + row.credit),
+      balance: round2(acc.balance + row.balance),
+    }),
+    { previous: 0, debit: 0, credit: 0, balance: 0 },
+  );
+
+  return { salesperson, from: fromKey, to: toKey, rows, totals };
+}

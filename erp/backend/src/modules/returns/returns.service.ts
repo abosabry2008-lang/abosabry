@@ -4,7 +4,7 @@ import { documentTotals, round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { nextNumber } from '../../lib/sequence';
 import { getSettings } from '../../lib/settings';
-import { ACCOUNT, postJournal } from '../accounting/accounting.service';
+import { ACCOUNT, postJournal, reverseJournalBySource } from '../accounting/accounting.service';
 import { applyMovement, drawFromWarehouse, resolveLocation } from '../inventory/inventory.service';
 
 export const returnOrderInclude = {
@@ -101,15 +101,36 @@ export async function createReturnOrder(input: CreateReturnOrderInput) {
   return prisma.$transaction((tx) => createReturnOrderTx(tx, input));
 }
 
-export async function updateReturnOrderTx(tx: Tx, id: string, input: Partial<CreateReturnOrderInput>) {
-  const existing = await tx.returnOrder.findUnique({ where: { id } });
+export interface UpdateReturnOrderOptions {
+  /** Admins may edit a return order that has already been posted. */
+  allowPosted?: boolean;
+}
+
+export async function updateReturnOrderTx(
+  tx: Tx,
+  id: string,
+  input: Partial<CreateReturnOrderInput>,
+  options: UpdateReturnOrderOptions = {},
+) {
+  const existing = await tx.returnOrder.findUnique({ where: { id }, include: returnOrderInclude });
   if (!existing) throw ApiError.notFound('Return order not found');
-  if (existing.status !== 'DRAFT') {
+  if (existing.status === 'CANCELLED') {
+    throw ApiError.badRequest('A cancelled return order cannot be edited', 'NOT_EDITABLE');
+  }
+
+  // Only admins (via `allowPosted`) may edit an already-posted return order.
+  const editable =
+    existing.status === 'DRAFT' ||
+    (existing.status === 'POSTED' && options.allowPosted === true);
+  if (!editable) {
     throw ApiError.badRequest('Only draft return orders can be edited', 'NOT_EDITABLE');
   }
 
   const data: Prisma.ReturnOrderUpdateInput = {};
   if (input.notes !== undefined) data.notes = input.notes;
+
+  let newTotals: { subtotal: number; taxTotal: number; total: number } | null = null;
+  let newLines: Array<any> | null = null;
 
   if (input.lines && input.lines.length > 0) {
     const settings = await getSettings(tx);
@@ -119,7 +140,7 @@ export async function updateReturnOrderTx(tx: Tx, id: string, input: Partial<Cre
     });
     const byId = new Map(products.map((product) => [product.id, product]));
 
-    const lines = input.lines.map((line) => {
+    newLines = input.lines.map((line) => {
       const product = byId.get(line.productId);
       if (!product) throw ApiError.badRequest(`Product ${line.productId} not found`, 'PRODUCT_NOT_FOUND');
       return {
@@ -133,26 +154,87 @@ export async function updateReturnOrderTx(tx: Tx, id: string, input: Partial<Cre
       };
     });
 
-    const totals = documentTotals(
-      lines.map((line) => ({
+    newTotals = documentTotals(
+      newLines.map((line) => ({
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         taxRate: line.taxRate,
       })),
     );
-
-    await tx.returnOrderLine.deleteMany({ where: { returnOrderId: id } });
-    data.subtotal = totals.subtotal;
-    data.taxTotal = totals.taxTotal;
-    data.total = totals.total;
-    data.lines = { create: lines };
   }
 
-  return tx.returnOrder.update({ where: { id }, data, include: returnOrderInclude });
+  // If posted, reverse effects first (stock, partner balance, journal)
+  if (existing.status === 'POSTED') {
+    const location = await resolveLocation(tx, existing.warehouseId);
+    for (const line of existing.lines) {
+      const quantity = Math.max(0, line.quantity);
+      if (quantity <= 0) continue;
+      const unitCost = Number(line.unitCost);
+      if (existing.type === 'CUSTOMER_RETURN') {
+        await drawFromWarehouse(tx, {
+          warehouseId: existing.warehouseId,
+          productId: line.productId,
+          quantity,
+          type: 'SALE_RETURN',
+          unitCost,
+          reference: existing.number,
+          note: `Customer return ${existing.number} edited`,
+        });
+      } else {
+        await applyMovement(tx, {
+          type: 'PURCHASE_RETURN',
+          productId: line.productId,
+          locationId: location.id,
+          quantity,
+          unitCost,
+          reference: existing.number,
+          note: `Supplier return ${existing.number} edited`,
+        });
+      }
+    }
+    const value = round2(Number(existing.total));
+    if (existing.type === 'CUSTOMER_RETURN') {
+      if (existing.customerId) {
+        await tx.customer.update({ where: { id: existing.customerId }, data: { balance: { increment: value } } });
+      }
+    } else {
+      if (existing.supplierId) {
+        await tx.supplier.update({ where: { id: existing.supplierId }, data: { balance: { increment: value } } });
+      }
+    }
+    await reverseJournalBySource(tx, {
+      sourceType: 'RETURN_ORDER',
+      sourceId: existing.id,
+      reversalSourceType: 'RETURN_ORDER_EDIT',
+      memo: `Return order ${existing.number} edited`,
+      reference: existing.number,
+    });
+  }
+
+  if (newTotals && newLines) {
+    await tx.returnOrderLine.deleteMany({ where: { returnOrderId: id } });
+    data.subtotal = newTotals.subtotal;
+    data.taxTotal = newTotals.taxTotal;
+    data.total = newTotals.total;
+    data.lines = { create: newLines };
+  }
+
+  const updated = await tx.returnOrder.update({ where: { id }, data, include: returnOrderInclude });
+
+  // If it was posted, re-post with new data
+  if (existing.status === 'POSTED') {
+    return postReturnOrderTx(tx, updated.id, undefined);
+  }
+
+  return updated;
 }
 
-export async function updateReturnOrder(id: string, input: Partial<CreateReturnOrderInput>) {
-  return prisma.$transaction((tx) => updateReturnOrderTx(tx, id, input));
+export async function updateReturnOrder(
+  id: string,
+  input: Partial<CreateReturnOrderInput>,
+  options: UpdateReturnOrderOptions = {},
+) {
+  return prisma.$transaction((tx) => updateReturnOrderTx(tx, id, input, options));
 }
 
 /**
@@ -256,18 +338,86 @@ export async function postReturnOrder(id: string, userId?: string) {
   return prisma.$transaction((tx) => postReturnOrderTx(tx, id, userId));
 }
 
-export async function cancelReturnOrder(id: string) {
+export interface CancelReturnOrderOptions {
+  /** Admins may cancel a return order that has already been posted. */
+  allowPosted?: boolean;
+}
+
+export async function cancelReturnOrder(id: string, options: CancelReturnOrderOptions = {}) {
   return prisma.$transaction(async (tx) => {
-    const order = await tx.returnOrder.findUnique({ where: { id } });
+    const order = await tx.returnOrder.findUnique({ where: { id }, include: { lines: true } });
     if (!order) throw ApiError.notFound('Return order not found');
-    if (order.status === 'POSTED') {
+    if (order.status === 'CANCELLED') throw ApiError.badRequest('This return order is already cancelled');
+    if (order.status === 'POSTED' && options.allowPosted !== true) {
       throw ApiError.badRequest('A posted return order cannot be cancelled', 'NOT_CANCELLABLE');
     }
-    if (order.status === 'CANCELLED') throw ApiError.badRequest('This return order is already cancelled');
-    return tx.returnOrder.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
-      include: returnOrderInclude,
+
+  // If posted, reverse all effects: stock, partner balance, journal.
+  if (order.status === 'POSTED') {
+    const location = await resolveLocation(tx, order.warehouseId);
+
+    for (const line of order.lines) {
+      const quantity = Math.max(0, line.quantity);
+      if (quantity <= 0) continue;
+      const unitCost = Number(line.unitCost);
+
+      if (order.type === 'CUSTOMER_RETURN') {
+        // Customer return added stock; reverse by removing it.
+        await drawFromWarehouse(tx, {
+          warehouseId: order.warehouseId,
+          productId: line.productId,
+          quantity,
+          type: 'SALE_RETURN',
+          unitCost,
+          reference: order.number,
+          note: `Customer return ${order.number} cancelled`,
+        });
+      } else {
+        // Supplier return removed stock; reverse by adding it back.
+        await applyMovement(tx, {
+          type: 'PURCHASE_RETURN',
+          productId: line.productId,
+          locationId: location.id,
+          quantity,
+          unitCost,
+          reference: order.number,
+          note: `Supplier return ${order.number} cancelled`,
+        });
+      }
+    }
+
+    const value = round2(Number(order.total));
+
+    if (order.type === 'CUSTOMER_RETURN') {
+      if (order.customerId) {
+        await tx.customer.update({
+          where: { id: order.customerId },
+          data: { balance: { increment: value } },
+        });
+      }
+    } else {
+      if (order.supplierId) {
+        await tx.supplier.update({
+          where: { id: order.supplierId },
+          data: { balance: { increment: value } },
+        });
+      }
+    }
+
+    await reverseJournalBySource(tx, {
+      sourceType: 'RETURN_ORDER',
+      sourceId: order.id,
+      reversalSourceType: 'RETURN_ORDER_CANCEL',
+      memo: `Return order ${order.number} cancelled`,
+      reference: order.number,
     });
+  }
+
+  return tx.returnOrder.update({
+    where: { id },
+    data: { status: 'CANCELLED' },
+    include: returnOrderInclude,
+  });
   });
 }
+

@@ -12,6 +12,7 @@ import '../dashboard/dashboard_screen.dart';
 import '../inventory/inventory_screen.dart';
 import '../inventory/movements_screen.dart';
 import '../invoices/invoices_screen.dart';
+import '../opening_balances/opening_balances_screen.dart';
 import '../treasury/treasury_screen.dart';
 import '../products/products_screen.dart';
 import '../purchasing/purchase_orders_screen.dart';
@@ -148,6 +149,12 @@ final List<_Destination> _destinations = <_Destination>[
     permission: 'accounting',
     builder: _journal,
   ),
+  _Destination(
+    label: (s) => s.openingBalances,
+    icon: Icons.account_balance_wallet_outlined,
+    permission: 'openingBalances',
+    builder: _openingBalances,
+  ),
   // الإعدادات انتقلت إلى شريط الأعلى بجانب زر تغيير اللغة،
   // والمستخدمون أصبحوا تبويبًا داخل الإعدادات (للمسؤول فقط).
 ];
@@ -169,6 +176,7 @@ Widget _treasury() => const TreasuryScreen();
 Widget _reports() => const ReportsScreen();
 Widget _accounts() => const AccountsScreen();
 Widget _journal() => const JournalScreen();
+Widget _openingBalances() => const OpeningBalancesScreen();
 // Widget _settings() => const SettingsScreen(); // الإعدادات في شريط الأعلى الآن
 
 /// Responsive application shell: a [NavigationRail] on wide layouts and a

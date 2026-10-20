@@ -22,6 +22,7 @@ import {
   buildAgingReport,
   buildItemMovement,
   buildReceivablesBySalesperson,
+  buildShortagesReport,
   buildStockBalance,
   buildSupplierPayables,
 } from './analytics.service';
@@ -29,6 +30,7 @@ import {
   buildCollectionsBySalesperson,
   buildConsolidatedSalesNote,
   buildProfitBySalesperson,
+  buildSalespersonCustomerDebt,
   buildSalespersonStatement,
 } from './salespeople.service';
 
@@ -369,6 +371,24 @@ router.get(
   }),
 );
 
+// GET /reports/salespeople/:id/customers — per-customer debt ledger
+router.get(
+  '/salespeople/:id/customers',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    try {
+      ok(res, await buildSalespersonCustomerDebt(req.params.id, from, to));
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SALESPERSON_NOT_FOUND') {
+        throw ApiError.notFound('Salesperson not found', 'SALESPERSON_NOT_FOUND');
+      }
+      throw error;
+    }
+  }),
+);
+
 // GET /reports/stock-balance
 router.get(
   '/stock-balance',
@@ -458,6 +478,16 @@ router.get(
     const side = asString(req.query.side) === 'payable' ? 'payable' : 'receivable';
     const asOf = asDate(req.query.asOf);
     ok(res, await buildAgingReport(side, asOf));
+  }),
+);
+
+// GET /reports/shortages — what open sales orders still need buying
+router.get(
+  '/shortages',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const warehouseId = asString(req.query.warehouseId);
+    ok(res, await buildShortagesReport(warehouseId));
   }),
 );
 

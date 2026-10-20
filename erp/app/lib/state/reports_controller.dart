@@ -125,6 +125,11 @@ class ReportsController extends ChangeNotifier {
   bool loadingLowStock = false;
   String? lowStockError;
 
+  List<Map<String, dynamic>> shortages = <Map<String, dynamic>>[];
+  Map<String, dynamic> shortagesTotals = <String, dynamic>{};
+  bool loadingShortages = false;
+  String? shortagesError;
+
   List<CashBox> boxes = <CashBox>[];
   bool loadingBoxes = false;
   String? boxesError;
@@ -160,6 +165,10 @@ class ReportsController extends ChangeNotifier {
   Map<String, dynamic> salespersonStatement = <String, dynamic>{};
   bool loadingSalespersonStatement = false;
   String? salespersonStatementError;
+
+  Map<String, dynamic> salespersonCustomerDebt = <String, dynamic>{};
+  bool loadingSalespersonCustomerDebt = false;
+  String? salespersonCustomerDebtError;
 
   Future<void> loadDashboard() async {
     loadingDashboard = true;
@@ -522,6 +531,31 @@ class ReportsController extends ChangeNotifier {
     }
   }
 
+  Future<void> loadShortagesReport({String? warehouseId}) async {
+    loadingShortages = true;
+    shortagesError = null;
+    notifyListeners();
+    try {
+      final data = await _fetchReport(
+        '/reports/shortages',
+        <String, dynamic>{
+          if (warehouseId != null && warehouseId.isNotEmpty)
+            'warehouseId': warehouseId,
+        },
+      );
+      shortages = asMapList(data['rows']);
+      shortagesTotals = asMap(data['totals']);
+    } on ApiException catch (exception) {
+      shortagesError = exception.message;
+    } catch (exception) {
+      debugPrint('ReportsController.loadShortagesReport failed: $exception');
+      shortagesError = 'Could not load the shortages report.';
+    } finally {
+      loadingShortages = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> loadBoxes() async {
     loadingBoxes = true;
     boxesError = null;
@@ -679,6 +713,25 @@ class ReportsController extends ChangeNotifier {
         },
         setData: (data) => salespersonStatement = data,
         errorMessage: 'Could not load the salesperson statement',
+      );
+
+  Future<void> loadSalespersonCustomerDebt({
+    required String salespersonId,
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      _loadSection(
+        path: '/reports/salespeople/$salespersonId/customers',
+        query: <String, dynamic>{
+          if (from != null) 'from': from.toIso8601String(),
+          if (to != null) 'to': to.toIso8601String(),
+        },
+        setStatus: (loading, error) {
+          loadingSalespersonCustomerDebt = loading;
+          salespersonCustomerDebtError = error;
+        },
+        setData: (data) => salespersonCustomerDebt = data,
+        errorMessage: 'Could not load the salesperson customer debt',
       );
 
   /// Shared loader for reports whose `data` is an object.

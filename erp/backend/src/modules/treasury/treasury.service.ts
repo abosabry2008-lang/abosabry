@@ -518,13 +518,50 @@ export async function cancelTransfer(id: string, userId?: string) {
   });
 }
 
-export async function listTransfers(filter: { boxId?: string; from?: Date; to?: Date; limit?: number }) {
+export interface TransferListFilter {
+  boxId?: string;
+  from?: Date;
+  to?: Date;
+  limit?: number;
+  skip?: number;
+  includeCancelled?: boolean;
+  paged?: boolean;
+}
+
+export type TransferRow = Prisma.CashTransferGetPayload<{ include: typeof transferInclude }>;
+
+export function listTransfers(
+  filter: TransferListFilter & { paged: true },
+): Promise<{ items: TransferRow[]; total: number }>;
+export function listTransfers(
+  filter: TransferListFilter & { paged?: false },
+): Promise<TransferRow[]>;
+export async function listTransfers(
+  filter: TransferListFilter,
+): Promise<TransferRow[] | { items: TransferRow[]; total: number }> {
   const period = rangeFilter(filter.from, filter.to);
+  const where: Prisma.CashTransferWhereInput = {
+    ...(filter.boxId ? { OR: [{ fromBoxId: filter.boxId }, { toBoxId: filter.boxId }] } : {}),
+    ...(period ? { transferDate: period } : {}),
+    ...(filter.paged && !filter.includeCancelled ? { cancelledAt: null } : {}),
+  };
+
+  if (filter.paged) {
+    const [items, total] = await Promise.all([
+      prisma.cashTransfer.findMany({
+        where,
+        include: transferInclude,
+        orderBy: [{ transferDate: 'desc' }, { createdAt: 'desc' }],
+        take: filter.limit ?? 25,
+        skip: filter.skip ?? 0,
+      }),
+      prisma.cashTransfer.count({ where }),
+    ]);
+    return { items, total };
+  }
+
   return prisma.cashTransfer.findMany({
-    where: {
-      ...(filter.boxId ? { OR: [{ fromBoxId: filter.boxId }, { toBoxId: filter.boxId }] } : {}),
-      ...(period ? { transferDate: period } : {}),
-    },
+    where,
     include: transferInclude,
     orderBy: [{ transferDate: 'desc' }, { createdAt: 'desc' }],
     take: filter.limit ?? 100,

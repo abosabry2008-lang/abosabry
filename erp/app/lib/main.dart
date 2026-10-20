@@ -11,11 +11,13 @@ import 'features/auth/login_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'state/accounting_controller.dart';
 import 'state/categories_controller.dart';
+import 'state/collections_controller.dart';
 import 'state/currencies_controller.dart';
 import 'state/customers_controller.dart';
 import 'state/expenses_controller.dart';
 import 'state/inventory_controller.dart';
 import 'state/invoices_controller.dart';
+import 'state/opening_balances_controller.dart';
 import 'state/payments_controller.dart';
 import 'state/pos_controller.dart';
 import 'state/product_catalog.dart';
@@ -27,6 +29,7 @@ import 'state/sales_orders_controller.dart';
 import 'state/salespeople_controller.dart';
 import 'state/settings_controller.dart';
 import 'state/suppliers_controller.dart';
+import 'state/transfers_controller.dart';
 import 'state/users_controller.dart';
 import 'state/warehouses_controller.dart';
 
@@ -62,12 +65,15 @@ class _ErpAppState extends State<ErpApp> {
   late final UsersController _users;
   late final InvoicesController _invoices;
   late final PaymentsController _payments;
+  late final CollectionVouchersController _collections;
+  late final TransfersController _transfers;
   late final ExpensesController _expenses;
   late final PurchaseOrdersController _purchaseOrders;
   late final SalesOrdersController _salesOrders;
   late final ReturnsController _returns;
   late final AccountsController _accounts;
   late final JournalController _journal;
+  late final OpeningBalancesController _openingBalances;
   late final SettingsController _settings;
   late final DashboardController _dashboard;
   late final ReportsController _reports;
@@ -93,12 +99,15 @@ class _ErpAppState extends State<ErpApp> {
     _users = UsersController(_api);
     _invoices = InvoicesController(_api);
     _payments = PaymentsController(_api);
+    _collections = CollectionVouchersController(_api);
+    _transfers = TransfersController(_api);
     _expenses = ExpensesController(_api);
     _purchaseOrders = PurchaseOrdersController(_api);
     _salesOrders = SalesOrdersController(_api);
     _returns = ReturnsController(_api);
     _accounts = AccountsController(_api);
     _journal = JournalController(_api);
+    _openingBalances = OpeningBalancesController(_api);
     _settings = SettingsController(_api);
     _dashboard = DashboardController(_api);
     _reports = ReportsController(_api);
@@ -132,6 +141,10 @@ class _ErpAppState extends State<ErpApp> {
         ChangeNotifierProvider<UsersController>.value(value: _users),
         ChangeNotifierProvider<InvoicesController>.value(value: _invoices),
         ChangeNotifierProvider<PaymentsController>.value(value: _payments),
+        ChangeNotifierProvider<CollectionVouchersController>.value(
+          value: _collections,
+        ),
+        ChangeNotifierProvider<TransfersController>.value(value: _transfers),
         ChangeNotifierProvider<ExpensesController>.value(value: _expenses),
         ChangeNotifierProvider<PurchaseOrdersController>.value(
           value: _purchaseOrders,
@@ -142,6 +155,9 @@ class _ErpAppState extends State<ErpApp> {
         ChangeNotifierProvider<ReturnsController>.value(value: _returns),
         ChangeNotifierProvider<AccountsController>.value(value: _accounts),
         ChangeNotifierProvider<JournalController>.value(value: _journal),
+        ChangeNotifierProvider<OpeningBalancesController>.value(
+          value: _openingBalances,
+        ),
         ChangeNotifierProvider<SettingsController>.value(value: _settings),
         ChangeNotifierProvider<DashboardController>.value(value: _dashboard),
         ChangeNotifierProvider<ReportsController>.value(value: _reports),

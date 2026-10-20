@@ -11,6 +11,7 @@ import { validateBody } from '../../middleware/validate';
 import { roleHasPermission } from '../../lib/permissions';
 import {
   cancelSalesOrder,
+  checkSalesOrderAvailability,
   confirmSalesOrder,
   createSalesOrder,
   fulfillSalesOrder,
@@ -56,6 +57,7 @@ const fulfillSchema = z.object({
   lines: z
     .array(z.object({ lineId: z.string().min(1), quantity: z.number().int().positive() }))
     .optional(),
+  onlyAvailable: z.boolean().optional(),
 });
 
 const serialize = <T extends { subtotal: unknown; discountTotal: unknown; taxTotal: unknown; total: unknown }>(
@@ -153,6 +155,14 @@ router.patch(
   }),
 );
 
+router.get(
+  '/:id/availability',
+  requirePermission('sales.read'),
+  asyncHandler(async (req, res) => {
+    ok(res, await checkSalesOrderAvailability(req.params.id));
+  }),
+);
+
 router.post(
   '/:id/confirm',
   requirePermission('sales.write'),
@@ -169,6 +179,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const order = await fulfillSalesOrder(req.params.id, {
       lines: req.body.lines,
+      onlyAvailable: req.body.onlyAvailable,
       userId: currentUser(req).id,
     });
     ok(res, serialize(order));

@@ -93,6 +93,9 @@ class AppNumberField extends StatelessWidget {
     this.enabled = true,
     this.autofocus = false,
     this.allowNegative = false,
+    this.focusNode,
+    this.onSubmitted,
+    this.textInputAction,
   });
 
   final String label;
@@ -108,6 +111,9 @@ class AppNumberField extends StatelessWidget {
   final bool enabled;
   final bool autofocus;
   final bool allowNegative;
+  final FocusNode? focusNode;
+  final ValueChanged<String>? onSubmitted;
+  final TextInputAction? textInputAction;
 
   @override
   Widget build(BuildContext context) {
@@ -116,6 +122,9 @@ class AppNumberField extends StatelessWidget {
       initialValue: initialValue,
       enabled: enabled,
       autofocus: autofocus,
+      focusNode: focusNode,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onSubmitted,
       keyboardType: TextInputType.numberWithOptions(
         decimal: decimal,
         signed: allowNegative,

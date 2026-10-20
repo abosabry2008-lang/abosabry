@@ -191,6 +191,50 @@ class PrintService {
   static Uri backupUrl(String? token) =>
       _uri('/reports/backup', <String, String?>{'token': token});
 
+  static Uri shortagesUrl(
+    String? token, {
+    String? warehouseId,
+  }) =>
+      _uri('/print/reports/shortages', <String, String?>{
+        'token': token,
+        if (warehouseId != null && warehouseId.isNotEmpty)
+          'warehouseId': warehouseId,
+      });
+
+  static Uri salespersonCustomerDebtUrl(
+    String salespersonId,
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      _uri('/print/salespeople/$salespersonId/customers', <String, String?>{
+        'token': token,
+        if (from != null) 'from': Formatters.isoDate(from),
+        if (to != null) 'to': Formatters.isoDate(to),
+      });
+
+  static Future<bool> printShortages(
+    BuildContext context, {
+    String? warehouseId,
+  }) =>
+      open(context, shortagesUrl(token(context), warehouseId: warehouseId));
+
+  static Future<bool> printSalespersonCustomerDebt(
+    BuildContext context,
+    String salespersonId, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      open(
+        context,
+        salespersonCustomerDebtUrl(
+          salespersonId,
+          token(context),
+          from: from,
+          to: to,
+        ),
+      );
+
   /// Convenience wrappers that read the token from the current [Session].
   static Future<bool> printInvoice(BuildContext context, String invoiceId) =>
       open(context, invoiceUrl(invoiceId, token(context)));

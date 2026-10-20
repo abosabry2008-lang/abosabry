@@ -23,9 +23,11 @@ import type {
 import type {
   SalespersonCollectionsReport,
   ConsolidatedSalesNote,
+  SalespersonCustomerDebt,
   SalespersonProfitReport,
   SalespersonStatement,
 } from '../reports/salespeople.service';
+import type { ShortagesReport } from '../reports/analytics.service';
 import type { buildExpenseReport } from '../expenses/expenses.service';
 
 type ExpenseReport = Awaited<ReturnType<typeof buildExpenseReport>>;
@@ -1041,6 +1043,110 @@ ${boxRows || `        <tr><td colspan="2" class="muted center">${empty}</td></tr
     title: ar ? 'تقرير المصروفات' : 'Expense report',
     company: settings,
     subtitle: rangeLabel(report),
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}
+
+export function shortagesHtml(
+  report: ShortagesReport,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const rows = report.rows
+    .map(
+      (row) => `      <tr>
+        <td>${escapeHtml(row.sku)}</td>
+        <td>${escapeHtml(row.name)}</td>
+        <td class="num">${escapeHtml(row.required)}</td>
+        <td class="num">${escapeHtml(row.onHand)}</td>
+        <td class="num">${escapeHtml(row.shortage)}</td>
+        <td class="num">${money(row.unitCost)}</td>
+        <td class="num">${money(row.purchaseValue)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const empty = ar ? 'لا توجد نواقص' : 'Nothing is short';
+
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'أصناف ناقصة' : 'Short products'}</span><span class="value">${escapeHtml(report.totals.products)}</span></div>
+      <div><span class="label">${ar ? 'إجمالي النواقص' : 'Total shortage'}</span><span class="value">${escapeHtml(report.totals.shortage)}</span></div>
+      <div><span class="label">${ar ? 'قيمة الشراء' : 'Purchase value'}</span><span class="value">${money(report.totals.purchaseValue)}</span></div>
+    </section>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'الكود' : 'SKU'}</th>
+          <th>${ar ? 'الصنف' : 'Product'}</th>
+          <th class="num">${ar ? 'المطلوب' : 'Required'}</th>
+          <th class="num">${ar ? 'المتوفر' : 'On hand'}</th>
+          <th class="num">${ar ? 'الناقص' : 'Shortage'}</th>
+          <th class="num">${ar ? 'تكلفة الوحدة' : 'Unit cost'}</th>
+          <th class="num">${ar ? 'قيمة الشراء' : 'Purchase value'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows || `        <tr><td colspan="7" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td colspan="2">${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${escapeHtml(report.totals.required)}</td><td class="num">${escapeHtml(report.totals.onHand)}</td><td class="num">${escapeHtml(report.totals.shortage)}</td><td></td><td class="num">${money(report.totals.purchaseValue)}</td></tr>
+      </tbody>
+    </table>`;
+
+  return renderPage({
+    title: ar ? 'نواقص أوامر البيع' : 'Sales shortages',
+    company: settings,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang,
+  });
+}
+
+export function salespersonCustomerDebtHtml(
+  report: SalespersonCustomerDebt,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const rows = report.rows
+    .map(
+      (row, index) => `      <tr>
+        <td class="num">${index + 1}</td>
+        <td>${escapeHtml(row.customer)}</td>
+        <td class="num">${money(row.previous)}</td>
+        <td class="num">${money(row.debit)}</td>
+        <td class="num">${money(row.credit)}</td>
+        <td class="num">${money(row.balance)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const empty = ar ? 'لا توجد مديونية في هذه الفترة' : 'No debt in this period';
+
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'المندوب' : 'Salesperson'}</span><span class="value">${escapeHtml(report.salesperson.name)}</span></div>
+      <div><span class="label">${ar ? 'من' : 'From'}</span><span class="value">${escapeHtml(formatDate(report.from))}</span></div>
+      <div><span class="label">${ar ? 'إلى' : 'To'}</span><span class="value">${escapeHtml(formatDate(report.to))}</span></div>
+    </section>
+    <table class="data">
+      <thead>
+        <tr>
+          <th class="num">#</th>
+          <th>${ar ? 'اسم العميل' : 'Customer'}</th>
+          <th class="num">${ar ? 'حساب سابق' : 'Previous'}</th>
+          <th class="num">${ar ? 'مدين' : 'Debit'}</th>
+          <th class="num">${ar ? 'دائن' : 'Credit'}</th>
+          <th class="num">${ar ? 'الرصيد' : 'Balance'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td></td><td>${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${money(report.totals.previous)}</td><td class="num">${money(report.totals.debit)}</td><td class="num">${money(report.totals.credit)}</td><td class="num">${money(report.totals.balance)}</td></tr>
+      </tbody>
+    </table>`;
+
+  return renderPage({
+    title: ar ? 'مديونية عملاء المندوب' : 'Salesperson customer debt',
+    company: settings,
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,

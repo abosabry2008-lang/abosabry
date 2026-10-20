@@ -128,6 +128,9 @@ model User {
   /// Expenses recorded by this user.
   expenses Expense[]
 
+  /// Opening-balance entries created by this user.
+  openingBalances OpeningBalance[]
+
   @@index([role])
 }
 
@@ -692,6 +695,31 @@ model CashTransfer {
   @@index([transferDate])
 }
 
+/// قيد الأرصدة الافتتاحية (المديونية السابقة) — يُنشئ قيد رأس مال واحد
+/// لمديونية العملاء والموردين وتقييم المخزون الافتتاحي.
+model OpeningBalance {
+  id          String    @id @default(cuid())
+  number      String    @unique
+  asOfDate    DateTime  @default(now())
+  note        String?
+  userId      String?
+  /// مجموع مديونية العملاء (ما لنا).
+  customerTotal Decimal @default(0) @db.Decimal(14, 2)
+  /// مجموع مديونية الموردين (ما علينا).
+  supplierTotal Decimal @default(0) @db.Decimal(14, 2)
+  /// تقييم المخزون الافتتاحي.
+  inventoryTotal Decimal @default(0) @db.Decimal(14, 2)
+  /// تفاصيل البنود المطبَّقة (عملاء/موردين/مخزون) لِعكسها عند الإلغاء.
+  details     Json?
+  cancelledAt DateTime?
+  cancelledBy String?
+  createdAt   DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([asOfDate])
+}
+
 model CollectionVoucher {
   id            String    @id @default(cuid())
   number        String    @unique
@@ -811,6 +839,7 @@ model Setting {
   paymentPrefix        String   @default("PAY")
   journalPrefix        String   @default("JE")
   expensePrefix        String   @default("EXP")
+  openingBalancePrefix String   @default("OB")
   lowStockAlerts       Boolean  @default(true)
   updatedAt            DateTime @updatedAt
 }

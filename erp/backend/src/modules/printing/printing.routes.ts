@@ -18,6 +18,7 @@ import { buildCustomerStatement, buildSupplierStatement } from '../reports/state
 import {
   buildItemMovement,
   buildReceivablesBySalesperson,
+  buildShortagesReport,
   buildStockBalance,
   buildSupplierPayables,
 } from '../reports/analytics.service';
@@ -37,11 +38,14 @@ import {
   expenseReportHtml,
   profitBySalespersonHtml,
   salespersonStatementHtml,
+  salespersonCustomerDebtHtml,
+  shortagesHtml,
 } from './printing.templates';
 import {
   buildCollectionsBySalesperson,
   buildConsolidatedSalesNote,
   buildProfitBySalesperson,
+  buildSalespersonCustomerDebt,
   buildSalespersonStatement,
 } from '../reports/salespeople.service';
 import { buildExpenseReport } from '../expenses/expenses.service';
@@ -270,6 +274,37 @@ router.get(
       getSettings(),
     ]);
     sendHtml(res, salespersonStatementHtml(statement, settings, lang));
+  }),
+);
+
+// GET /print/reports/shortages
+router.get(
+  '/reports/shortages',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const warehouseId = asString(req.query.warehouseId);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildShortagesReport(warehouseId),
+      getSettings(),
+    ]);
+    sendHtml(res, shortagesHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/salespeople/:id/customers
+router.get(
+  '/salespeople/:id/customers',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [report, settings] = await Promise.all([
+      buildSalespersonCustomerDebt(req.params.id, from, to),
+      getSettings(),
+    ]);
+    sendHtml(res, salespersonCustomerDebtHtml(report, settings, lang));
   }),
 );
 

@@ -6,7 +6,11 @@ import '../../core/formatters.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
 import '../../models/cash_box.dart';
+import '../../models/cash_transfer.dart';
 import '../../models/collection_voucher.dart';
+import '../../state/collections_controller.dart';
+import '../../state/transfers_controller.dart';
+import '../../widgets/async_list_view.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_view.dart';
@@ -30,7 +34,7 @@ class TreasuryScreen extends StatefulWidget {
 
 class _TreasuryScreenState extends State<TreasuryScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 4, vsync: this);
+  late final TabController _tabs = TabController(length: 5, vsync: this);
 
   List<CashBox> _boxes = <CashBox>[];
   bool _loading = true;
@@ -156,6 +160,7 @@ class _TreasuryScreenState extends State<TreasuryScreen>
             controller: _tabs,
             tabs: <Widget>[
               Tab(text: s.cashBoxes, icon: const Icon(Icons.account_balance_wallet_outlined)),
+              Tab(text: s.transfersTitle, icon: const Icon(Icons.swap_horiz_outlined)),
               Tab(text: s.collections, icon: const Icon(Icons.receipt_long_outlined)),
               Tab(text: s.payments, icon: const Icon(Icons.payments_outlined)),
               Tab(text: s.expensesTitle, icon: const Icon(Icons.call_made)),
@@ -167,6 +172,7 @@ class _TreasuryScreenState extends State<TreasuryScreen>
             controller: _tabs,
             children: <Widget>[
               _boxesTab(s, canManage),
+              const _TransfersTab(),
               const _CollectionsTab(),
               const PaymentsScreen(),
               const ExpensesScreen(),
@@ -502,46 +508,8 @@ class _CollectionsTab extends StatefulWidget {
 
 class _CollectionsTabState extends State<_CollectionsTab>
     with AutomaticKeepAliveClientMixin {
-  List<CollectionVoucher> _vouchers = <CollectionVoucher>[];
-  bool _loading = true;
-  String? _error;
-
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final api = context.read<Session>().api;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final page = await api.getPage<CollectionVoucher>(
-        '/treasury/collections',
-        query: <String, dynamic>{
-          'page': 1,
-          'pageSize': 100,
-          // Show cancelled receipts too — the row styles them with a tag and
-          // a strikethrough, and admins need the full history.
-          'includeCancelled': 'true',
-        },
-        parse: CollectionVoucher.fromJson,
-      );
-      if (!mounted) return;
-      setState(() => _vouchers = page.items);
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      setState(() => _error = error.message);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
 
   Future<void> _create() async {
     final saved = await pushScreen<bool>(
@@ -550,8 +518,8 @@ class _CollectionsTabState extends State<_CollectionsTab>
       const CollectionFormScreen(),
     );
     if (saved == true) {
-      await _load();
       if (mounted) {
+        context.read<CollectionVouchersController>().refresh();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.s.collectionSaved)),
         );
@@ -565,7 +533,7 @@ class _CollectionsTabState extends State<_CollectionsTab>
       voucher.number,
       CollectionDetailScreen(voucherId: voucher.id, initial: voucher),
     );
-    if (mounted) await _load();
+    if (mounted) context.read<CollectionVouchersController>().refresh();
   }
 
   @override
@@ -575,98 +543,79 @@ class _CollectionsTabState extends State<_CollectionsTab>
     final session = context.watch<Session>();
     final canCreate = session.can('payments');
     final theme = Theme.of(context);
-
-    if (_loading && _vouchers.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null && _vouchers.isEmpty) {
-      return ErrorView(message: _error!, onRetry: _load);
-    }
-    if (_vouchers.isEmpty) {
-      return EmptyState(
-        icon: Icons.receipt_long_outlined,
-        title: s.noCollections,
-        message: s.collectionsHint,
-        action: canCreate
-            ? FilledButton.icon(
-                onPressed: _create,
-                icon: const Icon(Icons.add),
-                label: Text(s.newCollection),
-              )
-            : null,
-      );
-    }
+    final controller = context.watch<CollectionVouchersController>();
 
     return Stack(
       children: <Widget>[
-        RefreshIndicator(
-          onRefresh: _load,
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
-            itemCount: _vouchers.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final voucher = _vouchers[index];
-              return Card(
-                margin: EdgeInsets.zero,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: theme.colorScheme.outlineVariant),
-                ),
-                child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  leading: CircleAvatar(
-                    backgroundColor: theme.colorScheme.secondaryContainer,
-                    child: Icon(
-                      Icons.receipt_long_outlined,
-                      color: theme.colorScheme.onSecondaryContainer,
-                    ),
+        AsyncListView<CollectionVoucher>(
+          controller: controller,
+          emptyIcon: Icons.receipt_long_outlined,
+          emptyTitle: s.noCollections,
+          emptyMessage: s.collectionsHint,
+          emptyAction: canCreate
+              ? FilledButton.icon(
+                  onPressed: _create,
+                  icon: const Icon(Icons.add),
+                  label: Text(s.newCollection),
+                )
+              : null,
+          itemBuilder: (context, voucher, index) {
+            return Card(
+              margin: EdgeInsets.zero,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+              child: ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                leading: CircleAvatar(
+                  backgroundColor: theme.colorScheme.secondaryContainer,
+                  child: Icon(
+                    Icons.receipt_long_outlined,
+                    color: theme.colorScheme.onSecondaryContainer,
                   ),
-                  title: Row(
-                    children: <Widget>[
-                      Flexible(child: Text(voucher.number)),
-                      if (voucher.cancelled) ...<Widget>[
-                        const SizedBox(width: 6),
-                        _Tag(
-                          label: s.status('VOID'),
-                          color: theme.colorScheme.error,
-                        ),
-                      ],
+                ),
+                title: Row(
+                  children: <Widget>[
+                    Flexible(child: Text(voucher.number)),
+                    if (voucher.cancelled) ...<Widget>[
+                      const SizedBox(width: 6),
+                      _Tag(
+                        label: s.status('VOID'),
+                        color: theme.colorScheme.error,
+                      ),
                     ],
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      <String>[
-                        Formatters.date(voucher.collectedAt),
-                        if (voucher.salespersonName.isNotEmpty)
-                          voucher.salespersonName,
-                        if (voucher.cashBoxName.isNotEmpty)
-                          voucher.cashBoxName,
-                        '${voucher.lines.length} ${s.collectionLines}',
-                      ].join(' · '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  trailing: MoneyText(
-                    voucher.total,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: voucher.cancelled
-                          ? theme.colorScheme.outline
-                          : null,
-                      decoration:
-                          voucher.cancelled ? TextDecoration.lineThrough : null,
-                    ),
-                  ),
-                  onTap: () => _open(voucher),
+                  ],
                 ),
-              );
-            },
-          ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    <String>[
+                      Formatters.date(voucher.collectedAt),
+                      if (voucher.salespersonName.isNotEmpty)
+                        voucher.salespersonName,
+                      if (voucher.cashBoxName.isNotEmpty) voucher.cashBoxName,
+                      '${voucher.lines.length} ${s.collectionLines}',
+                    ].join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                trailing: MoneyText(
+                  voucher.total,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: voucher.cancelled ? theme.colorScheme.outline : null,
+                    decoration:
+                        voucher.cancelled ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                onTap: () => _open(voucher),
+              ),
+            );
+          },
         ),
         if (canCreate)
           PositionedDirectional(
@@ -680,6 +629,196 @@ class _CollectionsTabState extends State<_CollectionsTab>
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Lazy-loaded list of cash-box transfers with edit / cancel for admins.
+class _TransfersTab extends StatefulWidget {
+  const _TransfersTab();
+
+  @override
+  State<_TransfersTab> createState() => _TransfersTabState();
+}
+
+class _TransfersTabState extends State<_TransfersTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  Future<void> _create() async {
+    final saved = await pushScreen<bool>(
+      context,
+      context.s.newTransfer,
+      const TransferFormScreen(),
+    );
+    if (saved == true) {
+      if (mounted) context.read<TransfersController>().refresh();
+    }
+  }
+
+  Future<void> _edit(CashTransfer transfer) async {
+    final saved = await pushScreen<bool>(
+      context,
+      context.s.editTransfer,
+      TransferFormScreen(transfer: transfer),
+    );
+    if (saved == true) {
+      if (mounted) context.read<TransfersController>().refresh();
+    }
+  }
+
+  Future<void> _cancel(CashTransfer transfer) async {
+    final confirmed = await confirmDialog(
+      context,
+      title: context.s.cancelTransferQ,
+      confirmLabel: context.s.confirm,
+      destructive: true,
+    );
+    if (confirmed != true || !mounted) return;
+    final api = context.read<Session>().api;
+    try {
+      await api.post('/treasury/transfers/${transfer.id}/cancel');
+      if (mounted) {
+        context.read<TransfersController>().refresh();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.s.transferCancelled)),
+        );
+      }
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final s = context.s;
+    final theme = Theme.of(context);
+    final controller = context.watch<TransfersController>();
+    final canManage = context.watch<Session>().can('treasury.manage');
+
+    return Stack(
+      children: <Widget>[
+        AsyncListView<CashTransfer>(
+          controller: controller,
+          emptyIcon: Icons.swap_horiz_outlined,
+          emptyTitle: s.noTransfers,
+          emptyMessage: s.transfersHint,
+          emptyAction: canManage
+              ? FilledButton.icon(
+                  onPressed: _create,
+                  icon: const Icon(Icons.add),
+                  label: Text(s.newTransfer),
+                )
+              : null,
+          itemBuilder: (context, transfer, index) {
+            return Card(
+              margin: EdgeInsets.zero,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+              child: ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                leading: CircleAvatar(
+                  backgroundColor: theme.colorScheme.tertiaryContainer,
+                  child: Icon(
+                    Icons.swap_horiz_outlined,
+                    color: theme.colorScheme.onTertiaryContainer,
+                  ),
+                ),
+                title: Row(
+                  children: <Widget>[
+                    Flexible(child: Text(transfer.number)),
+                    if (transfer.cancelled) ...<Widget>[
+                      const SizedBox(width: 6),
+                      _Tag(
+                        label: s.status('VOID'),
+                        color: theme.colorScheme.error,
+                      ),
+                    ],
+                  ],
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    <String>[
+                      '${transfer.fromBoxName} → ${transfer.toBoxName}',
+                      Formatters.date(transfer.transferDate),
+                    ].join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                trailing: MoneyText(
+                  transfer.amount,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: transfer.cancelled
+                        ? theme.colorScheme.outline
+                        : null,
+                    decoration:
+                        transfer.cancelled ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                onTap: transfer.cancelled || !canManage
+                    ? null
+                    : () => _showActions(transfer),
+              ),
+            );
+          },
+        ),
+        if (canManage)
+          PositionedDirectional(
+            end: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              heroTag: 'transfer_fab',
+              tooltip: s.newTransfer,
+              onPressed: _create,
+              child: const Icon(Icons.add),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _showActions(CashTransfer transfer) async {
+    final s = context.s;
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: Text(s.edit),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _edit(transfer);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.cancel_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(s.cancelTransfer),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _cancel(transfer);
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

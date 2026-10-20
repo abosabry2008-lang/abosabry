@@ -40,7 +40,6 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
   @override
   void initState() {
     super.initState();
-    if (_lines.isEmpty) _lines.add(_InvoiceLineDraft());
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       context.read<CustomersController>().ensureLoaded();
@@ -294,7 +293,7 @@ class _InvoiceLineDraft {
   }
 }
 
-class _InvoiceLinesEditor extends StatelessWidget {
+class _InvoiceLinesEditor extends StatefulWidget {
   const _InvoiceLinesEditor({
     required this.lines,
     required this.onChanged,
@@ -305,148 +304,155 @@ class _InvoiceLinesEditor extends StatelessWidget {
   final VoidCallback onChanged;
   final bool enabled;
 
-  double get subtotal => lines.fold<double>(0, (sum, line) => sum + line.gross);
+  @override
+  State<_InvoiceLinesEditor> createState() => _InvoiceLinesEditorState();
+}
 
-  double get discountTotal =>
-      lines.fold<double>(0, (sum, line) => sum + line.discount);
+class _InvoiceLinesEditorState extends State<_InvoiceLinesEditor> {
+  /// The product currently staged in the quick-add bar.
+  Product? _quickProduct;
+  final TextEditingController _quickQty = TextEditingController(text: '1');
+  final TextEditingController _quickPrice = TextEditingController();
+  final FocusNode _qtyFocus = FocusNode();
+  final FocusNode _priceFocus = FocusNode();
 
-  double get taxTotal =>
-      lines.fold<double>(0, (sum, line) => sum + line.taxAmount);
+  List<_InvoiceLineDraft> get lines => widget.lines;
+  bool get enabled => widget.enabled;
 
-  double get total => lines.fold<double>(0, (sum, line) => sum + line.lineTotal);
+  @override
+  void dispose() {
+    _quickQty.dispose();
+    _quickPrice.dispose();
+    _qtyFocus.dispose();
+    _priceFocus.dispose();
+    super.dispose();
+  }
+
+  /// Adds the staged product as a line and clears the bar for the next one.
+  void _addQuickLine() {
+    final product = _quickProduct;
+    if (product == null) return;
+    final quantity = double.tryParse(_quickQty.text.trim())?.round() ?? 0;
+    if (quantity <= 0) return;
+    final price = double.tryParse(_quickPrice.text.trim()) ?? product.salePrice;
+    final line = _InvoiceLineDraft(
+      productId: product.id,
+      quantity: quantity.toDouble(),
+      price: price,
+      taxRate: product.taxRate,
+    )..setProduct(product);
+    setState(() {
+      lines.add(line);
+      _quickProduct = null;
+      _quickQty.text = '1';
+      _quickPrice.clear();
+    });
+    widget.onChanged();
+  }
 
   @override
   Widget build(BuildContext context) {
     final s = context.s;
     final theme = Theme.of(context);
+    final subtotal = lines.fold<double>(0, (sum, line) => sum + line.gross);
+    final discountTotal = lines.fold<double>(0, (sum, line) => sum + line.discount);
+    final taxTotal = lines.fold<double>(0, (sum, line) => sum + line.taxAmount);
+    final total = lines.fold<double>(0, (sum, line) => sum + line.lineTotal);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        for (var index = 0; index < lines.length; index++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Card(
-              margin: EdgeInsets.zero,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: theme.colorScheme.outlineVariant),
+        // Quick continuous-add bar: pick a product, set qty/price, press add
+        // (or Enter) and it drops into the list below — no new-row button.
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              ProductPickerField(
+                product: _quickProduct,
+                enabled: enabled,
+                onChanged: (value) {
+                  setState(() {
+                    _quickProduct = value;
+                    _quickPrice.text = _InvoiceLineDraft._format(
+                      value.salePrice,
+                    );
+                  });
+                  _qtyFocus.requestFocus();
+                },
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: ProductPickerField(
-                            product: lines[index].product,
-                            enabled: enabled,
-                            onChanged: (value) {
-                              lines[index].setProduct(value);
-                              onChanged();
-                            },
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: s.removeLine,
-                          onPressed: enabled
-                              ? () {
-                                  lines.removeAt(index).dispose();
-                                  onChanged();
-                                }
-                              : null,
-                          icon: const Icon(Icons.delete_outline),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    AppTextField(
-                      label: s.description,
-                      controller: lines[index].descriptionController,
+              const SizedBox(height: 8),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AppNumberField(
+                      label: s.qty,
+                      controller: _quickQty,
+                      focusNode: _qtyFocus,
                       enabled: enabled,
-                      prefixIcon: Icons.notes_outlined,
-                      onChanged: (_) => onChanged(),
+                      decimal: false,
+                      onSubmitted: (_) => _priceFocus.requestFocus(),
+                      textInputAction: TextInputAction.next,
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: AppNumberField(
-                            label: s.qty,
-                            controller: lines[index].quantityController,
-                            enabled: enabled,
-                            decimal: false,
-                            onChanged: (_) => onChanged(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: AppNumberField(
-                            label: s.unitPrice,
-                            controller: lines[index].priceController,
-                            enabled: enabled,
-                            onChanged: (_) => onChanged(),
-                          ),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: AppNumberField(
+                      label: s.unitPrice,
+                      controller: _quickPrice,
+                      focusNode: _priceFocus,
+                      enabled: enabled,
+                      onSubmitted: (_) => _addQuickLine(),
+                      textInputAction: TextInputAction.done,
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: AppNumberField(
-                            label: s.discountWord,
-                            controller: lines[index].discountController,
-                            enabled: enabled,
-                            onChanged: (_) => onChanged(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: AppNumberField(
-                            label: s.taxRatePercent,
-                            controller: lines[index].taxController,
-                            enabled: enabled,
-                            onChanged: (_) => onChanged(),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: <Widget>[
-                              Text(
-                                s.lineTotal,
-                                style: theme.textTheme.labelSmall,
-                              ),
-                              Text(
-                                Formatters.money(lines[index].lineTotal),
-                                style: theme.textTheme.titleMedium,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: enabled && _quickProduct != null
+                        ? _addQuickLine
+                        : null,
+                    icon: const Icon(Icons.add),
+                    label: Text(s.addLine),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (lines.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              s.noLinesYet,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
               ),
             ),
-          ),
-        OutlinedButton.icon(
-          onPressed: enabled
-              ? () {
-                  lines.add(_InvoiceLineDraft());
-                  onChanged();
-                }
-              : null,
-          icon: const Icon(Icons.add),
-          label: Text(s.addLine),
-        ),
-        const SizedBox(height: 16),
+          )
+        else
+          for (var index = 0; index < lines.length; index++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _CompactInvoiceLine(
+                key: ObjectKey(lines[index]),
+                line: lines[index],
+                enabled: enabled,
+                onChanged: widget.onChanged,
+                onRemove: () {
+                  lines.removeAt(index).dispose();
+                  widget.onChanged();
+                },
+              ),
+            ),
+        const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -464,6 +470,171 @@ class _InvoiceLinesEditor extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A compact, collapsed line row that expands for full editing.
+class _CompactInvoiceLine extends StatefulWidget {
+  const _CompactInvoiceLine({
+    super.key,
+    required this.line,
+    required this.enabled,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  final _InvoiceLineDraft line;
+  final bool enabled;
+  final VoidCallback onChanged;
+  final VoidCallback onRemove;
+
+  @override
+  State<_CompactInvoiceLine> createState() => _CompactInvoiceLineState();
+}
+
+class _CompactInvoiceLineState extends State<_CompactInvoiceLine> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    final theme = Theme.of(context);
+    final line = widget.line;
+    final title = line.product?.name ??
+        (line.descriptionController.text.trim().isEmpty
+            ? s.item
+            : line.descriptionController.text.trim());
+
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        children: <Widget>[
+          InkWell(
+            onTap: widget.enabled
+                ? () => setState(() => _expanded = !_expanded)
+                : null,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: theme.colorScheme.outline,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                        Text(
+                          '${line.quantity} × ${Formatters.money(line.price)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    Formatters.money(line.lineTotal),
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  IconButton(
+                    tooltip: s.removeLine,
+                    onPressed: widget.enabled ? widget.onRemove : null,
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  ProductPickerField(
+                    product: line.product,
+                    enabled: widget.enabled,
+                    onChanged: (value) {
+                      line.setProduct(value);
+                      widget.onChanged();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  AppTextField(
+                    label: s.description,
+                    controller: line.descriptionController,
+                    enabled: widget.enabled,
+                    prefixIcon: Icons.notes_outlined,
+                    onChanged: (_) => widget.onChanged(),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: AppNumberField(
+                          label: s.qty,
+                          controller: line.quantityController,
+                          enabled: widget.enabled,
+                          decimal: false,
+                          onChanged: (_) => widget.onChanged(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: AppNumberField(
+                          label: s.unitPrice,
+                          controller: line.priceController,
+                          enabled: widget.enabled,
+                          onChanged: (_) => widget.onChanged(),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: AppNumberField(
+                          label: s.discountWord,
+                          controller: line.discountController,
+                          enabled: widget.enabled,
+                          onChanged: (_) => widget.onChanged(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppNumberField(
+                          label: s.taxRatePercent,
+                          controller: line.taxController,
+                          enabled: widget.enabled,
+                          onChanged: (_) => widget.onChanged(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

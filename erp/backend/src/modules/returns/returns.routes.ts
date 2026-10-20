@@ -132,7 +132,10 @@ router.patch(
   writePermission,
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
-    const order = await updateReturnOrder(req.params.id, req.body);
+    const user = currentUser(req);
+    const order = await updateReturnOrder(req.params.id, req.body, {
+      allowPosted: roleHasPermission(user.role, 'returns.edit'),
+    });
     ok(res, serialize(order));
   }),
 );
@@ -150,7 +153,10 @@ router.post(
   '/:id/cancel',
   writePermission,
   asyncHandler(async (req, res) => {
-    const order = await cancelReturnOrder(req.params.id);
+    const user = currentUser(req);
+    const order = await cancelReturnOrder(req.params.id, {
+      allowPosted: roleHasPermission(user.role, 'returns.cancel'),
+    });
     ok(res, serialize(order));
   }),
 );

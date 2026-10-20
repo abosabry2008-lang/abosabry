@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/api_exception.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
+import '../../models/product.dart';
+import '../../models/return_order.dart';
 import '../../models/warehouse.dart';
 import '../../state/customers_controller.dart';
 import '../../state/returns_controller.dart';
@@ -14,7 +16,10 @@ import '../../widgets/section_card.dart';
 
 /// Create form for a return order (customer return or supplier return).
 class ReturnOrderFormScreen extends StatefulWidget {
-  const ReturnOrderFormScreen({super.key});
+  const ReturnOrderFormScreen({super.key, this.order});
+
+  /// When set, the form edits this order instead of creating a new one.
+  final ReturnOrder? order;
 
   @override
   State<ReturnOrderFormScreen> createState() => _ReturnOrderFormScreenState();
@@ -24,19 +29,41 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final List<OrderLineDraft> _lines = <OrderLineDraft>[OrderLineDraft()];
 
-  String _type = 'CUSTOMER_RETURN';
+  late String _type = widget.order?.type ?? 'CUSTOMER_RETURN';
   List<Warehouse> _warehouses = <Warehouse>[];
-  String? _customerId;
-  String? _supplierId;
-  String? _warehouseId;
-  final TextEditingController _notes = TextEditingController();
+  late String? _customerId = widget.order?.customerId;
+  late String? _supplierId = widget.order?.supplierId;
+  late String? _warehouseId = widget.order?.warehouseId;
+  late final TextEditingController _notes =
+      TextEditingController(text: widget.order?.notes ?? '');
   bool _saving = false;
 
+  bool get _isEdit => widget.order != null;
   bool get _isCustomerReturn => _type == 'CUSTOMER_RETURN';
 
   @override
   void initState() {
     super.initState();
+    final order = widget.order;
+    if (order != null && order.lines.isNotEmpty) {
+      _lines
+        ..clear()
+        ..addAll(
+          order.lines.map(
+            (line) => OrderLineDraft(
+              product: Product(
+                id: line.productId,
+                sku: line.sku ?? '',
+                name: line.productName ?? '',
+                salePrice: line.unitPrice,
+              ),
+              quantity: line.quantity.toDouble(),
+              price: line.unitPrice,
+              taxRate: line.taxRate,
+            ),
+          ),
+        );
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<CustomersController>().ensureLoaded();
@@ -92,30 +119,40 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
     }
     setState(() => _saving = true);
     final controller = context.read<ReturnsController>();
+    final body = <String, dynamic>{
+      'lines': validLines
+          .map(
+            (line) => <String, dynamic>{
+              'productId': line.product!.id,
+              'quantity': line.quantity,
+              'unitPrice': line.price,
+              'taxRate': line.taxRate,
+            },
+          )
+          .toList(),
+      'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+    };
     try {
-      await controller.api.post(
-        '/returns',
-        body: <String, dynamic>{
-          'type': _type,
-          'customerId': _isCustomerReturn ? _customerId : null,
-          'supplierId': _isCustomerReturn ? null : _supplierId,
-          'warehouseId': _warehouseId,
-          'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-          'lines': validLines
-              .map(
-                (line) => <String, dynamic>{
-                  'productId': line.product!.id,
-                  'quantity': line.quantity,
-                  'unitPrice': line.price,
-                  'taxRate': line.taxRate,
-                },
-              )
-              .toList(),
-        },
-      );
+      if (_isEdit) {
+        await controller.api.patch(
+          '/returns/${widget.order!.id}',
+          body: body,
+        );
+      } else {
+        await controller.api.post(
+          '/returns',
+          body: <String, dynamic>{
+            'type': _type,
+            'customerId': _isCustomerReturn ? _customerId : null,
+            'supplierId': _isCustomerReturn ? null : _supplierId,
+            'warehouseId': _warehouseId,
+            ...body,
+          },
+        );
+      }
       await controller.refresh();
       if (!mounted) return;
-      _snack(context.s.returnOrderCreated);
+      _snack(_isEdit ? context.s.returnOrderUpdated : context.s.returnOrderCreated);
       Navigator.of(context).pop(true);
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -160,21 +197,23 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
                       ),
                     ],
                     selected: <String>{_type},
-                    onSelectionChanged: (selection) => setState(() {
-                      _type = selection.first;
-                      _customerId = null;
-                      _supplierId = null;
-                      for (final line in _lines) {
-                        line.priceController.clear();
-                      }
-                    }),
+                    onSelectionChanged: _isEdit
+                        ? null
+                        : (selection) => setState(() {
+                              _type = selection.first;
+                              _customerId = null;
+                              _supplierId = null;
+                              for (final line in _lines) {
+                                line.priceController.clear();
+                              }
+                            }),
                   ),
                   const SizedBox(height: 14),
                   if (_isCustomerReturn)
                     AppSelectField<String>(
                       label: s.customer,
                       value: _customerId,
-                      enabled: !_saving,
+                      enabled: !_saving && !_isEdit,
                       prefixIcon: Icons.person_outline,
                       options: customers.items
                           .map(
@@ -192,7 +231,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
                     AppSelectField<String>(
                       label: s.supplier,
                       value: _supplierId,
-                      enabled: !_saving,
+                      enabled: !_saving && !_isEdit,
                       prefixIcon: Icons.local_shipping_outlined,
                       options: suppliers.items
                           .map(
@@ -210,7 +249,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
                   AppSelectField<String>(
                     label: s.warehouseRequired,
                     value: _warehouseId,
-                    enabled: !_saving,
+                    enabled: !_saving && !_isEdit,
                     prefixIcon: Icons.warehouse_outlined,
                     options: _warehouses
                         .map(
@@ -268,7 +307,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.save_outlined),
-                    label: Text(_saving ? s.saving : s.createOrder),
+                    label: Text(_saving ? s.saving : (_isEdit ? s.save : s.createOrder)),
                   ),
                 ),
               ],
