@@ -58,7 +58,10 @@ function serializeProduct<T extends MoneyLike>(product: T, stockQuantity: number
 function buildWhere(query: Record<string, unknown>, includeInactive: boolean): Prisma.ProductWhereInput {
   const search = asString(query.search);
   const categoryId = asString(query.categoryId);
-  const where: Prisma.ProductWhereInput = { deletedAt: null };
+  const includeDeleted = asBool(query.includeDeleted) === true;
+  const where: Prisma.ProductWhereInput = {};
+  // Products that were deleted disappear from the catalogue unless asked for.
+  if (!includeDeleted) where.deletedAt = null;
   if (!includeInactive) where.active = true;
   if (categoryId) where.categoryId = categoryId;
   if (search) {
@@ -162,9 +165,30 @@ router.patch(
   requirePermission('products.write'),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
-    const existing = await prisma.product.findFirst({ where: { id: req.params.id, deletedAt: null } });
+    const existing = await prisma.product.findFirst({ where: { id: req.params.id } });
     if (!existing) throw ApiError.notFound('Product not found');
-    const product = await prisma.product.update({ where: { id: existing.id }, data: req.body, include });
+    const product = await prisma.product.update({
+      where: { id: existing.id },
+      data: { ...req.body, deletedAt: null },
+      include,
+    });
+    const stock = await totalStockByProduct([product.id]);
+    ok(res, serializeProduct(product, stock.get(product.id) ?? 0));
+  }),
+);
+
+// Restores a soft-deleted product back into the catalogue.
+router.post(
+  '/:id/restore',
+  requirePermission('products.write'),
+  asyncHandler(async (req, res) => {
+    const existing = await prisma.product.findFirst({ where: { id: req.params.id } });
+    if (!existing) throw ApiError.notFound('Product not found');
+    const product = await prisma.product.update({
+      where: { id: existing.id },
+      data: { deletedAt: null, active: true },
+      include,
+    });
     const stock = await totalStockByProduct([product.id]);
     ok(res, serializeProduct(product, stock.get(product.id) ?? 0));
   }),

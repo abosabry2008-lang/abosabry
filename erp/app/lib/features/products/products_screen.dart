@@ -148,6 +148,28 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 40,
+                  child: Row(
+                    children: <Widget>[
+                      FilterChip(
+                        label: Text(s.showInactive),
+                        selected: controller.showInactive,
+                        onSelected: (value) {
+                          controller.setShowInactive(value);
+                          if (!value) controller.setShowDeleted(false);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      FilterChip(
+                        label: Text(s.showDeleted),
+                        selected: controller.showDeleted,
+                        onSelected: controller.setShowDeleted,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -230,6 +252,10 @@ class _ProductTile extends StatelessWidget {
                           const SizedBox(width: 8),
                           const _InactiveBadge(),
                         ],
+                        if (product.isDeleted) ...<Widget>[
+                          const SizedBox(width: 8),
+                          const _DeletedBadge(),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -263,6 +289,14 @@ class _ProductTile extends StatelessWidget {
                             : theme.colorScheme.outline,
                       ),
                     ),
+                  if (product.isDeleted)
+                    TextButton.icon(
+                      onPressed: () => context
+                          .read<ProductsController>()
+                          .restore(product.id),
+                      icon: const Icon(Icons.restore, size: 16),
+                      label: Text(context.s.restore),
+                    ),
                 ],
               ),
             ],
@@ -289,6 +323,28 @@ class _InactiveBadge extends StatelessWidget {
         context.s.inactive,
         style: theme.textTheme.labelSmall
             ?.copyWith(color: theme.colorScheme.onErrorContainer),
+      ),
+    );
+  }
+}
+
+class _DeletedBadge extends StatelessWidget {
+  const _DeletedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Text(
+        context.s.deleted,
+        style: theme.textTheme.labelSmall
+            ?.copyWith(color: theme.colorScheme.outline),
       ),
     );
   }

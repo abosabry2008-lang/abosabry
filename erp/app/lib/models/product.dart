@@ -20,6 +20,7 @@ class Product {
     this.trackInventory = true,
     this.active = true,
     this.imageUrl,
+    this.deletedAt,
     this.quantityOnHand,
   });
 
@@ -40,6 +41,11 @@ class Product {
   final bool trackInventory;
   final bool active;
   final String? imageUrl;
+
+  /// When set, the product was deleted and only appears with "show deleted".
+  final DateTime? deletedAt;
+
+  bool get isDeleted => deletedAt != null;
 
   /// Aggregated on-hand quantity when the API provides it.
   final int? quantityOnHand;
@@ -71,6 +77,7 @@ class Product {
       trackInventory: asBool(json['trackInventory'], fallback: true),
       active: asBool(json['active'], fallback: true),
       imageUrl: asStringOrNull(json['imageUrl']),
+      deletedAt: asDate(json['deletedAt']),
       quantityOnHand: _parseQuantity(json),
     );
   }

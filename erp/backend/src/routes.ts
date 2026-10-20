@@ -12,6 +12,7 @@ import paymentsRoutes from './modules/payments/payments.routes';
 import posRoutes from './modules/pos/pos.routes';
 import printingRoutes from './modules/printing/printing.routes';
 import productsRoutes from './modules/products/products.routes';
+import productsImportRoutes from './modules/products/products.import.routes';
 import purchasingRoutes from './modules/purchasing/purchasing.routes';
 import reportsRoutes from './modules/reports/reports.routes';
 import returnsRoutes from './modules/returns/returns.routes';
@@ -31,6 +32,7 @@ api.get('/health', (_req, res) => {
 api.use('/auth', authRoutes);
 api.use('/users', usersRoutes);
 api.use('/categories', categoriesRoutes);
+api.use('/products', productsImportRoutes);
 api.use('/products', productsRoutes);
 api.use('/warehouses', warehousesRouter);
 api.use('/locations', locationsRouter);

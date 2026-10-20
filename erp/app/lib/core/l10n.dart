@@ -289,6 +289,54 @@ class AppStrings {
   String productActivated(String name) =>
       _t('$name activated.', 'تم تنشيط $name.');
   String skuLabel(String sku) => _t('SKU $sku', 'الرمز $sku');
+  String get deleted => _t('Deleted', 'محذوف');
+  String get restore => _t('Restore', 'استرجاع');
+  String get showInactive => _t('Show inactive', 'إظهار غير النشط');
+  String get showDeleted => _t('Show deleted', 'إظهار المحذوف');
+  String get deleteProduct => _t('Delete product', 'حذف المنتج');
+  String get willBePurged =>
+      _t('It will also be removed from inventory.', 'هيتشال من المخزون كمان.');
+  String get restoreProductQ => _t('Restore product?', 'استرجاع المنتج؟');
+  String productRestored(String name) =>
+      _t('$name restored.', 'تم استرجاع $name.');
+
+  // ---------------------------------------------------------------------------
+  // Product import (استيراد الأصناف)
+  // ---------------------------------------------------------------------------
+  String get importProducts => _t('Import from Excel', 'استيراد من إكسل');
+  String get importHowTo => _t('How to import', 'طريقة الاستيراد');
+  String get importStep1 => _t(
+        '1. In Excel, put the columns in this order: name, price, quantity, code.',
+        '١. في إكسل رتّب الأعمدة بالترتيب: الاسم، السعر، الكمية، الكود.',
+      );
+  String get importStep2 => _t(
+        '2. Select the rows and copy them (Ctrl+C).',
+        '٢. حدد الصفوف وانسخها (Ctrl+C).',
+      );
+  String get importStep3 => _t(
+        '3. Paste here (Ctrl+V) and press Import. A column left empty is filled automatically — the code is generated for you.',
+        '٣. الصق هنا (Ctrl+V) واضغط استيراد. أي عمود تسيبه فاضي بيتعبّى تلقائياً — والكود بيتولّد لك.',
+      );
+  String get importSample => _t(
+        'Example:\nاندومي\t15\t100\nشيبسي\t5\t50\tCHP-1',
+        'مثال:\nاندومي\t15\t100\nشيبسي\t5\t50\tCHP-1',
+      );
+  String get pasteHere => _t('Paste rows here', 'الصق الصفوف هنا');
+  String rowsDetected(int n) => _t('$n row(s) detected', 'تم التعرف على $n صف');
+  String get nothingToImport => _t('Nothing to import.', 'لا يوجد شيء للاستيراد.');
+  String get importNow => _t('Import now', 'استيراد الآن');
+  String get importResult => _t('Import result', 'نتيجة الاستيراد');
+  String get importCreated => _t('Created', 'جديد');
+  String get importUpdated => _t('Updated', 'محدّث');
+  String get importSkipped => _t('Skipped', 'متجاوز');
+  String get adjustStockOnImport => _t(
+        'Set stock to the imported quantity',
+        'ضبط المخزون على الكمية المستوردة',
+      );
+  String get adjustStockOnImportHint => _t(
+        'Off: stock is added only for brand-new products.',
+        'معطّل: المخزون بيتضاف للأصناف الجديدة فقط.',
+      );
   String get taxRate => _t('Tax rate', 'نسبة الضريبة');
   String get onHand => _t('On hand', 'المتوفر');
 

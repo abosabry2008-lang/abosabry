@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_exception.dart';
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
@@ -8,9 +9,13 @@ import '../../models/stock_level.dart';
 import '../../models/warehouse.dart';
 import '../../state/inventory_controller.dart';
 import '../../state/product_catalog.dart';
+import '../../state/products_controller.dart';
 import '../../widgets/async_list_view.dart';
+import '../../widgets/confirm_dialog.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/section_card.dart';
+import '../products/product_import_screen.dart';
+import '../shell/navigation.dart';
 import 'adjust_dialog.dart';
 import 'cycle_count_dialog.dart';
 import 'receive_dialog.dart';
@@ -160,6 +165,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
               title: Text(s.cycleCount),
               onTap: () => Navigator.of(sheetContext).pop('count'),
             ),
+            ListTile(
+              leading: const Icon(Icons.upload_file_outlined),
+              title: Text(s.importProducts),
+              onTap: () => Navigator.of(sheetContext).pop('import'),
+            ),
             const SizedBox(height: 8),
           ],
         ),
@@ -170,6 +180,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _runAction(String action, StockLevel? level) async {
+    final s = context.s;
+    if (action == 'import') {
+      if (!mounted) return;
+      final imported = await pushScreen<bool>(
+        context,
+        context.s.importProducts,
+        const ProductImportScreen(),
+      );
+      if (imported == true) await _afterMutation();
+      return;
+    }
     final catalog = context.read<ProductCatalog>();
     if (level != null) {
       await catalog.ensureLoaded();
@@ -217,6 +238,30 @@ class _InventoryScreenState extends State<InventoryScreen> {
           warehouseId: level?.warehouseId,
         );
         break;
+      case 'deleteProduct':
+        if (product == null) return;
+        if (!mounted) return;
+        final confirmed = await confirmDialog(
+          context,
+          title: s.deleteProductQ,
+          message: s.productWillBeRemoved(product.name),
+          confirmLabel: s.delete,
+          destructive: true,
+        );
+        if (!confirmed || !mounted) return;
+        try {
+          await context.read<ProductsController>().delete(product.id);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(s.productDeleted(product.name))),
+          );
+          await _afterMutation();
+        } on ApiException catch (error) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(error.message)));
+        }
+        return;
     }
 
     if (!mounted || !success) return;
@@ -305,6 +350,15 @@ class _StockTile extends StatelessWidget {
                     child: Text(s.cycleCount),
                   ),
                 ],
+              ),
+            if (canManage)
+              IconButton(
+                tooltip: s.deleteProduct,
+                onPressed: () => onAction('deleteProduct'),
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: theme.colorScheme.error,
+                ),
               ),
           ],
         ),
