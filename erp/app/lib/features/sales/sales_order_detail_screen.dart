@@ -126,7 +126,7 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
     final canFulfillEverything = availability['canFulfillEverything'] == true;
     if (canFulfillEverything) {
       await _act(
-        'fulfil',
+        'fulfill',
         confirmTitle: s.fulfilAllQ,
         confirmMessage: s.fulfilAllMessage,
         successMessage: s.salesOrderFulfilled,
@@ -178,8 +178,8 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await api.postObject(
-        '/sales-orders/${widget.orderId}/fulfil',
+      await api.post(
+        '/sales-orders/${widget.orderId}/fulfill',
         body: <String, dynamic>{'onlyAvailable': true},
       );
       await _load();
