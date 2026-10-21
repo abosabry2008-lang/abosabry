@@ -13,6 +13,7 @@ import posRoutes from './modules/pos/pos.routes';
 import printingRoutes from './modules/printing/printing.routes';
 import productsRoutes from './modules/products/products.routes';
 import productsImportRoutes from './modules/products/products.import.routes';
+import maintenanceRoutes from './modules/maintenance/maintenance.routes';
 import purchasingRoutes from './modules/purchasing/purchasing.routes';
 import reportsRoutes from './modules/reports/reports.routes';
 import returnsRoutes from './modules/returns/returns.routes';
@@ -55,5 +56,6 @@ api.use('/reports', reportsRoutes);
 api.use('/print', printingRoutes);
 api.use('/accounting', accountingRoutes);
 api.use('/settings', settingsRoutes);
+api.use('/maintenance', maintenanceRoutes);
 
 export default api;

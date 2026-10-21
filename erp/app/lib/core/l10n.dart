@@ -1407,6 +1407,41 @@ class AppStrings {
         'تنزيل النسخة الاحتياطية الكاملة متاح للمدير فقط.',
       );
 
+  // --- Maintenance (الصيانة) ------------------------------------------------
+  String get maintenanceTab => _t('Maintenance', 'الصيانة');
+  String get clearDataTitle =>
+      _t('Clear trading data', 'مسح بيانات التعاملات');
+  String get clearDataHint => _t(
+        'Deletes all products, customers and suppliers together with everything '
+            'that depends on them: invoices, orders, payments, collections, '
+            'returns, stock movements, opening balances and journal entries.\n\n'
+            'Users, settings, the chart of accounts, cash boxes, warehouses, '
+            'categories and currencies are kept.',
+        'يمسح كل الأصناف والعملاء والموردين وكل ما يعتمد عليهم: الفواتير، '
+            'الأوامر، المدفوعات، التحصيلات، المرتجعات، حركات المخزون، الأرصدة '
+            'الافتتاحية والقيود المحاسبية.\n\n'
+            'يبقى كما هو: المستخدمون، الإعدادات، دليل الحسابات، الخزائن، '
+            'المخازن، التصنيفات والعملات.',
+      );
+  String get clearDataWarning => _t(
+        'This cannot be undone. Take a backup first if you need the current data.',
+        'لا يمكن التراجع عن هذه العملية. خُذ نسخة احتياطية أولاً إذا كنت تحتاج البيانات الحالية.',
+      );
+  String get clearDataButton => _t('Clear all trading data', 'مسح كل بيانات التعاملات');
+  String get clearDataConfirmTitle => _t('Confirm deletion', 'تأكيد المسح');
+  String get clearDataConfirmHint => _t(
+        'Type DELETE-ALL to confirm.',
+        'اكتب DELETE-ALL للتأكيد.',
+      );
+  String get clearDataDone => _t(
+        'Trading data cleared.',
+        'تم مسح بيانات التعاملات.',
+      );
+  String get clearDataFailed => _t(
+        'Could not clear the data.',
+        'تعذّر مسح البيانات.',
+      );
+
   // --- Expenses (المصروفات) -------------------------------------------------
   String get expensesTitle => _t('Expenses', 'المصروفات');
   String get expense => _t('Expense', 'مصروف');

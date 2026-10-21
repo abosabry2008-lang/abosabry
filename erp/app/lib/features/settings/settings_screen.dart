@@ -55,6 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (canRolePerms) const Tab(text: 'صلاحيات الأدوار'),
       if (canUsers) Tab(text: s.users),
       if (canBackup) Tab(text: s.backup),
+      if (canBackup) Tab(text: s.maintenanceTab),
     ];
     final views = <Widget>[
       _CompanySettingsTab(),
@@ -62,6 +63,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (canRolePerms) const RolePermissionsTab(),
       if (canUsers) UsersTab(),
       if (canBackup) const _BackupTab(),
+      if (canBackup) const _MaintenanceTab(),
     ];
     return DefaultTabController(
       length: tabs.length,
@@ -133,9 +135,149 @@ class _BackupTabState extends State<_BackupTab> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Maintenance (الصيانة) — admin only
+// ---------------------------------------------------------------------------
+
+/// Destructive maintenance actions, guarded by a typed confirmation phrase.
+///
+/// Exists so the production database can be cleared from the app itself,
+/// without anyone needing the production `DATABASE_URL`.
+class _MaintenanceTab extends StatefulWidget {
+  const _MaintenanceTab();
+
+  @override
+  State<_MaintenanceTab> createState() => _MaintenanceTabState();
+}
+
+class _MaintenanceTabState extends State<_MaintenanceTab> {
+  bool _busy = false;
+
+  Future<void> _clearData() async {
+    final s = context.s;
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(s.clearDataConfirmTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(s.clearDataWarning),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: s.clearDataConfirmHint,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(s.delete),
+          ),
+        ],
+      ),
+    );
+
+    final typed = controller.text.trim();
+    controller.dispose();
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busy = true);
+    final api = context.read<Session>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await api.post(
+        '/maintenance/clear-trading-data',
+        body: <String, dynamic>{'confirmation': typed},
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(s.clearDataDone)));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(error.message.isEmpty ? s.clearDataFailed : error.message)),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    final theme = Theme.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: <Widget>[
+        SectionCard(
+          title: s.clearDataTitle,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text(s.clearDataHint),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        s.clearDataWarning,
+                        style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
+                ),
+                onPressed: _busy ? null : _clearData,
+                icon: _busy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_forever_outlined),
+                label: Text(s.clearDataButton),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CompanySettingsTab extends StatefulWidget {
   const _CompanySettingsTab();
-
   @override
   State<_CompanySettingsTab> createState() => _CompanySettingsTabState();
 }
