@@ -78,6 +78,9 @@ class DashboardSummary {
         json['inventoryValue'],
         inventory['value'],
         inventory['totalValue'],
+        // The dashboard report returns `inventory.costValue` (total stock at
+        // cost) — without this the KPI card always rendered 0.
+        inventory['costValue'],
       ]),
       lowStockCount: pickInt(<dynamic>[
         json['lowStockCount'],

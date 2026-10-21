@@ -10459,7 +10459,7 @@ _.y=j
 _.z=k
 _.Q=l},
 bkt(a2){var s,r,q,p,o,n,m,l,k,j="receivables",i="lowStockCount",h="lowStock",g=A.aI(a2.h(0,"sales")),f=A.aI(a2.h(0,"inventory")),e=A.aI(a2.h(0,"counts")),d=A.aI(a2.h(0,"settings")),c=new A.agT(),b=new A.agU(),a=c.$1([a2.h(0,"salesToday"),g.h(0,"today")]),a0=c.$1([a2.h(0,"salesThisMonth"),g.h(0,"thisMonth"),g.h(0,"month"),g.h(0,"total")]),a1=c.$1([a2.h(0,j),a2.h(0,"outstandingReceivables"),g.h(0,j),g.h(0,"outstanding")])
-c=c.$1([a2.h(0,"inventoryValue"),f.h(0,"value"),f.h(0,"totalValue")])
+c=c.$1([a2.h(0,"inventoryValue"),f.h(0,"value"),f.h(0,"totalValue"),f.h(0,"costValue")])
 s=b.$1([a2.h(0,i),f.h(0,i),f.h(0,h),e.h(0,h)])
 r=b.$1([a2.h(0,"productCount"),e.h(0,"products")])
 q=b.$1([a2.h(0,"customerCount"),e.h(0,"customers")])
