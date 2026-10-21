@@ -5,6 +5,7 @@ import '../core/l10n.dart';
 import '../features/inventory/product_picker_field.dart';
 import '../models/product.dart';
 import 'form_fields.dart';
+import 'last_purchase_price_hint.dart';
 
 /// Editable order line used by the purchase and sales order forms.
 class OrderLineDraft {
@@ -247,6 +248,7 @@ class OrderLinesEditor extends StatelessWidget {
                         ),
                       ],
                     ),
+                    LastPurchasePriceHint(product: lines[index].product),
                     const SizedBox(height: 8),
                     Row(
                       children: <Widget>[

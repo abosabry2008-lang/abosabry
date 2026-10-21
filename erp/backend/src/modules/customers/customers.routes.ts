@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { ACCOUNT, postJournal } from '../accounting/accounting.service';
 import { ApiError } from '../../lib/api-error';
+import { hasCode, nextCode } from '../../lib/code';
 import { asyncHandler, created, getPaging, noContent, ok, paginated } from '../../lib/http';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
@@ -15,6 +16,7 @@ const router = Router();
 router.use(authenticate);
 
 const schema = z.object({
+  code: z.string().max(64).nullable().optional(),
   name: z.string().min(1),
   email: z.string().email().nullable().optional(),
   phone: z.string().nullable().optional(),
@@ -39,6 +41,16 @@ function serialize<T extends { creditLimit: unknown; balance: unknown }>(custome
   };
 }
 
+/** Next free `CUS-0001` style code. */
+async function generateCustomerCode(): Promise<string> {
+  const existing = new Set(
+    (await prisma.customer.findMany({ select: { code: true } }))
+      .map((c) => c.code)
+      .filter((code): code is string => Boolean(code)),
+  );
+  return nextCode('CUS', existing);
+}
+
 router.get(
   '/',
   requirePermission('customers.read'),
@@ -54,6 +66,7 @@ router.get(
         ? {
             OR: [
               { name: { contains: search, mode: 'insensitive' } },
+              { code: { contains: search, mode: 'insensitive' } },
               { email: { contains: search, mode: 'insensitive' } },
               { phone: { contains: search, mode: 'insensitive' } },
             ],
@@ -92,10 +105,14 @@ router.post(
   requirePermission('customers.write'),
   validateBody(schema),
   asyncHandler(async (req, res) => {
-    const { openingBalance, ...data } = req.body as any;
+    const { openingBalance, code, ...data } = req.body as any;
     const amount = round2(Number(openingBalance ?? 0));
     const customer = await prisma.$transaction(async (tx) => {
-      const created = await tx.customer.create({ data, include });
+      const resolvedCode = hasCode(code) ? code.trim() : await generateCustomerCode();
+      const created = await tx.customer.create({
+        data: { ...data, code: resolvedCode },
+        include,
+      });
       if (amount > 0) {
         await tx.customer.update({
           where: { id: created.id },

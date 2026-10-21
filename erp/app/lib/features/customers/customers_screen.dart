@@ -106,6 +106,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   title: Text(customer.name),
                   subtitle: Text(
                     <String>[
+                      if (customer.code != null) customer.code!,
                       if (customer.email != null) customer.email!,
                       if (customer.phone != null) customer.phone!,
                       if (customer.salespersonName != null)

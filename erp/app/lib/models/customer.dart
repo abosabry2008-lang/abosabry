@@ -5,6 +5,7 @@ class Customer {
   const Customer({
     required this.id,
     required this.name,
+    this.code,
     this.email,
     this.phone,
     this.address,
@@ -18,6 +19,7 @@ class Customer {
 
   final String id;
   final String name;
+  final String? code;
   final String? email;
   final String? phone;
   final String? address;
@@ -33,6 +35,7 @@ class Customer {
   factory Customer.fromJson(Map<String, dynamic> json) => Customer(
         id: asString(json['id']),
         name: asString(json['name']),
+        code: asStringOrNull(json['code']),
         email: asStringOrNull(json['email']),
         phone: asStringOrNull(json['phone']),
         address: asStringOrNull(json['address']),
@@ -47,6 +50,7 @@ class Customer {
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
+        'code': code,
         'name': name,
         'email': email,
         'phone': phone,

@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { ACCOUNT, postJournal } from '../accounting/accounting.service';
 import { ApiError } from '../../lib/api-error';
+import { hasCode, nextCode } from '../../lib/code';
 import { asyncHandler, created, getPaging, noContent, ok, paginated } from '../../lib/http';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
@@ -15,6 +16,7 @@ const router = Router();
 router.use(authenticate);
 
 const schema = z.object({
+  code: z.string().max(64).nullable().optional(),
   name: z.string().min(1),
   contact: z.string().nullable().optional(),
   email: z.string().email().nullable().optional(),
@@ -25,6 +27,16 @@ const schema = z.object({
   active: z.boolean().default(true),
   openingBalance: z.number().optional(),
 });
+
+/** Next free `SUP-0001` style code. */
+async function generateSupplierCode(): Promise<string> {
+  const existing = new Set(
+    (await prisma.supplier.findMany({ select: { code: true } }))
+      .map((s) => s.code)
+      .filter((code): code is string => Boolean(code)),
+  );
+  return nextCode('SUP', existing);
+}
 
 router.get(
   '/',
@@ -40,6 +52,7 @@ router.get(
         ? {
             OR: [
               { name: { contains: search, mode: 'insensitive' } },
+              { code: { contains: search, mode: 'insensitive' } },
               { email: { contains: search, mode: 'insensitive' } },
               { phone: { contains: search, mode: 'insensitive' } },
             ],
@@ -80,10 +93,11 @@ router.post(
   requirePermission('purchasing.write'),
   validateBody(schema),
   asyncHandler(async (req, res) => {
-    const { openingBalance, ...data } = req.body as any;
+    const { openingBalance, code, ...data } = req.body as any;
     const amount = round2(Number(openingBalance ?? 0));
     const supplier = await prisma.$transaction(async (tx) => {
-      const created = await tx.supplier.create({ data });
+      const resolvedCode = hasCode(code) ? code.trim() : await generateSupplierCode();
+      const created = await tx.supplier.create({ data: { ...data, code: resolvedCode } });
       if (amount > 0) {
         await tx.supplier.update({
           where: { id: created.id },

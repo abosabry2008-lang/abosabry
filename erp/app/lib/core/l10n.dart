@@ -268,6 +268,12 @@ class AppStrings {
   String get description => _t('Description', 'الوصف');
   String get pricingStock => _t('Pricing & stock', 'التسعير والمخزون');
   String get costPrice => _t('Cost price', 'سعر التكلفة');
+  String get lastPurchasePrice =>
+      _t('Last purchase price', 'آخر سعر شراء');
+  String get lastPurchasePriceHint => _t(
+        'Shown to you on screen only — never printed on the invoice.',
+        'يظهر لك على الشاشة فقط — لا يُطبع في الفاتورة.',
+      );
   String get salePrice => _t('Sale price', 'سعر البيع');
   String get taxRatePercent => _t('Tax rate %', 'نسبة الضريبة %');
   String get unit => _t('Unit', 'الوحدة');
@@ -314,20 +320,20 @@ class AppStrings {
   String get importProducts => _t('Import from Excel', 'استيراد من إكسل');
   String get importHowTo => _t('How to import', 'طريقة الاستيراد');
   String get importStep1 => _t(
-        '1. In Excel, put the columns in this order: name, boxes per carton, carton price, box price, cost price, sale price, code.',
-        '١. في إكسل رتّب الأعمدة بالترتيب: اسم الصنف، عدد العلب في الكرتونة، سعر الكرتونة، سعر العلبة، سعر التكلفة، سعر البيع، الكود.',
+        '1. In Excel, put the columns in this order: name, quantity, cost price, sale price (code optional).',
+        '١. في إكسل رتّب الأعمدة بالترتيب: اسم الصنف، العدد، سعر التكلفة، سعر البيع (والكود اختياري).',
       );
   String get importStep2 => _t(
-        '2. Leave the code empty to auto-generate a random code. If boxes per carton is 0 the item is sold as-is.',
-        '٢. اترك الكود فارغًا ليتم توليده تلقائيًا. إذا كان عدد العلب في الكرتونة ٠ يباع الصنف كما هو دون تقسيم.',
+        '2. Leave the code empty to auto-generate one, and leave the sale price empty to add 3% over the cost price.',
+        '٢. اترك الكود فارغًا ليتم توليده تلقائيًا، واترك سعر البيع فاضي ليُزاد ٣٪ على سعر التكلفة.',
       );
   String get importStep3 => _t(
-        '3. Paste here (Ctrl+V) and press Import. A column left empty is filled automatically — the code is generated for you.',
-        '٣. الصق هنا (Ctrl+V) واضغط استيراد. أي عمود تسيبه فاضي بيتعبّى تلقائياً — والكود بيتولّد لك.',
+        '3. Paste here (Ctrl+V) and press Import. Any empty column is filled automatically.',
+        '٣. الصق هنا (Ctrl+V) واضغط استيراد. أي عمود تسيبه فاضي بيتعبّى تلقائياً.',
       );
   String get importSample => _t(
-        'Example:\nاندومي\t12\t240\t20\t15\t25\nشيبسي\t0\t0\t0\t3\t6\tCHP-1',
-        'مثال:\nاندومي\t١٢\t٢٤٠\t٢٠\t١٥\t٢٥\nشيبسي\t٠\t٠\t٠\t٣\t٦\tCHP-1',
+        'Example:\nاندومي\t12\t15\t\t\nشيبسي\t24\t3\t6\tCHP-1',
+        'مثال:\nاندومي\t١٢\t١٥\nشيبسي\t٢٤\t٣\t٦\tCHP-1',
       );
   String get pasteHere => _t('Paste rows here', 'الصق الصفوف هنا');
   String rowsDetected(int n) => _t('$n row(s) detected', 'تم التعرف على $n صف');
@@ -496,6 +502,11 @@ class AppStrings {
   String get balance => _t('Balance', 'الرصيد');
   String get accountStatement => _t('Account statement', 'كشف حساب');
   String get supplierDetails => _t('Supplier details', 'بيانات المورد');
+  String get supplierCode => _t('Supplier code', 'كود المورد');
+  String get codeAutoHint => _t(
+        'Leave empty to generate automatically',
+        'اتركه فاضيًا ليُولَّد تلقائيًا',
+      );
   String get contactPerson => _t('Contact person', 'الشخص المسؤول');
   String get taxId => _t('Tax ID', 'الرقم الضريبي');
   String get paymentTermDays => _t('Payment term (days)', 'مدة السداد (أيام)');
@@ -571,6 +582,7 @@ class AppStrings {
       _t('“$name” will be removed.', 'سيتم حذف «$name».');
   String customerDeleted(String name) => _t('$name deleted.', 'تم حذف $name.');
   String get customerDetails => _t('Customer details', 'بيانات العميل');
+  String get customerCode => _t('Customer code', 'كود العميل');
   String get creditLimit => _t('Credit limit', 'حد الائتمان');
   String get customerUpdated => _t('Customer updated.', 'تم تحديث العميل.');
   String get customerCreated => _t('Customer created.', 'تم إنشاء العميل.');

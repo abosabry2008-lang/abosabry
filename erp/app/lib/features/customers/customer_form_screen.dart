@@ -27,6 +27,8 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
 
   late final TextEditingController _name =
       TextEditingController(text: widget.customer?.name ?? '');
+  late final TextEditingController _code =
+      TextEditingController(text: widget.customer?.code ?? '');
   late final TextEditingController _email =
       TextEditingController(text: widget.customer?.email ?? '');
   late final TextEditingController _phone =
@@ -58,6 +60,7 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
   @override
   void dispose() {
     _name.dispose();
+    _code.dispose();
     _email.dispose();
     _phone.dispose();
     _address.dispose();
@@ -69,6 +72,7 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
 
   Map<String, dynamic> _body() => <String, dynamic>{
         'name': _name.text.trim(),
+        if (_code.text.trim().isNotEmpty) 'code': _code.text.trim(),
         'email': _email.text.trim().isEmpty ? null : _email.text.trim(),
         'phone': _phone.text.trim().isEmpty ? null : _phone.text.trim(),
         'address': _address.text.trim().isEmpty ? null : _address.text.trim(),
@@ -163,6 +167,14 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
                     validator: (value) => (value ?? '').trim().isEmpty
                         ? s.nameRequired
                         : null,
+                  ),
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    label: s.customerCode,
+                    controller: _code,
+                    enabled: !_saving,
+                    prefixIcon: Icons.qr_code_2_outlined,
+                    helperText: s.codeAutoHint,
                   ),
                   const SizedBox(height: 14),
                   AppTextField(

@@ -26,6 +26,8 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
 
   late final TextEditingController _name =
       TextEditingController(text: widget.supplier?.name ?? '');
+  late final TextEditingController _code =
+      TextEditingController(text: widget.supplier?.code ?? '');
   late final TextEditingController _contact =
       TextEditingController(text: widget.supplier?.contact ?? '');
   late final TextEditingController _email =
@@ -47,6 +49,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
   @override
   void dispose() {
     _name.dispose();
+    _code.dispose();
     _contact.dispose();
     _email.dispose();
     _phone.dispose();
@@ -59,6 +62,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
 
   Map<String, dynamic> _body() => <String, dynamic>{
         'name': _name.text.trim(),
+        if (_code.text.trim().isNotEmpty) 'code': _code.text.trim(),
         'contact': _contact.text.trim().isEmpty ? null : _contact.text.trim(),
         'email': _email.text.trim().isEmpty ? null : _email.text.trim(),
         'phone': _phone.text.trim().isEmpty ? null : _phone.text.trim(),
@@ -153,6 +157,14 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
                     validator: (value) => (value ?? '').trim().isEmpty
                         ? s.nameRequired
                         : null,
+                  ),
+                  const SizedBox(height: 14),
+                  AppTextField(
+                    label: s.supplierCode,
+                    controller: _code,
+                    enabled: !_saving,
+                    prefixIcon: Icons.qr_code_2_outlined,
+                    helperText: s.codeAutoHint,
                   ),
                   const SizedBox(height: 14),
                   AppTextField(

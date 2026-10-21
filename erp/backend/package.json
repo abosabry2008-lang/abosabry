@@ -15,6 +15,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
     "seed": "ts-node prisma/seed.ts",
+    "clear:data": "ts-node prisma/clear-data.ts",
     "db:reset": "prisma migrate reset --force && npm run seed"
   },
   "prisma": {

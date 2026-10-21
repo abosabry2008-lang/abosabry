@@ -11,10 +11,11 @@ import { applyMovement, resolveLocation } from '../inventory/inventory.service';
 /**
  * Bulk product import (استيراد الأصناف من Excel).
  *
- * Rows look like `{ name, sku?, price, quantity, costPrice? }`. Matching is by
- * `sku`: an existing code updates the product, a new one is created. When the
- * code column is empty a random code is generated, so the shop only has to type
- * the name, price and quantity.
+ * Rows look like `{ name, quantity, costPrice, salePrice?, sku? }` — the columns
+ * the shop exports from Excel: الصنف، العدد، سعر التكلفة، سعر البيع. Matching is
+ * by `sku`: an existing code updates the product, a new one is created. When the
+ * code column is empty a code is generated automatically, and when the sale
+ * price is left empty it defaults to the cost price + 3%.
  */
 const router = Router();
 router.use(authenticate);
@@ -23,8 +24,8 @@ const rowSchema = z.object({
   name: z.string().min(1).max(200),
   sku: z.string().max(64).nullable().optional(),
   barcode: z.string().max(64).nullable().optional(),
-  // New import columns as requested: (name, boxesPerCarton, cartonPrice, boxPrice, costPrice, salePrice)
-  // Legacy keys 'price' and 'quantity' are still accepted for compatibility.
+  // The columns the shop exports from Excel:
+  // (الصنف، العدد، سعر التكلفة، سعر البيع). Legacy keys are still accepted.
   price: z.number().min(0).optional(),
   salePrice: z.number().min(0).optional(),
   costPrice: z.number().min(0).optional(),
@@ -60,6 +61,22 @@ function randomSku(existing: Set<string>): string {
   const sku = `SKU-${Date.now().toString(36).toUpperCase()}`;
   existing.add(sku);
   return sku;
+}
+
+/** Default sale price: cost + 3% when the sheet leaves it blank. */
+function defaultSalePrice(cost: number): number {
+  return Math.round(cost * 1.03 * 100) / 100;
+}
+
+/** Resolves a row's cost and sale price, defaulting sale to cost + 3%. */
+function resolvePrices(row: { costPrice?: number; salePrice?: number; price?: number }): {
+  cost: number;
+  sale: number;
+} {
+  const cost = row.costPrice ?? 0;
+  const explicit = row.salePrice ?? row.price;
+  const sale = explicit != null && explicit > 0 ? explicit : defaultSalePrice(cost);
+  return { cost, sale };
 }
 
 export interface ImportRowResult {
@@ -131,16 +148,17 @@ router.post(
             : null;
 
           if (existingProduct) {
+            const hasAnyPrice =
+              row.costPrice != null || row.salePrice != null || row.price != null;
+            const prices = resolvePrices(row);
             await tx.product.update({
               where: { id: existingProduct.id },
               data: {
                 name,
                 deletedAt: null,
                 active: true,
-                ...(row.costPrice != null ? { costPrice: row.costPrice } : {}),
-                ...((row.salePrice ?? row.price) != null
-                  ? { salePrice: row.salePrice ?? row.price ?? 0 }
-                  : {}),
+                // Just the cost? → sale becomes cost + 3% and vice versa.
+                ...(hasAnyPrice ? { costPrice: prices.cost, salePrice: prices.sale } : {}),
                 ...(row.boxesPerCarton != null ? { boxesPerCarton: row.boxesPerCarton } : {}),
                 ...(row.boxPrice != null ? { boxPrice: row.boxPrice } : {}),
                 ...(row.cartonPrice != null ? { cartonPrice: row.cartonPrice } : {}),
@@ -179,13 +197,14 @@ router.post(
             out.push({ name, sku: code, action: 'updated', stockAdded });
           } else {
             const sku = code || randomSku(existing);
+            const prices = resolvePrices(row);
             const product = await tx.product.create({
               data: {
                 sku,
                 name,
                 unit: row.unit ?? 'pc',
-                costPrice: row.costPrice ?? 0,
-                salePrice: row.salePrice ?? row.price ?? 0,
+                costPrice: prices.cost,
+                salePrice: prices.sale,
                 boxesPerCarton: row.boxesPerCarton ?? 0,
                 ...(row.boxPrice != null ? { boxPrice: row.boxPrice } : {}),
                 ...(row.cartonPrice != null ? { cartonPrice: row.cartonPrice } : {}),
@@ -206,7 +225,7 @@ router.post(
                   productId: product.id,
                   locationId: loc,
                   quantity: row.quantity,
-                  unitCost: row.costPrice ?? row.price ?? 0,
+                  unitCost: prices.cost,
                   reference: 'IMPORT',
                   note: 'Opening stock from Excel import',
                   userId: currentUser(req).id,

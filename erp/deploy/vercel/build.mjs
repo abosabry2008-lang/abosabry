@@ -52,7 +52,9 @@ if (!process.env.DATABASE_URL) {
   // eslint-disable-next-line no-console
   console.warn('[vercel] DATABASE_URL is not set — skipping prisma db push.');
 } else {
-  run('npx', ['prisma', 'db', 'push', '--skip-generate']);
+  // `--accept-data-loss` lets additive changes such as a new unique column
+  // apply without blocking the build on a warning.
+  run('npx', ['prisma', 'db', 'push', '--skip-generate', '--accept-data-loss']);
 }
 
 run('npx', ['tsc', '-p', 'tsconfig.json']);

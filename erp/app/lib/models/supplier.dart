@@ -5,6 +5,7 @@ class Supplier {
   const Supplier({
     required this.id,
     required this.name,
+    this.code,
     this.contact,
     this.email,
     this.phone,
@@ -17,6 +18,7 @@ class Supplier {
 
   final String id;
   final String name;
+  final String? code;
   final String? contact;
   final String? email;
   final String? phone;
@@ -29,6 +31,7 @@ class Supplier {
   factory Supplier.fromJson(Map<String, dynamic> json) => Supplier(
         id: asString(json['id']),
         name: asString(json['name']),
+        code: asStringOrNull(json['code']),
         contact: asStringOrNull(json['contact']),
         email: asStringOrNull(json['email']),
         phone: asStringOrNull(json['phone']),
@@ -41,6 +44,7 @@ class Supplier {
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
+        'code': code,
         'name': name,
         'contact': contact,
         'email': email,

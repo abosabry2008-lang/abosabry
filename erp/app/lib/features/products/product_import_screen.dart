@@ -9,9 +9,10 @@ import '../../widgets/section_card.dart';
 
 /// Imports products from a spreadsheet.
 ///
-/// The shop copies the four columns straight out of Excel —
-/// **name · price · quantity · code** — and pastes them here. Missing codes are
-/// generated automatically; an existing code updates that product.
+/// The shop copies four columns straight out of Excel —
+/// **name · quantity · cost price · sale price** — and pastes them here. The
+/// code column is optional and generated automatically; the sale price is
+/// filled as cost + 3% when left empty. An existing code updates that product.
 class ProductImportScreen extends StatefulWidget {
   const ProductImportScreen({super.key});
 
@@ -43,8 +44,8 @@ class _ProductImportScreenState extends State<ProductImportScreen> {
   bool _looksNumeric(String value) =>
       double.tryParse(value.replaceAll(',', '').trim()) != null;
 
-  /// Parses the pasted text into rows of `{name, price, quantity, sku}`.
-  /// Column order follows the sheet: name, price, quantity, code.
+  /// Parses the pasted text into rows of `{name, quantity, costPrice, salePrice, sku}`.
+  /// Column order follows the sheet: الصنف، العدد، سعر التكلفة، سعر البيع [، الكود].
   List<Map<String, dynamic>> _parseRows() {
     final raw = _controller.text.trim();
     if (raw.isEmpty) return <Map<String, dynamic>>[];
@@ -57,7 +58,7 @@ class _ProductImportScreenState extends State<ProductImportScreen> {
     if (lines.isEmpty) return <Map<String, dynamic>>[];
 
     var start = 0;
-    // Drop a header row such as "الاسم | السعر | الكمية | الكود".
+    // Drop a header row such as "الصنف | العدد | سعر التكلفة | سعر البيع".
     final first = _splitLine(lines.first).map((c) => c.trim()).toList();
     if (first.length >= 2 && !_looksNumeric(first[1])) start = 1;
 
@@ -75,19 +76,15 @@ class _ProductImportScreenState extends State<ProductImportScreen> {
         return double.tryParse(value);
       }
 
-      // Columns: name (0), boxesPerCarton (1), cartonPrice (2), boxPrice (3), costPrice (4), salePrice (5)
-      final boxesPerCarton = toNum(1);
-      final cartonPrice = toNum(2);
-      final boxPrice = toNum(3);
-      final costPrice = toNum(4);
-      final salePrice = toNum(5);
-      final code = cells.length > 6 ? cells[6].trim() : '';
+      // Columns: name (0), quantity (1), costPrice (2), salePrice (3), code (4)
+      final quantity = toNum(1);
+      final costPrice = toNum(2);
+      final salePrice = toNum(3);
+      final code = cells.length > 4 ? cells[4].trim() : '';
 
       rows.add(<String, dynamic>{
         'name': name,
-        if (boxesPerCarton != null) 'boxesPerCarton': boxesPerCarton.round(),
-        if (cartonPrice != null) 'cartonPrice': cartonPrice,
-        if (boxPrice != null) 'boxPrice': boxPrice,
+        if (quantity != null) 'quantity': quantity.round(),
         if (costPrice != null) 'costPrice': costPrice,
         if (salePrice != null) 'salePrice': salePrice,
         if (code.isNotEmpty) 'sku': code,

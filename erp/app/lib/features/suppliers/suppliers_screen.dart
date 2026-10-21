@@ -74,6 +74,7 @@ class SuppliersScreen extends StatelessWidget {
                   title: Text(supplier.name),
                   subtitle: Text(
                     <String>[
+                      if (supplier.code != null) supplier.code!,
                       if (supplier.contact != null) supplier.contact!,
                       if (supplier.email != null) supplier.email!,
                       if (supplier.phone != null) supplier.phone!,

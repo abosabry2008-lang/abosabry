@@ -329,6 +329,8 @@ model StockMovement {
 
 model Supplier {
   id              String   @id @default(cuid())
+  /// كود المورد — يُولَّد تلقائياً عند عدم إدخاله.
+  code            String?  @unique
   name            String
   contact         String?
   email           String?
@@ -399,6 +401,8 @@ model PurchaseOrderLine {
 
 model Customer {
   id          String  @id @default(cuid())
+  /// كود العميل — يُولَّد تلقائياً عند عدم إدخاله.
+  code        String? @unique
   name        String
   email       String?
   phone       String?

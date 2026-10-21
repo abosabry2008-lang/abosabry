@@ -10,6 +10,7 @@ import '../../state/customers_controller.dart';
 import '../../state/invoices_controller.dart';
 import '../../state/product_catalog.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/last_purchase_price_hint.dart';
 import '../../widgets/section_card.dart';
 import '../inventory/product_picker_field.dart';
 
@@ -386,6 +387,7 @@ class _InvoiceLinesEditorState extends State<_InvoiceLinesEditor> {
                   _qtyFocus.requestFocus();
                 },
               ),
+              LastPurchasePriceHint(product: _quickProduct),
               const SizedBox(height: 8),
               Row(
                 children: <Widget>[
@@ -576,6 +578,7 @@ class _CompactInvoiceLineState extends State<_CompactInvoiceLine> {
                       widget.onChanged();
                     },
                   ),
+                  LastPurchasePriceHint(product: line.product),
                   const SizedBox(height: 8),
                   AppTextField(
                     label: s.description,
