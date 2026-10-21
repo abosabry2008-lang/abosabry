@@ -189,9 +189,21 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
+/// Width of the collapsed navigation rail (icon-only, labels below icons).
+const double _railCollapsedWidth = 76;
+
 class _AppShellState extends State<AppShell> {
   int _index = 0;
   bool _bootstrapped = false;
+  final ScrollController _railScrollController = ScrollController();
+  final ScrollController _drawerScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _railScrollController.dispose();
+    _drawerScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -257,38 +269,71 @@ class _AppShellState extends State<AppShell> {
       ),
       drawer: isWide
           ? null
-          : NavigationDrawer(
-              selectedIndex: index,
-              onDestinationSelected: (value) {
-                Navigator.of(context).pop();
-                setState(() => _index = value);
-              },
-              children: <Widget>[
-                _DrawerHeader(session: session),
-                for (final item in destinations)
-                  NavigationDrawerDestination(
-                    icon: Icon(item.icon),
-                    label: Text(item.label(s)),
+          : Drawer(
+              child: SafeArea(
+                child: Scrollbar(
+                  controller: _drawerScrollController,
+                  thumbVisibility: true,
+                  child: ListView(
+                    controller: _drawerScrollController,
+                    padding: EdgeInsets.zero,
+                    children: <Widget>[
+                      _DrawerHeader(session: session),
+                      for (var i = 0; i < destinations.length; i++)
+                        _DrawerTile(
+                          icon: destinations[i].icon,
+                          label: destinations[i].label(s),
+                          selected: i == index,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            setState(() => _index = i);
+                          },
+                        ),
+                      const SizedBox(height: 8),
+                    ],
                   ),
-                const SizedBox(height: 8),
-              ],
+                ),
+              ),
             ),
       body: Row(
         children: <Widget>[
           if (isWide)
-            NavigationRail(
-              selectedIndex: index,
-              extended: isExtraWide,
-              labelType: isExtraWide ? null : NavigationRailLabelType.all,
-              onDestinationSelected: (value) =>
-                  setState(() => _index = value),
-              destinations: <NavigationRailDestination>[
-                for (final item in destinations)
-                  NavigationRailDestination(
-                    icon: Icon(item.icon),
-                    label: Text(item.label(s)),
+            // Wrap the rail so its destinations scroll when they exceed the
+            // available height (long menus on short screens).
+            SizedBox(
+              width: isExtraWide ? 220 : _railCollapsedWidth,
+              child: LayoutBuilder(
+                builder: (context, constraints) => Scrollbar(
+                  controller: _railScrollController,
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    controller: _railScrollController,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                        minWidth: constraints.maxWidth,
+                      ),
+                      child: IntrinsicHeight(
+                        child: NavigationRail(
+                          selectedIndex: index,
+                          extended: isExtraWide,
+                          labelType:
+                              isExtraWide ? null : NavigationRailLabelType.all,
+                          onDestinationSelected: (value) =>
+                              setState(() => _index = value),
+                          destinations: <NavigationRailDestination>[
+                            for (final item in destinations)
+                              NavigationRailDestination(
+                                icon: Icon(item.icon),
+                                label: Text(item.label(s)),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-              ],
+                ),
+              ),
             ),
           if (isWide) const VerticalDivider(width: 1),
           Expanded(child: destination.builder()),
@@ -330,11 +375,66 @@ class _LanguageButton extends StatelessWidget {
   }
 }
 
+/// A single drawer navigation row matching the Material look of the shell.
+class _DrawerTile extends StatelessWidget {
+  const _DrawerTile({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: Material(
+        color: selected ? scheme.secondaryContainer : Colors.transparent,
+        borderRadius: BorderRadius.circular(28),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  icon,
+                  color: selected
+                      ? scheme.onSecondaryContainer
+                      : scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: selected
+                          ? scheme.onSecondaryContainer
+                          : scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DrawerHeader extends StatelessWidget {
   const _DrawerHeader({required this.session});
 
   final Session session;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
