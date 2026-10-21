@@ -3,6 +3,7 @@ import { Role } from '@prisma/client';
 export const ALL_PERMISSIONS = [
   'users.read',
   'users.write',
+  'roles.manage',
   'products.read',
   'products.write',
   'categories.read',
@@ -144,6 +145,42 @@ export function parseCustomPermissions(raw: unknown): string[] {
   return raw.filter((p): p is string => typeof p === 'string' && p.length > 0);
 }
 
+/**
+ * Live override map for role defaults, loaded from `Setting.rolePermissions`.
+ * When a role is present here, its list fully replaces the built-in default.
+ * `ADMIN` is never overridable.
+ */
+let roleOverrides: Record<string, string[]> = {};
+
+/** Replaces the in-memory role overrides (called on load and settings update). */
+export function setRolePermissionOverrides(raw: unknown): void {
+  const next: Record<string, string[]> = {};
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const [role, value] of Object.entries(raw as Record<string, unknown>)) {
+      if (role === 'ADMIN') continue;
+      if (Array.isArray(value)) {
+        next[role] = parseCustomPermissions(value);
+      }
+    }
+  }
+  roleOverrides = next;
+}
+
+/** The permission list a role currently grants, honouring live overrides. */
+export function rolePermissions(role: Role): string[] {
+  if (role === 'ADMIN') return [...ALL_PERMISSIONS];
+  if (Object.prototype.hasOwnProperty.call(roleOverrides, role)) {
+    return [...(roleOverrides[role] ?? [])];
+  }
+  const listed = ROLE_PERMISSIONS[role] ?? [];
+  return listed.includes('*') ? [...ALL_PERMISSIONS] : listed;
+}
+
+/** Snapshot of the current overrides (for the settings screen). */
+export function rolePermissionOverrides(): Record<string, string[]> {
+  return { ...roleOverrides };
+}
+
 export function permissionsFor(
   role: Role,
   custom?: unknown,
@@ -153,8 +190,7 @@ export function permissionsFor(
   if (customList.length > 0) {
     return Array.from(new Set(customList));
   }
-  const listed = ROLE_PERMISSIONS[role] ?? [];
-  return listed.includes('*') ? [...ALL_PERMISSIONS] : listed;
+  return Array.from(new Set(rolePermissions(role)));
 }
 
 export function roleHasPermission(
@@ -167,6 +203,5 @@ export function roleHasPermission(
   if (customList.length > 0) {
     return customList.includes(permission);
   }
-  const listed = ROLE_PERMISSIONS[role] ?? [];
-  return listed.includes('*') || listed.includes(permission);
+  return rolePermissions(role).includes(permission);
 }

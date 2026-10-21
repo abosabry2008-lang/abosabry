@@ -33,6 +33,8 @@ const Map<String, Set<String>> rolePermissions = <String, Set<String>>{
     'accounting',
     'openingBalances',
     'currencies',
+    'settings',
+    'roles.manage',
   },
   'SALES': <String>{
     'dashboard',

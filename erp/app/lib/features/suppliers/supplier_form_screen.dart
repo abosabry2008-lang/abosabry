@@ -207,6 +207,15 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
                     decimal: false,
                     prefixIcon: Icons.schedule_outlined,
                   ),
+                  if (!widget.isEditing) ...<Widget>[
+                    const SizedBox(height: 14),
+                    AppNumberField(
+                      label: 'الرصيد الافتتاحى (ما علينا للمورد)',
+                      controller: _openingBalance,
+                      enabled: !_saving,
+                      prefixIcon: Icons.account_balance_wallet_outlined,
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   AppSwitchField(
                     label: s.active,

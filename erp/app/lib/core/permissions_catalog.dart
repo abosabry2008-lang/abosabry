@@ -2,12 +2,22 @@
 class PermissionCatalog {
   PermissionCatalog._();
 
+  /// Roles that can be edited from the role-permissions screen.
+  static const List<String> editableRoles = <String>[
+    'MANAGER',
+    'SALES',
+    'CASHIER',
+    'WAREHOUSE',
+    'ACCOUNTANT',
+  ];
+
   static const Map<String, List<PermItem>> groups = <String, List<PermItem>>{
-    'الالمستخدمين': <PermItem>[
-      PermItem('users.read', 'عرض الالمستخدمين'),
-      PermItem('users.write', 'إضافة/تعديل/حذف الالمستخدمين'),
+    'المستخدمين': <PermItem>[
+      PermItem('users.read', 'عرض المستخدمين'),
+      PermItem('users.write', 'إضافة/تعديل/حذف المستخدمين'),
+      PermItem('roles.manage', 'تعديل صلاحيات الأدوار'),
     ],
-    'الالمنتجات والفئات': <PermItem>[
+    'المنتجات والفئات': <PermItem>[
       PermItem('products.read', 'عرض المنتجات'),
       PermItem('products.write', 'إضافة/تعديل المنتجات'),
       PermItem('categories.read', 'عرض الفئات'),

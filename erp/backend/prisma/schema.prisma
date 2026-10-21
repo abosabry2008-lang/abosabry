@@ -899,6 +899,9 @@ model Setting {
   defaultTaxRate       Decimal  @default(0) @db.Decimal(6, 3)
   taxEnabled           Boolean  @default(true)
   dashboardWidgets     String?
+  /// JSON map of role -> permission keys overriding the built-in defaults.
+  /// e.g. { "SALES": ["sales.read", "sales.write", "pos.use"] }
+  rolePermissions      Json?
   invoicePrefix        String   @default("INV")
   salesOrderPrefix     String   @default("SO")
   purchaseOrderPrefix  String   @default("PO")

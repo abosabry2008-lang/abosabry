@@ -3,6 +3,7 @@ import { ApiError } from '../../lib/api-error';
 import { round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { nextNumber } from '../../lib/sequence';
+import { ACCOUNT, postJournal } from '../accounting/accounting.service';
 import { cashBoxBalanceTx, cashBoxBalancesTx, ensureDefaultCashBoxTx } from '../payments/payments.service';
 
 export const transferInclude = {
@@ -54,7 +55,7 @@ async function clearOtherDefaults(tx: Tx, exceptId?: string): Promise<void> {
   });
 }
 
-export async function createCashBox(input: CashBoxInput) {
+export async function createCashBox(input: CashBoxInput, userId?: string) {
   return prisma.$transaction(async (tx) => {
     const code = input.code.trim().toUpperCase();
     const existing = await tx.cashBox.findUnique({ where: { code } });
@@ -62,20 +63,85 @@ export async function createCashBox(input: CashBoxInput) {
 
     if (input.isDefault) await clearOtherDefaults(tx);
 
-    return tx.cashBox.create({
+    const opening = round2(input.openingBalance ?? 0);
+
+    const box = await tx.cashBox.create({
       data: {
         code,
         name: input.name.trim(),
         type: input.type ?? 'SUB',
-        openingBalance: round2(input.openingBalance ?? 0),
+        openingBalance: opening,
         active: input.active ?? true,
         isDefault: input.isDefault ?? false,
       },
     });
+
+    // Opening cash is capital: Dr Cash / Cr Owner's Equity.
+    if (opening > 0) {
+      await postJournal(tx, {
+        memo: `Opening balance for cash box ${box.name}`,
+        reference: `OB-BOX-${box.code}`,
+        sourceType: 'OPENING_CASHBOX',
+        sourceId: box.id,
+        userId,
+        lines: [
+          { accountCode: ACCOUNT.CASH, debit: opening, description: 'Opening cash' },
+          { accountCode: ACCOUNT.EQUITY, credit: opening, description: 'Opening capital' },
+        ],
+      });
+    }
+
+    return box;
   });
 }
 
-export async function updateCashBox(id: string, input: Partial<CashBoxInput>) {
+/**
+ * Changes the opening balance of a cash box and posts the matching capital
+ * correction (delta Dr Cash / Cr Equity, or the reverse when reduced).
+ */
+export async function setCashBoxOpeningBalance(id: string, amount: number, userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    const box = await tx.cashBox.findUnique({ where: { id } });
+    if (!box) throw ApiError.notFound('Cash box not found', 'BOX_NOT_FOUND');
+
+    const previous = round2(Number(box.openingBalance));
+    const next = round2(amount);
+    const delta = round2(next - previous);
+
+    if (delta !== 0) {
+      await postJournal(tx, {
+        memo: `Opening balance adjustment for cash box ${box.name}`,
+        reference: `OB-BOX-${box.code}`,
+        sourceType: 'OPENING_CASHBOX',
+        sourceId: box.id,
+        userId,
+        lines:
+          delta > 0
+            ? [
+                { accountCode: ACCOUNT.CASH, debit: delta, description: 'Opening cash increase' },
+                { accountCode: ACCOUNT.EQUITY, credit: delta, description: 'Opening capital increase' },
+              ]
+            : [
+                { accountCode: ACCOUNT.EQUITY, debit: -delta, description: 'Opening capital decrease' },
+                { accountCode: ACCOUNT.CASH, credit: -delta, description: 'Opening cash decrease' },
+              ],
+      });
+    }
+
+    return tx.cashBox.update({ where: { id }, data: { openingBalance: next } });
+  });
+}
+
+export async function updateCashBox(
+  id: string,
+  input: Partial<CashBoxInput>,
+  userId?: string,
+) {
+  // Opening-balance edits are handled by setCashBoxOpeningBalance so the
+  // matching capital journal is always posted.
+  if (input.openingBalance !== undefined) {
+    await setCashBoxOpeningBalance(id, input.openingBalance, userId);
+  }
   return prisma.$transaction(async (tx) => {
     const box = await tx.cashBox.findUnique({ where: { id } });
     if (!box) throw ApiError.notFound('Cash box not found', 'BOX_NOT_FOUND');
@@ -104,7 +170,6 @@ export async function updateCashBox(id: string, input: Partial<CashBoxInput>) {
         ...(input.code !== undefined ? { code: input.code.trim().toUpperCase() } : {}),
         ...(input.name !== undefined ? { name: input.name.trim() } : {}),
         ...(input.type !== undefined ? { type: input.type } : {}),
-        ...(input.openingBalance !== undefined ? { openingBalance: round2(input.openingBalance) } : {}),
         ...(input.active !== undefined ? { active: input.active } : {}),
         ...(input.isDefault !== undefined ? { isDefault: input.isDefault } : {}),
       },

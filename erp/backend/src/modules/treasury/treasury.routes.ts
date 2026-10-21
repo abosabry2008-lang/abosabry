@@ -135,7 +135,7 @@ router.post(
   requirePermission('treasury.write'),
   validateBody(boxSchema),
   asyncHandler(async (req, res) => {
-    const box = await createCashBox(req.body);
+    const box = await createCashBox(req.body, currentUser(req).id);
     created(res, serializeBox(box));
   }),
 );
@@ -154,7 +154,7 @@ router.patch(
   requirePermission('treasury.write'),
   validateBody(boxUpdateSchema),
   asyncHandler(async (req, res) => {
-    const box = await updateCashBox(req.params.id, req.body);
+    const box = await updateCashBox(req.params.id, req.body, currentUser(req).id);
     ok(res, serializeBox(box));
   }),
 );

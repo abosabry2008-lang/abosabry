@@ -16,6 +16,7 @@ import '../../widgets/error_view.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
+import 'role_permissions_screen.dart';
 import 'users_screen.dart';
 
 /// Company settings, currencies and (for admins) users.
@@ -46,15 +47,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final canUsers = session.can('users');
     // settings.write is admin-only, so this doubles as the admin check.
     final canBackup = session.can('settings.write');
+    final canRolePerms =
+        session.role == 'ADMIN' || session.can('roles.manage');
     final tabs = <Tab>[
       Tab(text: s.company),
       Tab(text: s.currencies),
+      if (canRolePerms) const Tab(text: 'صلاحيات الأدوار'),
       if (canUsers) Tab(text: s.users),
       if (canBackup) Tab(text: s.backup),
     ];
     final views = <Widget>[
       _CompanySettingsTab(),
       CurrenciesTab(),
+      if (canRolePerms) const RolePermissionsTab(),
       if (canUsers) UsersTab(),
       if (canBackup) const _BackupTab(),
     ];
