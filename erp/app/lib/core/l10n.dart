@@ -54,6 +54,58 @@ class AppStrings {
 
   bool get isArabic => locale.languageCode == 'ar';
 
+  /// Translates common server error messages (which are written in English by
+  /// the API) into the active language so the UI never mixes the two.
+  ///
+  /// Falls back to the original text when there is no known translation, so
+  /// unexpected messages still reach the user verbatim.
+  static String translateServerMessage(Locale locale, String message) {
+    if (locale.languageCode != 'ar') return message;
+    final trimmed = message.trim();
+
+    const exact = <String, String>{
+      'Invalid email or password': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+      'You are not authorised': 'غير مصرّح لك',
+      'Invalid token': 'جلسة غير صالحة',
+      'Record not found': 'السجل غير موجود',
+      'Customer not found': 'العميل غير موجود',
+      'Supplier not found': 'المورد غير موجود',
+      'Internal server error': 'خطأ داخلي في الخادم',
+      'Validation failed': 'البيانات غير صالحة',
+      'Request body is not valid JSON': 'صيغة البيانات المرسلة غير صحيحة',
+      'Related record does not exist (foreign key violation)':
+          'السجل المرتبط غير موجود',
+      'Invalid data supplied to the database': 'البيانات المرسلة غير صالحة',
+      'The request timed out. Check your connection and try again.':
+          'انتهت مهلة الطلب. تحقق من الاتصال وحاول مرة أخرى.',
+      'Your session has expired. Please sign in again.':
+          'انتهت الجلسة. من فضلك سجّل الدخول مرة أخرى.',
+      'Unable to complete the request.': 'تعذّر إتمام الطلب.',
+    };
+    if (exact.containsKey(trimmed)) return exact[trimmed]!;
+
+    // "A record with the same code already exists" → fields vary, so match on
+    // the stable prefix.
+    final duplicate = RegExp(
+      r'^A record with the same (.+) already exists$',
+    ).firstMatch(trimmed);
+    if (duplicate != null) {
+      final fields = duplicate.group(1)!;
+      final label = fields.contains('code')
+          ? 'الكود'
+          : fields.contains('sku')
+              ? 'الرمز'
+              : fields.contains('email')
+                  ? 'البريد الإلكتروني'
+                  : fields.contains('barcode')
+                      ? 'الباركود'
+                      : fields;
+      return 'يوجد سجل بنفس $label بالفعل';
+    }
+
+    return message;
+  }
+
   String _t(String en, String ar) => isArabic ? ar : en;
 
   static AppStrings of(BuildContext context) =>

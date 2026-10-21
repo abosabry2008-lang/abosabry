@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/paginated.dart';
 import 'api_exception.dart';
 import 'config.dart';
 import 'json_utils.dart';
+import 'l10n.dart';
 
 /// Thin wrapper around `package:http` that understands the ERP API envelope.
 ///
@@ -21,6 +23,13 @@ class ApiClient {
   final http.Client _http;
 
   static const Duration _timeout = Duration(seconds: 30);
+
+  /// Active UI language. Kept in sync by the app so server error messages can
+  /// be shown in the user's language.
+  Locale _locale = const Locale('en');
+
+  /// Updates the language used when translating server error messages.
+  set locale(Locale value) => _locale = value;
 
   /// Access token attached to outgoing requests.
   String? accessToken;
@@ -153,12 +162,17 @@ class ApiClient {
       response = await http.Response.fromStream(streamed);
     } on TimeoutException {
       throw ApiException(
-        'The request timed out. Check your connection and try again.',
+        AppStrings.translateServerMessage(
+          _locale,
+          'The request timed out. Check your connection and try again.',
+        ),
         isNetworkError: true,
       );
     } catch (error) {
       throw ApiException(
-        'Cannot reach the server at ${AppConfig.baseUrl}.',
+        _locale.languageCode == 'ar'
+            ? 'تعذّر الوصول إلى الخادم على ${AppConfig.baseUrl}.'
+            : 'Cannot reach the server at ${AppConfig.baseUrl}.',
         isNetworkError: true,
         details: error,
       );
@@ -261,7 +275,7 @@ class ApiClient {
       if (parts.isNotEmpty) message = '$message — ${parts.join(', ')}';
     }
     return ApiException(
-      message,
+      AppStrings.translateServerMessage(_locale, message),
       statusCode: response.statusCode,
       code: asStringOrNull(error['code']),
       details: error['details'],

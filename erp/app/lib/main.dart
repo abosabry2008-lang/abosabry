@@ -169,7 +169,11 @@ class _ErpAppState extends State<ErpApp> {
         ChangeNotifierProvider<PosController>.value(value: _pos),
       ],
       child: Consumer<LocaleController>(
-        builder: (context, localeController, _) => MaterialApp(
+        builder: (context, localeController, _) {
+          // Keep the API client's language in sync so server error messages are
+          // shown in the active language.
+          _api.locale = localeController.locale;
+          return MaterialApp(
           title: 'ERP',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
@@ -183,7 +187,8 @@ class _ErpAppState extends State<ErpApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           home: const _SessionGate(),
-        ),
+        );
+        },
       ),
     );
   }
