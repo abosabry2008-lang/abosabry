@@ -34,5 +34,56 @@
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // ---------------------------------------------------------------------
+    // Auto-update: pick up a newly deployed build without the user having to
+    // clear their browser storage.
+    //
+    // Flutter's generated service worker caches `main.dart.js` and serves the
+    // cached copy first (`response || fetch(...)`). `flutter_bootstrap.js` only
+    // checks for a new worker when its baked-in `serviceWorkerVersion` differs,
+    // which is not the case for a new build, so an open tab can keep running the
+    // previous build indefinitely. Here we call `registration.update()` on every
+    // load (bypassing the version check), then reload the page exactly once when
+    // the new worker takes control.
+    //
+    // This is purely additive: it reuses the registration `flutter_bootstrap.js`
+    // already created and never registers a worker itself.
+    // ---------------------------------------------------------------------
+    (function () {
+      if (!('serviceWorker' in navigator) || !navigator.serviceWorker.getRegistration) {
+        return;
+      }
+
+      var reloading = false;
+
+      // Reload once, when the fresh service worker takes control of the page.
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (reloading) return;
+        reloading = true;
+        window.location.reload();
+      });
+
+      // `flutter_bootstrap.js` registers the worker asynchronously; wait until a
+      // registration exists, then force an update check.
+      function checkForUpdate() {
+        navigator.serviceWorker.getRegistration().then(function (registration) {
+          if (!registration) return;
+          registration.update().catch(function () {
+            /* Offline or blocked: keep running the cached build. */
+          });
+          if (registration.waiting) {
+            registration.waiting.postMessage('skipWaiting');
+          }
+        }).catch(function () {
+          /* Service workers are best-effort; the app still runs without one. */
+        });
+      }
+
+      // Try immediately and again once the page has fully loaded.
+      checkForUpdate();
+      window.addEventListener('load', checkForUpdate);
+    })();
+  </script>
 </body>
 </html>
