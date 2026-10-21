@@ -3,11 +3,11 @@ class PermissionCatalog {
   PermissionCatalog._();
 
   static const Map<String, List<PermItem>> groups = <String, List<PermItem>>{
-    'المستخدمين': <PermItem>[
-      PermItem('users.read', 'عرض المستخدمين'),
-      PermItem('users.write', 'إضافة/تعديل/حذف المستخدمين'),
+    'الالمستخدمين': <PermItem>[
+      PermItem('users.read', 'عرض الالمستخدمين'),
+      PermItem('users.write', 'إضافة/تعديل/حذف الالمستخدمين'),
     ],
-    'المنتجات والفئات': <PermItem>[
+    'الالمنتجات والفئات': <PermItem>[
       PermItem('products.read', 'عرض المنتجات'),
       PermItem('products.write', 'إضافة/تعديل المنتجات'),
       PermItem('categories.read', 'عرض الفئات'),
