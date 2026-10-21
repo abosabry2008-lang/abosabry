@@ -35,9 +35,26 @@ class AppConfig {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString(_baseUrlKey);
     if (stored != null && stored.trim().isNotEmpty) {
-      _baseUrl = normalize(stored);
+      final normalized = normalize(stored);
+      // Safety net: a locally-saved `localhost` address must not be used when
+      // the app is served from a real domain (that is what produces the
+      // "cannot reach the server" error after a deploy). Fall back to default.
+      if (kIsWeb && !_isLocalHostPage && _isLocalHost(normalized)) {
+        _baseUrl = defaultBaseUrl;
+        await prefs.remove(_baseUrlKey);
+        return;
+      }
+      _baseUrl = normalized;
     }
   }
+
+  static bool get _isLocalHostPage {
+    final host = Uri.base.host;
+    return host == 'localhost' || host == '127.0.0.1' || host.isEmpty;
+  }
+
+  static bool _isLocalHost(String value) =>
+      value.contains('localhost') || value.contains('127.0.0.1');
 
   /// Persists a new base URL.
   static Future<void> setBaseUrl(String value) async {

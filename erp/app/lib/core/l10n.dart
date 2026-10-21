@@ -131,6 +131,12 @@ class AppStrings {
   String get baseUrlIsRequired => _t('Base URL is required', 'عنوان URL مطلوب');
   String get enterValidAbsoluteUrl =>
       _t('Enter a valid absolute URL', 'أدخل عنوان URL مطلقًا صالحًا');
+  String get resetToDefaultServer =>
+      _t('Reset to default server', 'إعادة التعيين للسيرفر الافتراضي');
+  String get serverReset => _t(
+        'Server address reset to the default.',
+        'تمت إعادة عنوان السيرفر للوضع الافتراضي.',
+      );
   String get unableToSignIn => _t('Unable to sign in.', 'تعذّر تسجيل الدخول.');
   String get signedInAsHint => _t(
         'Signed in as an ERP user. Ask an administrator for your credentials.',

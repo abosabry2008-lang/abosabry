@@ -180,12 +180,32 @@ class _LoginScreenState extends State<LoginScreen> {
                           validator: (value) {
                             final text = (value ?? '').trim();
                             if (text.isEmpty) return s.baseUrlIsRequired;
+                            // A relative path such as `/api/v1` is valid on web:
+                            // it resolves against the page origin.
+                            if (text.startsWith('/')) return null;
                             final uri = Uri.tryParse(text);
                             if (uri == null || !uri.isAbsolute) {
                               return s.enterValidAbsoluteUrl;
                             }
                             return null;
                           },
+                        ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: TextButton.icon(
+                            onPressed: busy
+                                ? null
+                                : () {
+                                    _baseUrl.text = AppConfig.defaultBaseUrl;
+                                    setState(() {});
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(s.serverReset)),
+                                    );
+                                  },
+                            icon: const Icon(Icons.restart_alt, size: 18),
+                            label: Text(s.resetToDefaultServer),
+                          ),
                         ),
                         const SizedBox(height: 8),
                       ],
