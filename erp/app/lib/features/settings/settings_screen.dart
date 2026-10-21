@@ -152,6 +152,102 @@ class _MaintenanceTab extends StatefulWidget {
 
 class _MaintenanceTabState extends State<_MaintenanceTab> {
   bool _busy = false;
+  bool _scanning = false;
+  int? _dupGroups;
+  int? _dupExtra;
+
+  /// Checks for duplicate product names and stores the counts for the UI.
+  Future<void> _scanDuplicates() async {
+    final s = context.s;
+    setState(() => _scanning = true);
+    final api = context.read<Session>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final data = await api.getObject('/maintenance/duplicate-products');
+      if (!mounted) return;
+      setState(() {
+        _dupGroups = (data['duplicateGroups'] as num?)?.toInt() ?? 0;
+        _dupExtra = (data['extraRows'] as num?)?.toInt() ?? 0;
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            _dupGroups == 0
+                ? s.dedupeNone
+                : s.dedupeFound(_dupGroups ?? 0, _dupExtra ?? 0),
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
+  }
+
+  Future<void> _dedupe() async {
+    final s = context.s;
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(s.dedupeTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(s.dedupeHint),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: s.dedupeConfirmHint,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(s.delete),
+          ),
+        ],
+      ),
+    );
+
+    final typed = controller.text.trim();
+    controller.dispose();
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busy = true);
+    final api = context.read<Session>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final data = await api.postObject(
+        '/maintenance/dedupe-products',
+        body: <String, dynamic>{'confirmation': typed},
+      );
+      if (!mounted) return;
+      final removed = (data['removed'] as num?)?.toInt() ?? 0;
+      setState(() {
+        _dupGroups = 0;
+        _dupExtra = 0;
+      });
+      messenger.showSnackBar(SnackBar(content: Text(s.dedupeDone(removed))));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _clearData() async {
     final s = context.s;
@@ -224,6 +320,75 @@ class _MaintenanceTabState extends State<_MaintenanceTab> {
       padding: const EdgeInsets.all(16),
       children: <Widget>[
         SectionCard(
+          title: s.dedupeTitle,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text(s.dedupeHint),
+              if (_dupGroups != null) ...<Widget>[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _dupGroups == 0
+                        ? theme.colorScheme.surfaceContainerHighest
+                        : theme.colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    _dupGroups == 0
+                        ? s.dedupeNone
+                        : s.dedupeFound(_dupGroups ?? 0, _dupExtra ?? 0),
+                    style: TextStyle(
+                      color: _dupGroups == 0
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onErrorContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _scanning || _busy ? null : _scanDuplicates,
+                      icon: _scanning
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.search_outlined),
+                      label: Text(s.dedupeScan),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: theme.colorScheme.error,
+                        foregroundColor: theme.colorScheme.onError,
+                      ),
+                      onPressed: _busy ? null : _dedupe,
+                      icon: _busy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.merge_type_outlined),
+                      label: Text(s.dedupeButton),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionCard(
           title: s.clearDataTitle,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -278,6 +443,7 @@ class _MaintenanceTabState extends State<_MaintenanceTab> {
 
 class _CompanySettingsTab extends StatefulWidget {
   const _CompanySettingsTab();
+
   @override
   State<_CompanySettingsTab> createState() => _CompanySettingsTabState();
 }

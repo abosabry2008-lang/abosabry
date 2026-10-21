@@ -1442,6 +1442,36 @@ class AppStrings {
         'تعذّر مسح البيانات.',
       );
 
+  // --- Duplicate products (الأصناف المكررة) --------------------------------
+  String get dedupeTitle => _t('Merge duplicate products', 'دمج الأصناف المكررة');
+  String get dedupeHint => _t(
+        'Finds products that share the same name and keeps only the oldest one. '
+            'Any invoice, order or stock movement that pointed at a duplicate is '
+            'moved to the kept product first, so nothing is lost.',
+        'يبحث عن الأصناف اللي ليها نفس الاسم ويحتفظ بالأقدم فقط. أي فاتورة أو أمر '
+            'أو حركة مخزون كانت مربوطة بنسخة مكررة بتتحوّل للصنف اللي فضل، فمفيش '
+            'حاجة بتضيع.',
+      );
+  String get dedupeScan => _t('Check for duplicates', 'افحص المكرر');
+  String get dedupeButton => _t('Delete duplicates', 'امسح المكرر');
+  String get dedupeConfirmHint => _t(
+        'Type DELETE-DUPLICATES to confirm.',
+        'اكتب DELETE-DUPLICATES للتأكيد.',
+      );
+  String dedupeFound(int groups, int extra) => _t(
+        '$groups duplicate names — $extra extra rows',
+        '$groups اسم مكرر — $extra صف زيادة',
+      );
+  String get dedupeNone => _t('No duplicate products found.', 'مفيش أصناف مكررة.');
+  String dedupeDone(int removed) => _t(
+        'Removed $removed duplicate rows.',
+        'تم مسح $removed صف مكرر.',
+      );
+  String get dedupeFailed => _t(
+        'Could not check for duplicates.',
+        'تعذّر فحص المكرر.',
+      );
+
   // --- Expenses (المصروفات) -------------------------------------------------
   String get expensesTitle => _t('Expenses', 'المصروفات');
   String get expense => _t('Expense', 'مصروف');
