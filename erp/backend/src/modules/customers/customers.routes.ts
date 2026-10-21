@@ -1,11 +1,13 @@
 import { Prisma } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
+import { ACCOUNT, postJournal } from '../accounting/accounting.service';
 import { ApiError } from '../../lib/api-error';
 import { asyncHandler, created, getPaging, noContent, ok, paginated } from '../../lib/http';
+import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
 import { asBool, asString } from '../../lib/query';
-import { authenticate } from '../../middleware/authenticate';
+import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 
@@ -21,6 +23,7 @@ const schema = z.object({
   creditLimit: z.number().min(0).default(0),
   active: z.boolean().default(true),
   salespersonId: z.string().nullable().optional(),
+  openingBalance: z.number().optional(),
 });
 
 const include = {
@@ -89,7 +92,31 @@ router.post(
   requirePermission('customers.write'),
   validateBody(schema),
   asyncHandler(async (req, res) => {
-    const customer = await prisma.customer.create({ data: req.body, include });
+    const { openingBalance, ...data } = req.body as any;
+    const amount = round2(Number(openingBalance ?? 0));
+    const customer = await prisma.$transaction(async (tx) => {
+      const created = await tx.customer.create({ data, include });
+      if (amount > 0) {
+        await tx.customer.update({
+          where: { id: created.id },
+          data: { balance: amount },
+        });
+        await postJournal(tx, {
+          memo: `Opening balance for customer ${created.name}`,
+          reference: `OB-CUST-${created.id.slice(-6).toUpperCase()}`,
+          sourceType: 'OPENING_CUSTOMER',
+          sourceId: created.id,
+          userId: currentUser(req).id,
+          lines: [
+            { accountCode: ACCOUNT.RECEIVABLE, debit: amount, description: 'Opening receivable' },
+            { accountCode: ACCOUNT.EQUITY, credit: amount, description: 'Opening capital' },
+          ],
+        });
+        const refreshed = await tx.customer.findUnique({ where: { id: created.id }, include });
+        return refreshed ?? created;
+      }
+      return created;
+    });
     created(res, serialize(customer));
   }),
 );

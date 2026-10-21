@@ -31,15 +31,16 @@ interface SessionUser {
   email: string;
   name: string;
   role: Role;
+  permissions?: unknown;
 }
 
-function publicUser(user: SessionUser) {
+function publicUser(user: SessionUser & { permissions?: unknown }) {
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
-    permissions: permissionsFor(user.role),
+    permissions: permissionsFor(user.role, (user as any).permissions),
   };
 }
 

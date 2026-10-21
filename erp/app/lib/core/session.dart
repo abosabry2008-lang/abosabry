@@ -108,6 +108,11 @@ class Session extends ChangeNotifier {
   bool can(String permission) {
     final current = role;
     if (current == null) return false;
+    if (current == 'ADMIN') return true;
+    final userPerms = _user?.permissions;
+    if (userPerms != null && userPerms.isNotEmpty) {
+      return userPerms.contains('*') || userPerms.contains(permission);
+    }
     final permissions = rolePermissions[current];
     if (permissions == null) return false;
     return permissions.contains('*') || permissions.contains(permission);

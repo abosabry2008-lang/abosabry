@@ -37,6 +37,7 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
       TextEditingController(text: widget.customer?.taxId ?? '');
   late final TextEditingController _creditLimit =
       TextEditingController(text: (widget.customer?.creditLimit ?? 0).toString());
+  late final TextEditingController _openingBalance = TextEditingController(text: '0');
 
   late bool _active = widget.customer?.active ?? true;
 
@@ -62,6 +63,7 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
     _address.dispose();
     _taxId.dispose();
     _creditLimit.dispose();
+    _openingBalance.dispose();
     super.dispose();
   }
 
@@ -74,6 +76,8 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
         'creditLimit': double.tryParse(_creditLimit.text.trim()) ?? 0,
         'active': _active,
         'salespersonId': _salespersonId,
+        if (!widget.isEditing)
+          'openingBalance': double.tryParse(_openingBalance.text.trim()) ?? 0,
       };
 
   Future<void> _submit() async {
@@ -204,6 +208,15 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
                     enabled: !_saving,
                     prefixIcon: Icons.credit_card_outlined,
                   ),
+                  if (!widget.isEditing) ...[
+                    const SizedBox(height: 14),
+                    AppNumberField(
+                      label: 'الرصيد الافتتاحى',
+                      controller: _openingBalance,
+                      enabled: !_saving,
+                      prefixIcon: Icons.account_balance_wallet_outlined,
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   AppSelectField<String?>(
                     label: s.salesperson,

@@ -182,11 +182,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             color: Theme.of(context).colorScheme.outline,
                           ),
                     )
-                  : Column(
-                      children: summary!.movements
-                          .take(8)
-                          .map((row) => _MovementTile(row: row))
-                          .toList(),
+                  : SizedBox(
+                      height: 280,
+                      child: Scrollbar(
+                        child: ListView.builder(
+                          itemCount: summary!.movements.length,
+                          itemBuilder: (context, index) {
+                            final row = summary.movements[index];
+                            return _MovementTile(row: row);
+                          },
+                        ),
+                      ),
                     ),
             ),
           ],

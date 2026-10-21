@@ -39,6 +39,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
   late final TextEditingController _paymentTermDays = TextEditingController(
     text: (widget.supplier?.paymentTermDays ?? 30).toString(),
   );
+  late final TextEditingController _openingBalance = TextEditingController(text: '0');
 
   late bool _active = widget.supplier?.active ?? true;
   bool _saving = false;
@@ -52,6 +53,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
     _address.dispose();
     _taxId.dispose();
     _paymentTermDays.dispose();
+    _openingBalance.dispose();
     super.dispose();
   }
 
@@ -64,6 +66,8 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
         'taxId': _taxId.text.trim().isEmpty ? null : _taxId.text.trim(),
         'paymentTermDays': int.tryParse(_paymentTermDays.text.trim()) ?? 30,
         'active': _active,
+        if (!widget.isEditing)
+          'openingBalance': double.tryParse(_openingBalance.text.trim()) ?? 0,
       };
 
   Future<void> _submit() async {

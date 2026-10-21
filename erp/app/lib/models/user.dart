@@ -9,6 +9,7 @@ class AppUser {
     required this.role,
     this.phone,
     this.active = true,
+    this.permissions,
     this.lastLoginAt,
     this.createdAt,
   });
@@ -19,19 +20,28 @@ class AppUser {
   final String role;
   final String? phone;
   final bool active;
+  final List<String>? permissions;
   final DateTime? lastLoginAt;
   final DateTime? createdAt;
 
-  factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
-        id: asString(json['id']),
-        email: asString(json['email']),
-        name: asString(json['name']),
-        role: asString(json['role'], fallback: 'SALES'),
-        phone: asStringOrNull(json['phone']),
-        active: asBool(json['active'], fallback: true),
-        lastLoginAt: asDate(json['lastLoginAt']),
-        createdAt: asDate(json['createdAt']),
-      );
+  factory AppUser.fromJson(Map<String, dynamic> json) {
+    List<String>? perms;
+    final raw = json['permissions'];
+    if (raw is List) {
+      perms = raw.whereType<String>().toList();
+    }
+    return AppUser(
+      id: asString(json['id']),
+      email: asString(json['email']),
+      name: asString(json['name']),
+      role: asString(json['role'], fallback: 'SALES'),
+      phone: asStringOrNull(json['phone']),
+      active: asBool(json['active'], fallback: true),
+      permissions: perms,
+      lastLoginAt: asDate(json['lastLoginAt']),
+      createdAt: asDate(json['createdAt']),
+    );
+  }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
@@ -40,5 +50,6 @@ class AppUser {
         'role': role,
         'phone': phone,
         'active': active,
+        if (permissions != null) 'permissions': permissions,
       };
 }

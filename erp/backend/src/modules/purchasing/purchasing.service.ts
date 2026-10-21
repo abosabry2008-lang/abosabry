@@ -303,7 +303,15 @@ export async function receivePurchaseOrder(id: string, input: ReceivePurchaseOrd
       // سعر التكلفة يصبح آخر سعر شراء مستلم لهذا المنتج.
       await tx.product.update({
         where: { id: line.productId },
-        data: { costPrice: Number(line.unitCost) },
+        data: {
+          costPrice: Number(line.unitCost),
+          salePrice: Math.max(
+            Number(line.unitCost),
+            Number(
+              (Number(line.unitCost) * 1.03).toFixed(2),
+            ),
+          ),
+        },
       });
 
       await tx.purchaseOrderLine.update({

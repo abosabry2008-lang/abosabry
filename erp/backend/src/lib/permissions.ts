@@ -132,12 +132,34 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
   ],
 };
 
-export function permissionsFor(role: Role): string[] {
+export function parseCustomPermissions(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((p): p is string => typeof p === 'string' && p.length > 0);
+}
+
+export function permissionsFor(
+  role: Role,
+  custom?: unknown,
+): string[] {
+  if (role === 'ADMIN') return [...ALL_PERMISSIONS];
+  const customList = parseCustomPermissions(custom);
+  if (customList.length > 0) {
+    return Array.from(new Set(customList));
+  }
   const listed = ROLE_PERMISSIONS[role] ?? [];
   return listed.includes('*') ? [...ALL_PERMISSIONS] : listed;
 }
 
-export function roleHasPermission(role: Role, permission: Permission): boolean {
+export function roleHasPermission(
+  role: Role,
+  permission: Permission,
+  custom?: unknown,
+): boolean {
+  if (role === 'ADMIN') return true;
+  const customList = parseCustomPermissions(custom);
+  if (customList.length > 0) {
+    return customList.includes(permission);
+  }
   const listed = ROLE_PERMISSIONS[role] ?? [];
   return listed.includes('*') || listed.includes(permission);
 }

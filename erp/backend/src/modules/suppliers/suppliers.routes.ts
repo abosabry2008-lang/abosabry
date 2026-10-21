@@ -1,11 +1,13 @@
 import { Prisma } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
+import { ACCOUNT, postJournal } from '../accounting/accounting.service';
 import { ApiError } from '../../lib/api-error';
 import { asyncHandler, created, getPaging, noContent, ok, paginated } from '../../lib/http';
+import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
 import { asBool, asString } from '../../lib/query';
-import { authenticate } from '../../middleware/authenticate';
+import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 
@@ -21,6 +23,7 @@ const schema = z.object({
   taxId: z.string().nullable().optional(),
   paymentTermDays: z.number().int().min(0).default(30),
   active: z.boolean().default(true),
+  openingBalance: z.number().optional(),
 });
 
 router.get(
@@ -77,7 +80,31 @@ router.post(
   requirePermission('purchasing.write'),
   validateBody(schema),
   asyncHandler(async (req, res) => {
-    const supplier = await prisma.supplier.create({ data: req.body });
+    const { openingBalance, ...data } = req.body as any;
+    const amount = round2(Number(openingBalance ?? 0));
+    const supplier = await prisma.$transaction(async (tx) => {
+      const created = await tx.supplier.create({ data });
+      if (amount > 0) {
+        await tx.supplier.update({
+          where: { id: created.id },
+          data: { balance: amount },
+        });
+        await postJournal(tx, {
+          memo: `Opening balance for supplier ${created.name}`,
+          reference: `OB-SUPP-${created.id.slice(-6).toUpperCase()}`,
+          sourceType: 'OPENING_SUPPLIER',
+          sourceId: created.id,
+          userId: currentUser(req).id,
+          lines: [
+            { accountCode: ACCOUNT.EQUITY, debit: amount, description: 'Opening capital' },
+            { accountCode: ACCOUNT.PAYABLE, credit: amount, description: 'Opening payable' },
+          ],
+        });
+        const refreshed = await tx.supplier.findUnique({ where: { id: created.id } });
+        return refreshed ?? created;
+      }
+      return created;
+    });
     created(res, supplier);
   }),
 );

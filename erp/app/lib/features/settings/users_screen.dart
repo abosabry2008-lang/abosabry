@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
 import '../../core/l10n.dart';
+import '../../core/permissions_catalog.dart';
 import '../../core/session.dart';
 import '../../models/user.dart';
 import '../../state/users_controller.dart';
@@ -185,12 +186,21 @@ class _UserFormDialogState extends State<_UserFormDialog> {
       TextEditingController(text: widget.user?.phone ?? '');
   late String _role = widget.user?.role ?? 'SALES';
   late bool _active = widget.user?.active ?? true;
-  // الباسورد ظاهر افتراضياً عند الإضافة/التعديل مع زر إظهار/إخفاء،
-  // عشان المستخدم يشوف اللي بيكتبه ويقلل أخطاء الإدخال.
+  Set<String> _customPerms = <String>{};
+  bool _useCustom = false;
   bool _obscure = false;
   bool _saving = false;
 
   bool get _isEdit => widget.user != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEdit && widget.user?.permissions != null) {
+      _useCustom = widget.user!.permissions!.isNotEmpty;
+      _customPerms = widget.user!.permissions!.toSet();
+    }
+  }
 
   @override
   void dispose() {
@@ -214,6 +224,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
       'phone': _phone.text.trim().isEmpty ? null : _phone.text.trim(),
       'active': _active,
       if (_password.text.isNotEmpty) 'password': _password.text,
+      'permissions': _useCustom ? _customPerms.toList() : null,
     };
     try {
       if (_isEdit) {
@@ -313,6 +324,50 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                 value: _active,
                 onChanged: (value) => setState(() => _active = value),
               ),
+              const SizedBox(height: 12),
+              AppSwitchField(
+                label: 'استخدام صلاحيات مخصصة',
+                value: _useCustom,
+                onChanged: (value) => setState(() => _useCustom = value),
+              ),
+              if (_useCustom) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 320,
+                  width: double.maxFinite,
+                  child: ListView(
+                    children: [
+                      for (final entry in PermissionCatalog.groups.entries) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Text(
+                            entry.key,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                        ),
+                        for (final p in entry.value)
+                          CheckboxListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(p.label),
+                            subtitle: Text(p.key),
+                            value: _customPerms.contains(p.key),
+                            onChanged: (v) {
+                              setState(() {
+                                if (v == true) {
+                                  _customPerms.add(p.key);
+                                } else {
+                                  _customPerms.remove(p.key);
+                                }
+                              });
+                            },
+                          ),
+                        const Divider(),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

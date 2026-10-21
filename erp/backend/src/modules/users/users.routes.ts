@@ -23,6 +23,7 @@ const createSchema = z.object({
   role: roleEnum.default('SALES'),
   phone: z.string().nullable().optional(),
   active: z.boolean().optional(),
+  permissions: z.array(z.string()).nullable().optional(),
 });
 
 const updateSchema = z.object({
@@ -32,6 +33,7 @@ const updateSchema = z.object({
   role: roleEnum.optional(),
   phone: z.string().nullable().optional(),
   active: z.boolean().optional(),
+  permissions: z.array(z.string()).nullable().optional(),
 });
 
 const select = {
@@ -41,6 +43,7 @@ const select = {
   role: true,
   phone: true,
   active: true,
+  permissions: true,
   lastLoginAt: true,
   createdAt: true,
   updatedAt: true,
@@ -115,7 +118,8 @@ router.post(
         role: req.body.role,
         phone: req.body.phone ?? null,
         active: req.body.active ?? true,
-      },
+        ...(req.body.permissions !== undefined ? { permissions: req.body.permissions as any } : {}),
+      } as any,
       select,
     });
     created(res, user);
@@ -133,6 +137,7 @@ router.patch(
     if (req.body.role !== undefined) data.role = req.body.role;
     if (req.body.phone !== undefined) data.phone = req.body.phone;
     if (req.body.active !== undefined) data.active = req.body.active;
+    if (req.body.permissions !== undefined) (data as any).permissions = req.body.permissions;
     if (req.body.password) data.passwordHash = await hashPassword(String(req.body.password));
 
     const user = await prisma.user.update({ where: { id: req.params.id }, data, select });
