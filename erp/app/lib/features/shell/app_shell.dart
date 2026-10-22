@@ -260,37 +260,54 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       appBar: AppBar(
         title: Text(destination.label(s)),
+        surfaceTintColor: Colors.transparent,
         actions: <Widget>[
           if (session.can('settings')) const _SettingsButton(),
           const _LanguageButton(),
           _UserMenu(session: session),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
         ],
       ),
       drawer: isWide
           ? null
           : Drawer(
-              child: SafeArea(
-                child: Scrollbar(
-                  controller: _drawerScrollController,
-                  thumbVisibility: true,
-                  child: ListView(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(10),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: Scrollbar(
                     controller: _drawerScrollController,
-                    padding: EdgeInsets.zero,
-                    children: <Widget>[
-                      _DrawerHeader(session: session),
-                      for (var i = 0; i < destinations.length; i++)
-                        _DrawerTile(
-                          icon: destinations[i].icon,
-                          label: destinations[i].label(s),
-                          selected: i == index,
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            setState(() => _index = i);
-                          },
-                        ),
-                      const SizedBox(height: 8),
-                    ],
+                    thumbVisibility: true,
+                    child: ListView(
+                      controller: _drawerScrollController,
+                      padding: EdgeInsets.zero,
+                      children: <Widget>[
+                        _DrawerHeader(session: session),
+                        for (var i = 0; i < destinations.length; i++)
+                          _DrawerTile(
+                            icon: destinations[i].icon,
+                            label: destinations[i].label(s),
+                            selected: i == index,
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              setState(() => _index = i);
+                            },
+                          ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -300,34 +317,66 @@ class _AppShellState extends State<AppShell> {
           if (isWide)
             // Wrap the rail so its destinations scroll when they exceed the
             // available height (long menus on short screens).
-            SizedBox(
-              width: isExtraWide ? 220 : _railCollapsedWidth,
-              child: LayoutBuilder(
-                builder: (context, constraints) => Scrollbar(
-                  controller: _railScrollController,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _railScrollController,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                        minWidth: constraints.maxWidth,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
+              child: SizedBox(
+                width: isExtraWide ? 236 : _railCollapsedWidth,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withAlpha(179),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(5),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
                       ),
-                      child: IntrinsicHeight(
-                        child: NavigationRail(
-                          selectedIndex: index,
-                          extended: isExtraWide,
-                          labelType:
-                              isExtraWide ? null : NavigationRailLabelType.all,
-                          onDestinationSelected: (value) =>
-                              setState(() => _index = value),
-                          destinations: <NavigationRailDestination>[
-                            for (final item in destinations)
-                              NavigationRailDestination(
-                                icon: Icon(item.icon),
-                                label: Text(item.label(s)),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => Scrollbar(
+                        controller: _railScrollController,
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          controller: _railScrollController,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                              minWidth: constraints.maxWidth,
+                            ),
+                            child: IntrinsicHeight(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                child: NavigationRail(
+                                  backgroundColor: Colors.transparent,
+                                  selectedIndex: index,
+                                  extended: isExtraWide,
+                                  labelType: isExtraWide
+                                      ? null
+                                      : NavigationRailLabelType.all,
+                                  onDestinationSelected: (value) =>
+                                      setState(() => _index = value),
+                                  destinations: <NavigationRailDestination>[
+                                    for (final item in destinations)
+                                      NavigationRailDestination(
+                                        icon: Icon(item.icon),
+                                        selectedIcon: Icon(item.icon),
+                                        label: Text(item.label(s)),
+                                      ),
+                                  ],
+                                ),
                               ),
-                          ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -335,8 +384,6 @@ class _AppShellState extends State<AppShell> {
                 ),
               ),
             ),
-          if (isWide) const VerticalDivider(width: 1),
-          Expanded(child: destination.builder()),
         ],
       ),
     );
