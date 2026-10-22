@@ -94,6 +94,54 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     if (updated == true) await _load();
   }
 
+  Future<void> _issue() async {
+    final s = context.s;
+    final api = context.read<Session>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      await api.post(
+        '/invoices/${widget.invoiceId}/issue',
+        body: const <String, dynamic>{},
+      );
+      await _load();
+      messenger.showSnackBar(SnackBar(content: Text(s.invoiceIssued)));
+    } on ApiException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _void() async {
+    final s = context.s;
+    final api = context.read<Session>().api;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final confirmed = await confirmDialog(
+      context,
+      title: s.voidInvoiceQ,
+      message: s.voidInvoiceMessage,
+      confirmLabel: s.continueLabel,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await api.post(
+        '/invoices/${widget.invoiceId}/void',
+        body: const <String, dynamic>{},
+      );
+      await _load();
+      messenger.showSnackBar(SnackBar(content: Text(s.invoiceVoided)));
+      navigator.pop(true);
+    } on ApiException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = context.s;
@@ -240,31 +288,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   // void an issued invoice.
                   if (invoice.canIssue && canManage)
                     FilledButton.tonalIcon(
-                      onPressed: _busy
-                          ? null
-                          : () async {
-                                final api = context.read<Session>().api;
-                                final messenger = ScaffoldMessenger.of(context);
-                                setState(() => _busy = true);
-                                try {
-                                  await api.post(
-                                    '/invoices/${widget.invoiceId}/issue',
-                                    body: const <String, dynamic>{},
-                                  );
-                                  await _load();
-                                  if (!mounted) return;
-                                  messenger.showSnackBar(
-                                    SnackBar(content: Text(context.s.invoiceIssued)),
-                                  );
-                                } on ApiException catch (error) {
-                                  if (!mounted) return;
-                                  messenger.showSnackBar(
-                                    SnackBar(content: Text(error.message)),
-                                  );
-                                } finally {
-                                  if (mounted) setState(() => _busy = false);
-                                }
-                              },
+                      onPressed: _busy ? null : _issue,
                       icon: const Icon(Icons.send_outlined),
                       label: Text(s.issue),
                     ),
@@ -277,41 +301,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     ),
                   if (invoice.canVoid && session.isAdmin)
                     OutlinedButton.icon(
-                      onPressed: _busy
-                          ? null
-                          : () async {
-                                final confirmed = await confirmDialog(
-                                  context,
-                                  title: s.voidInvoiceQ,
-                                  message: s.voidInvoiceMessage,
-                                  confirmLabel: s.continueLabel,
-                                  destructive: true,
-                                );
-                                if (!confirmed || !mounted) return;
-                                final api = context.read<Session>().api;
-                                final messenger = ScaffoldMessenger.of(context);
-                                final navigator = Navigator.of(context);
-                                setState(() => _busy = true);
-                                try {
-                                  await api.post(
-                                    '/invoices/${widget.invoiceId}/void',
-                                    body: const <String, dynamic>{},
-                                  );
-                                  await _load();
-                                  if (!mounted) return;
-                                  messenger.showSnackBar(
-                                    SnackBar(content: Text(context.s.invoiceVoided)),
-                                  );
-                                  navigator.pop(true);
-                                } on ApiException catch (error) {
-                                  if (!mounted) return;
-                                  messenger.showSnackBar(
-                                    SnackBar(content: Text(error.message)),
-                                  );
-                                } finally {
-                                  if (mounted) setState(() => _busy = false);
-                                }
-                              },
+                      onPressed: _busy ? null : _void,
                       icon: const Icon(Icons.cancel_outlined),
                       label: Text(s.voidLabel),
                     ),
