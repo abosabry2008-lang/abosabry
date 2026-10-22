@@ -194,6 +194,38 @@ export async function buildConsolidatedSalesNote(
     byRep.set(key, row);
   }
 
+  // Subtract posted customer returns from each salesperson's net sales.
+  const returns = await prisma.returnOrder.findMany({
+    where: {
+      type: 'CUSTOMER_RETURN',
+      status: 'POSTED',
+      returnDate: { gte: from, lte: to },
+    },
+    select: {
+      total: true,
+      customer: { select: { salespersonId: true } },
+      lines: { select: { productId: true, quantity: true, unitPrice: true } },
+    },
+  });
+  for (const ret of returns) {
+    const spId = ret.customer?.salespersonId;
+    if (!spId) continue;
+    const row = byRep.get(spId);
+    if (!row) continue;
+    let returnNet = 0;
+    for (const l of ret.lines) {
+      const lineNet = round2(l.quantity * Number(l.unitPrice));
+      returnNet = round2(returnNet + lineNet);
+      const existing = row.lines.find((x) => x.productId === l.productId);
+      if (existing) {
+        existing.quantity = Math.max(0, existing.quantity - l.quantity);
+        existing.net = round2(Math.max(0, existing.net - lineNet));
+      }
+    }
+    row.net = round2(Math.max(0, row.net - (returnNet > 0 ? returnNet : Number(ret.total))));
+    row.quantity = Math.max(0, row.quantity - ret.lines.reduce((s, l) => s + l.quantity, 0));
+  }
+
   const rows = [...byRep.values()]
     .map((row) => ({
       ...row,

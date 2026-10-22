@@ -35,7 +35,8 @@ class _BoxDetailScreenState extends State<BoxDetailScreen> {
   BoxStatement? _statement;
   DateTime? _from;
   DateTime? _to;
-  bool _loading = true;
+  bool _loading = false;
+  bool _searched = false;
   String? _error;
 
   bool get _hasRange => _from != null || _to != null;
@@ -44,7 +45,6 @@ class _BoxDetailScreenState extends State<BoxDetailScreen> {
   void initState() {
     super.initState();
     _box = widget.initialBox;
-    _load();
   }
 
   Future<void> _load() async {
@@ -52,6 +52,7 @@ class _BoxDetailScreenState extends State<BoxDetailScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _searched = true;
     });
     try {
       final json = await api.getObject(
@@ -348,8 +349,12 @@ class _BoxDetailScreenState extends State<BoxDetailScreen> {
                     _from = from;
                     _to = to;
                   });
-                  _load();
                 },
+              ),
+              FilledButton.tonalIcon(
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.search, size: 18),
+                label: Text(s.search),
               ),
               if (_hasRange)
                 TextButton.icon(
@@ -357,8 +362,9 @@ class _BoxDetailScreenState extends State<BoxDetailScreen> {
                     setState(() {
                       _from = null;
                       _to = null;
+                      _statement = null;
+                      _searched = false;
                     });
-                    _load();
                   },
                   icon: const Icon(Icons.clear, size: 18),
                   label: Text(s.clear),
@@ -432,7 +438,15 @@ class _BoxDetailScreenState extends State<BoxDetailScreen> {
               ],
             ),
           ),
-          if (statement == null || statement.rows.isEmpty)
+          if (!_searched)
+            Padding(
+              padding: const EdgeInsets.only(top: 30),
+              child: EmptyState(
+                icon: Icons.search,
+                title: s.searchToViewMovements,
+              ),
+            )
+          else if (statement == null || statement.rows.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 30),
               child: EmptyState(

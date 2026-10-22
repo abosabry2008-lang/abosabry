@@ -504,6 +504,7 @@ class AppStrings {
   String get type => _t('Type', 'النوع');
   String get allTypes => _t('All types', 'كل الأنواع');
   String get noMovements => _t('No movements', 'لا توجد حركات');
+  String get searchToViewMovements => _t('Click Search to view movements', '???? ??? ?????? ?????? ???????');
   String get movementsWillAppear =>
       _t('Inventory movements will appear here.', 'ستظهر حركات المخزون هنا.');
   String get searchByBarcodeHint =>
