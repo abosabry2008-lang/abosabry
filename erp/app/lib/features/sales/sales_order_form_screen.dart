@@ -9,9 +9,11 @@ import '../../models/warehouse.dart';
 import '../../state/customers_controller.dart';
 import '../../state/product_catalog.dart';
 import '../../state/sales_orders_controller.dart';
+import '../../state/salespeople_controller.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/order_lines_editor.dart';
 import '../../widgets/section_card.dart';
+import '../../widgets/searchable_picker_field.dart';
 
 /// Create/edit form for a sales order.
 ///
@@ -33,6 +35,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
 
   List<Warehouse> _warehouses = <Warehouse>[];
   String? _customerId;
+  String? _salespersonId;
   String? _warehouseId;
   final TextEditingController _notes = TextEditingController();
   bool _saving = false;
@@ -63,6 +66,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       context.read<CustomersController>().ensureLoaded();
+      context.read<SalespeopleController>().ensureLoaded();
       await _loadWarehouses();
       if (!mounted) return;
       // Resolve the products of an edited order so its lines stay valid.
@@ -189,6 +193,11 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
   Widget build(BuildContext context) {
     final s = context.s;
     final customers = context.watch<CustomersController>();
+    final salespeople = context.watch<SalespeopleController>();
+
+    final filteredCustomers = customers.items
+        .where((c) => _salespersonId == null || c.salespersonId == _salespersonId)
+        .toList();
 
     return Scaffold(
       body: Form(
@@ -200,13 +209,39 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
               title: s.orderDetails,
               child: Column(
                 children: <Widget>[
+                  SearchablePickerField(
+                    label: s.salesperson,
+                    value: _salespersonId,
+                    hint: s.chooseSalesperson,
+                    enabled: !_saving,
+                    prefixIcon: Icons.badge_outlined,
+                    searchHint: s.searchHint,
+                    clearable: true,
+                    options: salespeople.salespeople
+                        .map((p) => PickerOption(value: p.id, label: p.name))
+                        .toList(),
+                    onChanged: (value) => setState(() {
+                      _salespersonId =
+                          (value == null || value.isEmpty) ? null : value;
+                      // If current customer doesn't belong to selected salesperson, clear it
+                      if (_salespersonId != null && _customerId != null) {
+                        final cust = customers.items
+                            .where((c) => c.id == _customerId)
+                            .firstOrNull;
+                        if (cust == null || cust.salespersonId != _salespersonId) {
+                          _customerId = null;
+                        }
+                      }
+                    }),
+                  ),
+                  const SizedBox(height: 14),
                   AppSelectField<String>(
                     label: s.customer,
                     value: _customerId,
                     enabled: !_saving,
                     hint: s.walkInCustomer,
                     prefixIcon: Icons.person_outline,
-                    options: customers.items
+                    options: filteredCustomers
                         .map(
                           (customer) => SelectOption<String>(
                             customer.id,

@@ -3,6 +3,7 @@ import { ApiError } from '../../lib/api-error';
 import { round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { nextNumber } from '../../lib/sequence';
+import { getSettings } from '../../lib/settings';
 import { ACCOUNT, postJournal } from '../accounting/accounting.service';
 import { cashBoxBalanceTx, cashBoxBalancesTx, ensureDefaultCashBoxTx } from '../payments/payments.service';
 
@@ -507,7 +508,8 @@ export async function createTransfer(input: CreateTransferInput) {
     }
 
     const transferDate = input.transferDate ?? new Date();
-    const number = await nextNumber(tx, 'transfer', 'TRF', transferDate);
+    const settings = await getSettings(tx);
+    const number = await nextNumber(tx, 'transfer', settings.transferPrefix ?? 'TRF', transferDate);
 
     // Both boxes are cash, so the double entry nets to zero (Dr 1000 / Cr 1000)
     // and no general-ledger entry is needed; the box statement is the ledger.

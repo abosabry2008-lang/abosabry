@@ -201,7 +201,7 @@ export async function createExpense(input: CreateExpenseInput) {
     }
 
     const settings = await getSettings(tx);
-    const number = await nextNumber(tx, 'expense', settings.expensePrefix, spentAt);
+    const number = await nextNumber(tx, 'expense', settings.expensePrefix ?? 'EXP', spentAt);
 
     const expense = await tx.expense.create({
       data: {

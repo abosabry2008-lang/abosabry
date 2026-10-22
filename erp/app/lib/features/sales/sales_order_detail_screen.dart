@@ -341,17 +341,14 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
     final isAdmin = session.isAdmin;
     final theme = Theme.of(context);
     final canConfirm = order.status == 'DRAFT';
-    final canFulfill = order.status == 'CONFIRMED' ||
-        order.status == 'PARTIALLY_FULFILLED';
+    final canFulfill = order.status == 'CONFIRMED';
     // Only admins may cancel an order — including a fulfilled one, whose stock
     // and ledger entry are reversed by the API.
     final canCancel = isAdmin && order.status != 'CANCELLED';
     // Admins can also rewrite the lines of an order that already shipped.
     final canEdit = order.status != 'CANCELLED' &&
         (order.status == 'DRAFT' || isAdmin);
-    final canInvoice = order.status == 'CONFIRMED' ||
-        order.status == 'PARTIALLY_FULFILLED' ||
-        order.status == 'FULFILLED';
+    final canInvoice = order.status == 'CONFIRMED';
 
     return Scaffold(
       body: RefreshIndicator(

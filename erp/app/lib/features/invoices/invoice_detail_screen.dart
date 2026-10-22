@@ -177,10 +177,11 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               ),
               child: Column(
                 children: <Widget>[
-                  _InfoRow(
-                    label: s.salesOrder,
-                    value: invoice.salesOrderNumber ?? '—',
-                  ),
+                  if (invoice.salesOrderNumber != null && invoice.salesOrderNumber!.isNotEmpty)
+                    _InfoRow(
+                      label: s.salesOrder,
+                      value: invoice.salesOrderNumber ?? '-',
+                    ),
                   _InfoRow(
                     label: s.issued,
                     value: Formatters.date(invoice.issueDate),

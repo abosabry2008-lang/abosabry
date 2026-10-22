@@ -55,10 +55,22 @@ class SuppliersScreen extends StatelessWidget {
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: AppSearchField(
-              hintText: s.searchSuppliersHint,
-              initialValue: controller.search,
-              onChanged: controller.searchWith,
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: AppSearchField(
+                    hintText: s.searchSuppliersHint,
+                    initialValue: controller.search,
+                    onChanged: controller.searchWith,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  onPressed: () => controller.refresh(),
+                  icon: const Icon(Icons.search),
+                  label: Text(s.search),
+                ),
+              ],
             ),
           ),
           Expanded(

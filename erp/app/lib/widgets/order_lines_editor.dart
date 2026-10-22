@@ -64,7 +64,9 @@ class OrderLineDraft {
     if (bpc <= 0) {
       sellUnit = 'unit';
       if (price == 0) {
-        final suggested = p.costPrice > 0 ? p.costPrice : (p.salePrice > 0 ? p.salePrice : 0.0);
+        final suggested = preferSalePrice
+            ? (p.salePrice > 0 ? p.salePrice : (p.costPrice > 0 ? p.costPrice : 0.0))
+            : (p.costPrice > 0 ? p.costPrice : (p.salePrice > 0 ? p.salePrice : 0.0));
         priceController.text = _format(suggested.toDouble());
       }
       if (taxRate == 0 && p.taxRate > 0) {
@@ -73,34 +75,73 @@ class OrderLineDraft {
       return;
     }
     if (sellUnit == 'box') {
-      // Auto-calculate box price
-      if (p.cartonPrice != null && p.cartonPrice! > 0 && bpc > 0) {
-        priceController.text = _format((p.cartonPrice! / bpc).toDouble());
-      } else if (p.boxPrice != null && p.boxPrice! > 0) {
-        priceController.text = _format(p.boxPrice!);
-      } else if (p.costPrice > 0) {
-        priceController.text = _format(p.costPrice);
+      if (preferSalePrice) {
+        if (p.boxPrice != null && p.boxPrice! > 0) {
+          priceController.text = _format(p.boxPrice!);
+        } else if (p.cartonPrice != null && p.cartonPrice! > 0 && bpc > 0) {
+          priceController.text = _format((p.cartonPrice! / bpc).toDouble());
+        } else if (p.salePrice > 0 && bpc > 0) {
+          priceController.text = _format((p.salePrice * bpc).toDouble());
+        } else if (p.costPrice > 0) {
+          priceController.text = _format(p.costPrice);
+        } else {
+          priceController.text = _format(((p.salePrice / bpc)).clamp(0, double.infinity).toDouble());
+        }
       } else {
-        priceController.text = _format(((p.salePrice / bpc)).clamp(0, double.infinity).toDouble());
+        if (p.costPrice > 0) {
+          priceController.text = _format(p.costPrice);
+        } else if (p.boxPrice != null && p.boxPrice! > 0) {
+          priceController.text = _format(p.boxPrice!);
+        } else if (p.cartonPrice != null && p.cartonPrice! > 0 && bpc > 0) {
+          priceController.text = _format((p.cartonPrice! / bpc).toDouble());
+        } else {
+          priceController.text = _format(((p.salePrice / bpc)).clamp(0, double.infinity).toDouble());
+        }
       }
     } else if (sellUnit == 'carton') {
-      if (p.cartonPrice != null && p.cartonPrice! > 0) {
-        priceController.text = _format(p.cartonPrice!);
-      } else if (p.costPrice > 0 && bpc > 0) {
-        priceController.text = _format((p.costPrice * bpc).toDouble());
+      if (preferSalePrice) {
+        if (p.cartonPrice != null && p.cartonPrice! > 0) {
+          priceController.text = _format(p.cartonPrice!);
+        } else if (p.salePrice > 0 && bpc > 0) {
+          priceController.text = _format((p.salePrice * bpc).toDouble());
+        } else if (p.costPrice > 0 && bpc > 0) {
+          priceController.text = _format((p.costPrice * bpc).toDouble());
+        } else {
+          priceController.text = _format(((p.boxPrice ?? p.salePrice) * bpc).toDouble());
+        }
       } else {
-        priceController.text = _format(((p.boxPrice ?? p.salePrice) * bpc).toDouble());
+        if (p.costPrice > 0 && bpc > 0) {
+          priceController.text = _format((p.costPrice * bpc).toDouble());
+        } else if (p.cartonPrice != null && p.cartonPrice! > 0) {
+          priceController.text = _format(p.cartonPrice!);
+        } else {
+          priceController.text = _format(((p.boxPrice ?? p.salePrice) * bpc).toDouble());
+        }
       }
     } else {
       sellUnit = 'box';
-      if (p.cartonPrice != null && p.cartonPrice! > 0 && bpc > 0) {
-        priceController.text = _format((p.cartonPrice! / bpc).toDouble());
-      } else if (p.boxPrice != null && p.boxPrice! > 0) {
-        priceController.text = _format(p.boxPrice!);
-      } else if (p.costPrice > 0) {
-        priceController.text = _format(p.costPrice);
+      if (preferSalePrice) {
+        if (p.boxPrice != null && p.boxPrice! > 0) {
+          priceController.text = _format(p.boxPrice!);
+        } else if (p.cartonPrice != null && p.cartonPrice! > 0 && bpc > 0) {
+          priceController.text = _format((p.cartonPrice! / bpc).toDouble());
+        } else if (p.salePrice > 0 && bpc > 0) {
+          priceController.text = _format((p.salePrice * bpc).toDouble());
+        } else if (p.costPrice > 0) {
+          priceController.text = _format(p.costPrice);
+        } else {
+          priceController.text = _format(((p.salePrice / bpc)).clamp(0, double.infinity).toDouble());
+        }
       } else {
-        priceController.text = _format(((p.salePrice / bpc)).clamp(0, double.infinity).toDouble());
+        if (p.costPrice > 0) {
+          priceController.text = _format(p.costPrice);
+        } else if (p.boxPrice != null && p.boxPrice! > 0) {
+          priceController.text = _format(p.boxPrice!);
+        } else if (p.cartonPrice != null && p.cartonPrice! > 0 && bpc > 0) {
+          priceController.text = _format((p.cartonPrice! / bpc).toDouble());
+        } else {
+          priceController.text = _format(((p.salePrice / bpc)).clamp(0, double.infinity).toDouble());
+        }
       }
     }
     if (taxRate == 0 && p.taxRate > 0) {
@@ -126,24 +167,14 @@ class OrderLineDraft {
     } else if (bpc <= 0) {
       sellUnit = 'unit';
     }
-    // Prefill with last purchase cost if available (product.costPrice is last cost)
     if (price == 0) {
       if (bpc > 0) {
-        // For purchase, show carton/box price based on cost if available? use costPrice scaled
-        if (preferSalePrice == false) {
-          if (sellUnit == 'carton' && bpc > 0 && value.costPrice > 0) {
-            priceController.text = _format((value.costPrice * bpc).toDouble());
-          } else if (sellUnit == 'box' && value.costPrice > 0) {
-            priceController.text = _format(value.costPrice);
-          } else {
-            applyPackPrice(preferSalePrice: preferSalePrice);
-          }
-        } else {
-          applyPackPrice(preferSalePrice: preferSalePrice);
-        }
+        applyPackPrice(preferSalePrice: preferSalePrice);
         return;
       }
-      final suggested = value.costPrice > 0 ? value.costPrice : (value.salePrice > 0 ? value.salePrice : 0.0);
+      final suggested = preferSalePrice
+          ? (value.salePrice > 0 ? value.salePrice : (value.costPrice > 0 ? value.costPrice : 0.0))
+          : (value.costPrice > 0 ? value.costPrice : (value.salePrice > 0 ? value.salePrice : 0.0));
       priceController.text = _format(suggested.toDouble());
     }
     if (taxRate == 0 && value.taxRate > 0) {

@@ -88,7 +88,7 @@ export async function buildConsolidatedSalesNote(
   if (salespersonId) {
     where.OR = [
       { customer: { salespersonId } },
-      { customer: { salespersonId: null }, userId: salespersonId },
+      { userId: salespersonId },
     ];
   }
 
@@ -273,7 +273,7 @@ export async function buildProfitBySalesperson(
   if (salespersonId) {
     where.OR = [
       { customer: { salespersonId } },
-      { customer: { salespersonId: null }, salesOrder: { userId: salespersonId } },
+      { salesOrder: { userId: salespersonId } },
     ];
   }
 
@@ -548,7 +548,7 @@ export async function buildSalespersonStatement(
         issueDate: { lte: to },
         OR: [
           { customer: { salespersonId } },
-          { customer: { salespersonId: null }, salesOrder: { userId: salespersonId } },
+          { salesOrder: { userId: salespersonId } },
         ],
       },
       select: {
@@ -710,6 +710,7 @@ export async function buildSalespersonCustomerDebt(
         OR: [
           { customer: { salespersonId } },
           { customer: { salespersonId: null }, salesOrder: { userId: salespersonId } },
+          { salesOrder: { userId: salespersonId } },
         ],
       },
       select: {

@@ -36,10 +36,22 @@ class InvoicesScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
             child: Column(
               children: <Widget>[
-                AppSearchField(
-                  hintText: s.searchInvoicesHint,
-                  initialValue: controller.search,
-                  onChanged: controller.searchWith,
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: AppSearchField(
+                        hintText: s.searchInvoicesHint,
+                        initialValue: controller.search,
+                        onChanged: controller.searchWith,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: () => controller.refresh(),
+                      icon: const Icon(Icons.search),
+                      label: Text(s.search),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 AppSelectField<String>(

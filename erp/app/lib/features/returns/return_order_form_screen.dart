@@ -9,10 +9,12 @@ import '../../models/return_order.dart';
 import '../../models/warehouse.dart';
 import '../../state/customers_controller.dart';
 import '../../state/returns_controller.dart';
+import '../../state/salespeople_controller.dart';
 import '../../state/suppliers_controller.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/order_lines_editor.dart';
 import '../../widgets/section_card.dart';
+import '../../widgets/searchable_picker_field.dart';
 
 /// Create form for a return order (customer return or supplier return).
 class ReturnOrderFormScreen extends StatefulWidget {
@@ -31,7 +33,8 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
 
   late String _type = widget.order?.type ?? 'CUSTOMER_RETURN';
   List<Warehouse> _warehouses = <Warehouse>[];
-  late String? _customerId = widget.order?.customerId;
+  String? _salespersonId;
+  String? _customerId;
   late String? _supplierId = widget.order?.supplierId;
   late String? _warehouseId = widget.order?.warehouseId;
   late final TextEditingController _notes =
@@ -45,6 +48,9 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
   void initState() {
     super.initState();
     final order = widget.order;
+    if (order != null) {
+      _customerId = order.customerId;
+    }
     if (order != null && order.lines.isNotEmpty) {
       _lines
         ..clear()
@@ -68,6 +74,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
       if (!mounted) return;
       context.read<CustomersController>().ensureLoaded();
       context.read<SuppliersController>().ensureLoaded();
+      context.read<SalespeopleController>().ensureLoaded();
       _loadWarehouses();
     });
   }
@@ -172,6 +179,11 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
     final s = context.s;
     final customers = context.watch<CustomersController>();
     final suppliers = context.watch<SuppliersController>();
+    final salespeople = context.watch<SalespeopleController>();
+
+    final filteredCustomers = customers.items
+        .where((c) => _salespersonId == null || c.salespersonId == _salespersonId)
+        .toList();
 
     return Scaffold(
       body: Form(
@@ -209,25 +221,71 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
                             }),
                   ),
                   const SizedBox(height: 14),
-                  if (_isCustomerReturn)
-                    AppSelectField<String>(
+                  if (_isCustomerReturn) ...[
+                    SearchablePickerField(
+                      label: s.salesperson,
+                      value: _salespersonId,
+                      hint: s.chooseSalesperson,
+                      enabled: !_saving && !_isEdit,
+                      prefixIcon: Icons.badge_outlined,
+                      searchHint: s.searchHint,
+                      clearable: true,
+                      options: salespeople.salespeople
+                          .map((p) => PickerOption(value: p.id, label: p.name))
+                          .toList(),
+                      onChanged: (value) => setState(() {
+                        _salespersonId = (value == null || value.isEmpty) ? null : value;
+                        final cust = _customerId == null
+                            ? null
+                            : customers.items
+                                .where((c) => c.id == _customerId)
+                                .firstOrNull;
+                        if (_salespersonId != null && cust != null && cust.salespersonId != _salespersonId) {
+                          _customerId = null;
+                        }
+                      }),
+                    ),
+                    const SizedBox(height: 14),
+                    SearchablePickerField(
                       label: s.customer,
                       value: _customerId,
+                      hint: s.selectCustomer,
                       enabled: !_saving && !_isEdit,
                       prefixIcon: Icons.person_outline,
-                      options: customers.items
+                      searchHint: s.searchCustomersHint,
+                      clearable: true,
+                      options: filteredCustomers
                           .map(
-                            (customer) => SelectOption<String>(
-                              customer.id,
-                              customer.name,
+                            (customer) => customerPickerOption(
+                              id: customer.id,
+                              name: customer.name,
+                              code: customer.code,
+                              balance: customer.balance,
                             ),
                           )
                           .toList(),
                       onChanged: (value) => setState(() => _customerId = value),
                       validator: (value) =>
                           value == null ? s.selectCustomerOrSupplier : null,
-                    )
-                  else
+                    ),
+                  ],
+                  if (!_isCustomerReturn) ...[
+                    SearchablePickerField(
+                      label: s.salesperson,
+                      value: _salespersonId,
+                      hint: s.chooseSalesperson,
+                      enabled: !_saving && !_isEdit,
+                      prefixIcon: Icons.badge_outlined,
+                      searchHint: s.searchHint,
+                      clearable: true,
+                      options: salespeople.salespeople
+                          .map((p) => PickerOption(value: p.id, label: p.name))
+                          .toList(),
+                      onChanged: (value) => setState(() {
+                        _salespersonId = (value == null || value.isEmpty) ? null : value;
+                      }),
+                    ),
+                    const SizedBox(height: 14),
                     AppSelectField<String>(
                       label: s.supplier,
                       value: _supplierId,
@@ -245,6 +303,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
                       validator: (value) =>
                           value == null ? s.selectCustomerOrSupplier : null,
                     ),
+                  ],
                   const SizedBox(height: 14),
                   AppSelectField<String>(
                     label: s.warehouseRequired,

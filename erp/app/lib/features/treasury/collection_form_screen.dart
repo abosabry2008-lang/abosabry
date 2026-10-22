@@ -125,8 +125,15 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
   }
 
   void _addLine() {
-    final line = _LineDraft()..amount.addListener(_recalculate);
-    setState(() => _lines.add(line));
+    final line = _LineDraft()
+      ..amount.addListener(_recalculate);
+    setState(() {
+      // Inherit salesperson/customer context from previous line
+      if (_salespersonId != null) {
+        // Will be filtered in UI
+      }
+      _lines.add(line);
+    });
   }
 
   void _removeLine(_LineDraft line) {
@@ -238,20 +245,34 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                 SearchablePickerField(
                   label: s.salesperson,
                   value: _salespersonId,
-                  hint: s.noSalesperson,
+                  hint: s.chooseSalesperson,
                   enabled: !_saving,
                   prefixIcon: Icons.badge_outlined,
                   searchHint: s.searchHint,
-                  clearable: _salespersonId != null,
+                  clearable: true,
                   options: _salespeople
                       .map(
                         (user) => PickerOption(value: user.id, label: user.name),
                       )
                       .toList(),
-                  onChanged: (value) => setState(
-                    () => _salespersonId =
-                        (value == null || value.isEmpty) ? null : value,
-                  ),
+                  onChanged: (value) => setState(() {
+                    _salespersonId =
+                        (value == null || value.isEmpty) ? null : value;
+                    // When salesperson changes, clear lines' customers that don't belong to them
+                    if (_salespersonId != null) {
+                      for (final line in _lines) {
+                        if (line.customerId != null) {
+                          final cust = _customers
+                              .where((c) => c.id == line.customerId)
+                              .firstOrNull;
+                          if (cust == null || cust.salespersonId != _salespersonId) {
+                            line.customerId = null;
+                            line.invoiceId = null;
+                          }
+                        }
+                      }
+                    }
+                  }),
                 ),
                 const SizedBox(height: 14),
                 AppDateField(
@@ -301,6 +322,7 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                         )
                         .toList(),
                     invoice: _invoiceById(_lines[index].invoiceId),
+                    salespersonId: _salespersonId,
                     onCustomerChanged: (value) {
                       setState(() {
                         _lines[index].customerId = value;
@@ -397,6 +419,7 @@ class _LineEditor extends StatelessWidget {
     required this.onCustomerChanged,
     required this.onInvoiceChanged,
     required this.onRemove,
+    this.salespersonId,
   });
 
   final int index;
@@ -408,6 +431,7 @@ class _LineEditor extends StatelessWidget {
   final ValueChanged<String?> onCustomerChanged;
   final ValueChanged<String?> onInvoiceChanged;
   final VoidCallback? onRemove;
+  final String? salespersonId;
 
   @override
   Widget build(BuildContext context) {
@@ -454,6 +478,7 @@ class _LineEditor extends StatelessWidget {
             prefixIcon: Icons.person_outline,
             searchHint: s.searchCustomersHint,
             options: customers
+                .where((c) => salespersonId == null || c.salespersonId == salespersonId)
                 .map(
                   (customer) => customerPickerOption(
                     id: customer.id,
