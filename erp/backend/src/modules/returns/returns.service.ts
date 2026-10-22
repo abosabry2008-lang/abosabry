@@ -77,8 +77,7 @@ export async function createReturnOrderTx(tx: Tx, input: CreateReturnOrderInput)
     })),
   );
 
-  const settings2 = await getSettings(tx);
-  const number = await nextNumber(tx, 'returnOrder', (settings2 as any).returnOrderPrefix ?? 'RET');
+  const number = await nextNumber(tx, 'returnOrder', 'RET');
 
   return tx.returnOrder.create({
     data: {

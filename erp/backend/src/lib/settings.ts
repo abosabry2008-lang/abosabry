@@ -25,9 +25,6 @@ export interface AppSettings {
   expensePrefix: string;
   settlementPrefix: string;
   openingBalancePrefix: string;
-  transferPrefix?: string;
-  collectionPrefix?: string;
-  returnOrderPrefix?: string;
   lowStockAlerts: boolean;
 }
 
@@ -60,9 +57,6 @@ export async function getSettings(client: Client = prisma): Promise<AppSettings>
       expensePrefix: existing.expensePrefix,
       settlementPrefix: existing.settlementPrefix,
       openingBalancePrefix: existing.openingBalancePrefix,
-      transferPrefix: (existing as any).transferPrefix ?? 'TRF',
-      collectionPrefix: (existing as any).collectionPrefix ?? 'COL',
-      returnOrderPrefix: (existing as any).returnOrderPrefix ?? 'RET',
       lowStockAlerts: existing.lowStockAlerts,
     };
   }
@@ -91,9 +85,6 @@ export async function getSettings(client: Client = prisma): Promise<AppSettings>
     expensePrefix: settings.expensePrefix,
     settlementPrefix: settings.settlementPrefix,
     openingBalancePrefix: settings.openingBalancePrefix,
-    transferPrefix: (settings as any).transferPrefix ?? 'TRF',
-    collectionPrefix: (settings as any).collectionPrefix ?? 'COL',
-    returnOrderPrefix: (settings as any).returnOrderPrefix ?? 'RET',
     lowStockAlerts: settings.lowStockAlerts,
   };
 }

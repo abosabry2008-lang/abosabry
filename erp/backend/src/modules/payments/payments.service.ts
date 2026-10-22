@@ -636,8 +636,7 @@ export async function createCollectionTx(tx: Tx, input: CreateCollectionInput) {
     if (!salesperson) throw ApiError.badRequest('Salesperson not found', 'SALESPERSON_NOT_FOUND');
   }
 
-  const settings = await getSettings(tx);
-  const number = await nextNumber(tx, 'collection', settings.collectionPrefix ?? 'COL', collectedAt);
+  const number = await nextNumber(tx, 'collection', 'COL', collectedAt);
   const voucher = await tx.collectionVoucher.create({
     data: {
       number,

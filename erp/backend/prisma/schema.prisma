@@ -914,9 +914,6 @@ model Setting {
   expensePrefix        String   @default("EXP")
   settlementPrefix     String   @default("SET")
   openingBalancePrefix String   @default("OB")
-  transferPrefix       String   @default("TRF")
-  collectionPrefix     String   @default("COL")
-  returnOrderPrefix    String   @default("RET")
   lowStockAlerts       Boolean  @default(true)
   updatedAt            DateTime @updatedAt
 }
