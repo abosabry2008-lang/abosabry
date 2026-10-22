@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler, created, ok } from '../../lib/http';
 import { authenticate, currentUser } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import {
   cancelOpeningBalance,
@@ -68,6 +68,7 @@ router.post(
 router.post(
   '/:id/cancel',
   requirePermission('openingBalances.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const entry = await cancelOpeningBalance(req.params.id, currentUser(req).id);
     ok(res, entry);

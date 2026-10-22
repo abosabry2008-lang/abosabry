@@ -4,9 +4,10 @@ import { z } from 'zod';
 import { ApiError } from '../../lib/api-error';
 import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http';
 import { prisma } from '../../lib/prisma';
+import { round2 } from '../../lib/money';
 import { asDate, asEnum, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import { roleHasPermission } from '../../lib/permissions';
 import { createInvoice, invoiceInclude, issueInvoice, previewInvoiceFromOrder, updateInvoice, voidInvoice } from './invoices.service';
@@ -34,6 +35,7 @@ const createSchema = z
     notes: z.string().nullable().optional(),
     lines: z.array(lineSchema).min(1).optional(),
     skipUnavailable: z.boolean().optional(),
+    issue: z.boolean().optional(),
   })
   .refine((value) => Boolean(value.salesOrderId) || (value.lines && value.lines.length > 0), {
     message: 'Provide either salesOrderId or at least one line',
@@ -133,7 +135,17 @@ router.get(
       include: invoiceInclude,
     });
     if (!invoice) throw ApiError.notFound('Invoice not found');
-    ok(res, serializeInvoice(invoice));
+
+    // What the customer owed before this invoice. The stored customer balance
+    // only counts ISSUED/PARTIALLY_PAID/PAID invoices, so a draft contributes
+    // nothing and the whole balance is "previous"; for an issued invoice its own
+    // outstanding balance is subtracted.
+    const counted = ['ISSUED', 'PARTIALLY_PAID', 'PAID'].includes(invoice.status);
+    const previousBalance = invoice.customer
+      ? round2(Number(invoice.customer.balance) - (counted ? Number(invoice.balance) : 0))
+      : 0;
+
+    ok(res, { ...serializeInvoice(invoice), previousBalance });
   }),
 );
 
@@ -162,6 +174,19 @@ router.patch(
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
+    // Draft invoices may be edited by whoever is entering them; once issued only
+    // an administrator may change them.
+    const existing = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+      select: { status: true },
+    });
+    if (
+      existing &&
+      existing.status !== 'DRAFT' &&
+      (user.role ?? '').toUpperCase() !== 'ADMIN'
+    ) {
+      throw ApiError.forbidden('Only an administrator can edit an issued invoice');
+    }
     const invoice = await updateInvoice(req.params.id, req.body, {
       allowPosted: roleHasPermission(user.role, 'invoices.edit'),
       userId: user.id,
@@ -173,6 +198,7 @@ router.patch(
 router.post(
   '/:id/void',
   requirePermission('invoices.cancel'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const invoice = await voidInvoice(req.params.id, currentUser(req).id);
     ok(res, serializeInvoice(invoice));

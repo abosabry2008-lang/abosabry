@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/api-error';
 import { asyncHandler, created, noContent, ok } from '../../lib/http';
 import { authenticate } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 
 const router = Router();
@@ -77,6 +77,7 @@ router.patch(
 router.delete(
   '/:id',
   requirePermission('currency.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const currency = await prisma.currency.findUnique({ where: { id: req.params.id } });
     if (!currency) throw ApiError.notFound('Currency not found');

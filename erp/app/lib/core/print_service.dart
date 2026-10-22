@@ -14,6 +14,11 @@ import 'session.dart';
 class PrintService {
   PrintService._();
 
+  /// Document language used by the printable pages (`en` / `ar`). Kept in sync
+  /// with the app locale so printed invoices, statements and reports follow the
+  /// language the user is using.
+  static String lang = 'en';
+
   /// Access token of the current session, or `null` when signed out.
   static String? token(BuildContext context) =>
       context.read<Session>().api.accessToken;
@@ -560,6 +565,9 @@ class PrintService {
       if (value == null || value.isEmpty) return;
       params[key] = value;
     });
+    // Printable pages accept a `lang` parameter; send the active app language so
+    // invoices, statements and reports are rendered in Arabic when selected.
+    if (path.startsWith('/print/')) params['lang'] = lang;
     if (params.isEmpty) return uri;
     return uri.replace(queryParameters: params);
   }

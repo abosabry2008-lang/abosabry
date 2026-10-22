@@ -134,6 +134,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
   }
 
   Widget _expensesTab(AppStrings s, bool canWrite) {
+    final isAdmin = context.watch<Session>().isAdmin;
     final controller = context.watch<ExpensesController>();
     final categoryOptions = <SelectOption<String>>[
       SelectOption<String>('', s.allExpenseCategories),
@@ -248,10 +249,11 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                               value: 'edit',
                               child: Text(s.edit),
                             ),
-                            PopupMenuItem<String>(
-                              value: 'cancel',
-                              child: Text(s.cancelExpenseQ),
-                            ),
+                            if (isAdmin)
+                              PopupMenuItem<String>(
+                                value: 'cancel',
+                                child: Text(s.cancelExpenseQ),
+                              ),
                           ],
                         ),
                     ],

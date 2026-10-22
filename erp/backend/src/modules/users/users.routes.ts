@@ -8,7 +8,7 @@ import { hashPassword } from '../../lib/password';
 import { ROLE_PERMISSIONS, roleHasPermission } from '../../lib/permissions';
 import { asBool, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 
 const router = Router();
@@ -148,6 +148,7 @@ router.patch(
 router.delete(
   '/:id',
   requirePermission('users.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     if (req.params.id === currentUser(req).id) {
       throw ApiError.badRequest('You cannot deactivate your own account');

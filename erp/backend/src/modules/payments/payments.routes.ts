@@ -5,7 +5,7 @@ import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http'
 import { prisma } from '../../lib/prisma';
 import { asBool, asDate, asEnum, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import {
   cancelPayment,
@@ -121,6 +121,7 @@ router.patch(
 router.post(
   '/:id/cancel',
   requirePermission('treasury.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const payment = await cancelPayment(req.params.id, currentUser(req).id);
     ok(res, serializePayment(payment));

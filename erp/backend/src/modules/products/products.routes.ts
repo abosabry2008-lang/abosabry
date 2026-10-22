@@ -6,7 +6,7 @@ import { asyncHandler, created, getPaging, noContent, ok, paginated } from '../.
 import { prisma } from '../../lib/prisma';
 import { asBool, asString } from '../../lib/query';
 import { authenticate } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import { lowStockProducts, totalStockByProduct } from '../inventory/inventory.service';
 
@@ -200,6 +200,7 @@ router.post(
 router.delete(
   '/:id',
   requirePermission('products.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const existing = await prisma.product.findFirst({ where: { id: req.params.id, deletedAt: null } });
     if (!existing) throw ApiError.notFound('Product not found');

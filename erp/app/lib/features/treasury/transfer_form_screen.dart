@@ -273,7 +273,7 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
               ),
             ],
           ),
-          if (_editing) ...<Widget>[
+          if (_editing && context.watch<Session>().isAdmin) ...<Widget>[
             const SizedBox(height: 12),
             TextButton.icon(
               onPressed: _saving ? null : _cancelTransfer,

@@ -5,7 +5,7 @@ import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http'
 import { prisma } from '../../lib/prisma';
 import { asDate, asEnum, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import {
   adjustStock,
@@ -269,6 +269,7 @@ router.post(
 router.delete(
   '/stock/:productId',
   requirePermission('inventory.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const productId = req.params.productId;
     const removed = await prisma.$transaction(async (tx) => {

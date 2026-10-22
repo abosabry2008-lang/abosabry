@@ -136,10 +136,9 @@ class _ReturnOrderDetailScreenState extends State<ReturnOrderDetailScreen> {
     final session = context.watch<Session>();
     final canManage = session.canAny(const <String>['sales', 'purchases']);
     final canEdit = session.can('returns.edit');
-    final canCancelPosted = session.can('returns.cancel');
     final theme = Theme.of(context);
     final canPost = order.isDraft;
-    final canCancel = order.isDraft || (order.isPosted && canCancelPosted);
+    final canCancel = order.isDraft || (order.isPosted && session.isAdmin);
     final canEditOrder =
         order.status != 'CANCELLED' && (order.isDraft || canEdit);
 

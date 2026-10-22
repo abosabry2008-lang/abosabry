@@ -5,7 +5,7 @@ import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http'
 import { prisma } from '../../lib/prisma';
 import { asBool, asDate, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import {
   cancelCollection,
@@ -162,6 +162,7 @@ router.patch(
 router.delete(
   '/boxes/:id',
   requirePermission('treasury.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const result = await deleteCashBox(req.params.id);
     ok(res, result);
@@ -234,6 +235,7 @@ router.patch(
 router.post(
   '/transfers/:id/cancel',
   requirePermission('treasury.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const transfer = await cancelTransfer(req.params.id, currentUser(req).id);
     ok(res, serializeTransfer(transfer));
@@ -307,6 +309,7 @@ router.get(
 router.post(
   '/collections/:id/cancel',
   requirePermission('treasury.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const voucher = await cancelCollection(req.params.id, currentUser(req).id);
     ok(res, serializeCollection(voucher));

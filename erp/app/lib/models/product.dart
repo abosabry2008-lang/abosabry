@@ -94,6 +94,7 @@ class Product {
   static int? _parseQuantity(Map<String, dynamic> json) {
     final direct = asIntOrNull(json['quantity']) ??
         asIntOrNull(json['quantityOnHand']) ??
+        asIntOrNull(json['stockQuantity']) ??
         asIntOrNull(json['stock']) ??
         asIntOrNull(json['onHand']);
     if (direct != null) return direct;

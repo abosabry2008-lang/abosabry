@@ -447,6 +447,7 @@ class _BoxDetailScreenState extends State<BoxDetailScreen> {
                 child: _StatementRowTile(
                   row: row,
                   canManage: canManage,
+                  canCancel: session.isAdmin,
                   onEdit: row.isPayment
                       ? () => _editPayment(row)
                       : () => _editTransfer(row),
@@ -513,12 +514,14 @@ class _StatementRowTile extends StatelessWidget {
   const _StatementRowTile({
     required this.row,
     required this.canManage,
+    required this.canCancel,
     required this.onEdit,
     required this.onCancel,
   });
 
   final BoxStatementRow row;
   final bool canManage;
+  final bool canCancel;
   final VoidCallback onEdit;
   final VoidCallback onCancel;
 
@@ -621,6 +624,7 @@ class _StatementRowTile extends StatelessWidget {
                   ),
                   PopupMenuItem<String>(
                     value: 'cancel',
+                    enabled: canCancel,
                     child: ListTile(
                       leading: Icon(Icons.cancel_outlined, color: scheme.error),
                       title: Text(s.cancel),

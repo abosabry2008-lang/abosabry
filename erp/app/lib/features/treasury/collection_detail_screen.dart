@@ -95,8 +95,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
       return Center(child: Text(s.noCollections));
     }
 
-    final canCancel =
-        context.watch<Session>().can('treasury.manage') && !voucher.cancelled;
+    final canCancel = context.watch<Session>().isAdmin && !voucher.cancelled;
 
     return RefreshIndicator(
       onRefresh: _load,

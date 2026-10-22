@@ -6,7 +6,7 @@ import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http'
 import { prisma } from '../../lib/prisma';
 import { asDate, asEnum, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import { roleHasPermission } from '../../lib/permissions';
 import {
@@ -191,6 +191,7 @@ router.post(
 router.post(
   '/:id/cancel',
   requirePermission('sales.cancel'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const order = await cancelSalesOrder(req.params.id, { userId: currentUser(req).id });
     ok(res, serialize(order));

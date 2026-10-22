@@ -10,6 +10,7 @@ import '../../models/customer.dart';
 import '../../models/invoice.dart';
 import '../../models/supplier.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
 
 const List<String> paymentDirections = <String>[
@@ -348,17 +349,21 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                         child: Center(child: CircularProgressIndicator()),
                       )
                     else if (_inbound)
-                      AppSelectField<String>(
+                      SearchablePickerField(
                         label: context.s.customer,
                         value: _customerId,
                         hint: context.s.selectCustomer,
                         enabled: !_saving,
                         prefixIcon: Icons.person_outline,
+                        searchHint: context.s.searchCustomersHint,
+                        clearable: _customerId != null,
                         options: _customers
                             .map(
-                              (customer) => SelectOption<String>(
-                                customer.id,
-                                customer.name,
+                              (customer) => customerPickerOption(
+                                id: customer.id,
+                                name: customer.name,
+                                code: customer.code,
+                                balance: customer.balance,
                               ),
                             )
                             .toList(),
@@ -366,17 +371,24 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                             setState(() => _customerId = value),
                       )
                     else
-                      AppSelectField<String>(
+                      SearchablePickerField(
                         label: context.s.supplier,
                         value: _supplierId,
                         hint: context.s.selectSupplier,
                         enabled: !_saving,
                         prefixIcon: Icons.local_shipping_outlined,
+                        searchHint: context.s.searchSuppliersHint,
+                        clearable: _supplierId != null,
                         options: _suppliers
                             .map(
-                              (supplier) => SelectOption<String>(
-                                supplier.id,
-                                supplier.name,
+                              (supplier) => PickerOption(
+                                value: supplier.id,
+                                label: supplier.name,
+                                subtitle: supplier.code,
+                                trailing: Formatters.money(supplier.balance),
+                                keywords: <String>[
+                                  if (supplier.code != null) supplier.code!
+                                ],
                               ),
                             )
                             .toList(),
@@ -390,20 +402,26 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 const SizedBox(height: 16),
                 SectionCard(
                   title: context.s.invoice,
-                  child: AppSelectField<String>(
+                  child: SearchablePickerField(
                     label: context.s.invoice,
-                    value: _invoiceId ?? '',
+                    value: _invoiceId,
+                    hint: context.s.noInvoice,
                     enabled: !_saving,
                     prefixIcon: Icons.receipt_long_outlined,
-                    options: <SelectOption<String>>[
-                      SelectOption<String>('', context.s.noInvoice),
-                      ..._invoices.map(
-                        (invoice) => SelectOption<String>(
-                          invoice.id,
-                          invoice.number,
-                        ),
-                      ),
-                    ],
+                    searchHint: context.s.searchInvoicesHint,
+                    clearable: _invoiceId != null,
+                    options: _invoices
+                        .map(
+                          (invoice) => PickerOption(
+                            value: invoice.id,
+                            label: invoice.number,
+                            subtitle: invoice.customerName,
+                            trailing: invoice.balance == 0
+                                ? null
+                                : Formatters.money(invoice.balance),
+                          ),
+                        )
+                        .toList(),
                     onChanged: _onInvoiceChanged,
                   ),
                 ),

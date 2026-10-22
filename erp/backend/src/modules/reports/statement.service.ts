@@ -179,6 +179,32 @@ export async function buildCustomerStatement(
     );
   }
 
+  // The customer's stored balance also carries the opening balance that was
+  // entered when the customer was created (posted to the ledger, but with no
+  // invoice or payment behind it). Reconcile the statement to that figure so the
+  // opening balance shows up here too.
+  const [allInvoiceSum, allInboundSum, allOutboundSum] = await Promise.all([
+    prisma.invoice.aggregate({
+      where: { customerId, status: { not: 'VOID' } },
+      _sum: { total: true },
+    }),
+    prisma.payment.aggregate({
+      where: { customerId, direction: 'INBOUND', cancelledAt: null },
+      _sum: { amount: true },
+    }),
+    prisma.payment.aggregate({
+      where: { customerId, direction: 'OUTBOUND', cancelledAt: null },
+      _sum: { amount: true },
+    }),
+  ]);
+  const ledgerOpeningBalance = round2(
+    Number(customer.balance) -
+      Number(allInvoiceSum._sum.total ?? 0) +
+      Number(allInboundSum._sum.amount ?? 0) -
+      Number(allOutboundSum._sum.amount ?? 0),
+  );
+  openingBalance = round2(openingBalance + ledgerOpeningBalance);
+
   const raw: RawRow[] = [];
 
   for (const invoice of invoices) {
@@ -282,6 +308,25 @@ export async function buildSupplierStatement(
     ]);
     openingBalance = round2(Number(orderSum._sum.total ?? 0) - Number(paymentSum._sum.amount ?? 0));
   }
+
+  // Include the supplier's opening balance (entered at creation and posted to
+  // the ledger without a purchase order behind it) so it shows on the statement.
+  const [allOrderSum, allPaymentSum] = await Promise.all([
+    prisma.purchaseOrder.aggregate({
+      where: { supplierId, status: { not: 'CANCELLED' } },
+      _sum: { total: true },
+    }),
+    prisma.payment.aggregate({
+      where: { supplierId, direction: 'OUTBOUND', cancelledAt: null },
+      _sum: { amount: true },
+    }),
+  ]);
+  const ledgerOpeningBalance = round2(
+    Number(supplier.balance) -
+      Number(allOrderSum._sum.total ?? 0) +
+      Number(allPaymentSum._sum.amount ?? 0),
+  );
+  openingBalance = round2(openingBalance + ledgerOpeningBalance);
 
   const raw: RawRow[] = [];
 

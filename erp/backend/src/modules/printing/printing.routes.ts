@@ -4,6 +4,7 @@ import { ApiError } from '../../lib/api-error';
 import { asyncHandler } from '../../lib/http';
 import { prisma } from '../../lib/prisma';
 import { asDate, asString } from '../../lib/query';
+import { round2 } from '../../lib/money';
 import { getSettings } from '../../lib/settings';
 import { authenticateToken } from '../../middleware/authenticate-token';
 import { requirePermission } from '../../middleware/authorize';
@@ -78,7 +79,22 @@ router.get(
       getSettings(),
     ]);
     if (!invoice) throw ApiError.notFound('Invoice not found');
-    sendHtml(res, invoiceHtml(invoice, settings));
+
+    // What the customer already owed before this invoice: their stored balance
+    // minus this invoice's own outstanding balance (only issued invoices are
+    // counted in the customer balance).
+    let previousBalance = 0;
+    if (invoice.customer) {
+      const counted = ['ISSUED', 'PARTIALLY_PAID', 'PAID'].includes(invoice.status);
+      previousBalance = round2(
+        Number(invoice.customer.balance) - (counted ? Number(invoice.balance) : 0),
+      );
+    }
+
+    sendHtml(res, invoiceHtml(invoice, settings, {
+      previousBalance,
+      lang: asString(req.query.lang) ?? 'en',
+    }));
   }),
 );
 
@@ -93,7 +109,7 @@ router.get(
       buildCustomerStatement(req.params.id, from, to),
       getSettings(),
     ]);
-    sendHtml(res, customerStatementHtml(statement, settings));
+    sendHtml(res, customerStatementHtml(statement, settings, asString(req.query.lang) ?? 'en'));
   }),
 );
 
@@ -108,7 +124,7 @@ router.get(
       buildSupplierStatement(req.params.id, from, to),
       getSettings(),
     ]);
-    sendHtml(res, supplierStatementHtml(statement, settings));
+    sendHtml(res, supplierStatementHtml(statement, settings, asString(req.query.lang) ?? 'en'));
   }),
 );
 

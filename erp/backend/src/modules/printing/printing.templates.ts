@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { lineTotals, num } from '../../lib/money';
+import { lineTotals, num, round2 } from '../../lib/money';
 import type { AppSettings } from '../../lib/settings';
 import { invoiceInclude } from '../invoices/invoices.service';
 import type {
@@ -178,6 +178,12 @@ export interface PageOptions {
   dir?: 'ltr' | 'rtl';
   /** Document language attribute. Defaults to `en`. */
   lang?: string;
+  /**
+   * Whether to print the company name, address and legal identifiers in the
+   * header. Defaults to `true` (invoices and statements). Reports pass `false`
+   * so they carry only the report title.
+   */
+  showCompanyDetails?: boolean;
 }
 
 /** Wraps a document body in a self-contained, printable HTML page. */
@@ -188,23 +194,34 @@ export function renderPage({
   body,
   dir = 'ltr',
   lang = 'en',
+  showCompanyDetails = true,
 }: PageOptions): string {
   const companyName = escapeHtml(company.companyName || 'ERP');
   const contact: string[] = [];
-  if (company.companyAddress) contact.push(`<div class="muted">${escapeHtml(company.companyAddress)}</div>`);
-  if (company.companyPhone) contact.push(`<div class="muted">${escapeHtml(company.companyPhone)}</div>`);
-  if (company.companyEmail) contact.push(`<div class="muted">${escapeHtml(company.companyEmail)}</div>`);
-  // Legal identifiers shown on every printed document (invoice, statement, ...).
-  if (company.commercialRegisterNo) {
-    contact.push(
-      `<div class="muted">السجل التجاري / Commercial register: ${escapeHtml(company.commercialRegisterNo)}</div>`,
-    );
+  if (showCompanyDetails) {
+    if (company.companyAddress) contact.push(`<div class="muted">${escapeHtml(company.companyAddress)}</div>`);
+    if (company.companyPhone) contact.push(`<div class="muted">${escapeHtml(company.companyPhone)}</div>`);
+    if (company.companyEmail) contact.push(`<div class="muted">${escapeHtml(company.companyEmail)}</div>`);
+    // Legal identifiers shown on printed documents (invoice, statement, ...).
+    if (company.commercialRegisterNo) {
+      contact.push(
+        `<div class="muted">السجل التجاري / Commercial register: ${escapeHtml(company.commercialRegisterNo)}</div>`,
+      );
+    }
+    if (company.taxCardNo) {
+      contact.push(
+        `<div class="muted">البطاقة الضريبية / Tax card: ${escapeHtml(company.taxCardNo)}</div>`,
+      );
+    }
   }
-  if (company.taxCardNo) {
-    contact.push(
-      `<div class="muted">البطاقة الضريبية / Tax card: ${escapeHtml(company.taxCardNo)}</div>`,
-    );
-  }
+
+  const companyBlock = showCompanyDetails
+    ? `    <div class="company">
+      <h1>${companyName}</h1>
+      ${contact.join('\n      ')}
+    </div>
+`
+    : '';
 
   return `<!doctype html>
 <html lang="${escapeHtml(lang)}" dir="${dir}">
@@ -217,11 +234,7 @@ export function renderPage({
 <body>
 <div class="page">
   <header class="doc-header">
-    <div class="company">
-      <h1>${companyName}</h1>
-      ${contact.join('\n      ')}
-    </div>
-    <div class="doc-title">
+${companyBlock}    <div class="doc-title">
       <h2>${escapeHtml(title)}</h2>
       ${subtitle ? `<div class="muted">${escapeHtml(subtitle)}</div>` : ''}
     </div>
@@ -239,10 +252,20 @@ ${body}
 // Invoice document
 // ---------------------------------------------------------------------------
 
-export function invoiceHtml(invoice: InvoiceWithRelations, settings: AppSettings): string {
+export function invoiceHtml(
+  invoice: InvoiceWithRelations,
+  settings: AppSettings,
+  options: { previousBalance?: number; lang?: string } = {},
+): string {
+  const ar = (options.lang ?? 'en') === 'ar';
+  const t = (en: string, arabic: string) => (ar ? arabic : en);
   const currency = invoice.currency
     ? `${invoice.currency.code} (${invoice.currency.symbol})`
     : settings.baseCurrencyCode;
+
+  // What the customer already owed before this invoice (open balance on their
+  // other documents plus any opening balance).
+  const previousBalance = round2(Number(options.previousBalance ?? 0));
 
   const lineRows = invoice.lines
     .map((line, index) => {
@@ -273,60 +296,92 @@ export function invoiceHtml(invoice: InvoiceWithRelations, settings: AppSettings
         customer.email ? `<div class="muted">${escapeHtml(customer.email)}</div>` : '',
         customer.phone ? `<div class="muted">${escapeHtml(customer.phone)}</div>` : '',
       ].join('\n    ')
-    : '<div class="muted">Walk-in customer</div>';
+    : `<div class="muted">${escapeHtml(t('Walk-in customer', 'عميل نقدي'))}</div>`;
 
   const body = `    <section class="meta">
-      <div><span class="label">Invoice</span><span class="value">${escapeHtml(invoice.number)}</span></div>
-      <div><span class="label">Status</span><span class="value">${escapeHtml(invoice.status)}</span></div>
-      <div><span class="label">Issue date</span><span class="value">${escapeHtml(formatDate(invoice.issueDate))}</span></div>
-      <div><span class="label">Due date</span><span class="value">${escapeHtml(invoice.dueDate ? formatDate(invoice.dueDate) : '—')}</span></div>
-      <div><span class="label">Currency</span><span class="value">${escapeHtml(currency)}</span></div>
-      <div><span class="label">Reference</span><span class="value">${escapeHtml(invoice.salesOrder?.number ?? '—')}</span></div>
+      <div><span class="label">${escapeHtml(t('Invoice', 'فاتورة'))}</span><span class="value">${escapeHtml(invoice.number)}</span></div>
+      <div><span class="label">${escapeHtml(t('Status', 'الحالة'))}</span><span class="value">${escapeHtml(ar ? invoiceStatusAr(invoice.status) : invoice.status)}</span></div>
+      <div><span class="label">${escapeHtml(t('Issue date', 'تاريخ الإصدار'))}</span><span class="value">${escapeHtml(formatDate(invoice.issueDate))}</span></div>
+      <div><span class="label">${escapeHtml(t('Due date', 'تاريخ الاستحقاق'))}</span><span class="value">${escapeHtml(invoice.dueDate ? formatDate(invoice.dueDate) : '—')}</span></div>
+      <div><span class="label">${escapeHtml(t('Currency', 'العملة'))}</span><span class="value">${escapeHtml(currency)}</span></div>
+      <div><span class="label">${escapeHtml(t('Reference', 'المرجع'))}</span><span class="value">${escapeHtml(invoice.salesOrder?.number ?? '—')}</span></div>
     </section>
     <section class="panel">
-      <h3>Bill to</h3>
+      <h3>${escapeHtml(t('Bill to', 'العميل'))}</h3>
       ${customerLines}
     </section>
     <table class="data">
       <thead>
         <tr>
           <th class="num">#</th>
-          <th>SKU</th>
-          <th>Description</th>
-          <th class="num">Qty</th>
-          <th class="num">Unit price</th>
-          <th class="num">Discount</th>
-          <th class="num">Tax</th>
-          <th class="num">Line total</th>
+          <th>${escapeHtml(t('SKU', 'كود الصنف'))}</th>
+          <th>${escapeHtml(t('Description', 'الوصف'))}</th>
+          <th class="num">${escapeHtml(t('Qty', 'الكمية'))}</th>
+          <th class="num">${escapeHtml(t('Unit price', 'سعر الوحدة'))}</th>
+          <th class="num">${escapeHtml(t('Discount', 'الخصم'))}</th>
+          <th class="num">${escapeHtml(t('Tax', 'الضريبة'))}</th>
+          <th class="num">${escapeHtml(t('Line total', 'إجمالي السطر'))}</th>
         </tr>
       </thead>
       <tbody>
-${lineRows || '        <tr><td colspan="8" class="muted center">No lines</td></tr>'}
+${lineRows || `        <tr><td colspan="8" class="muted center">${escapeHtml(t('No lines', 'لا توجد أصناف'))}</td></tr>`}
       </tbody>
     </table>
     <div class="totals-wrap">
       <table class="totals">
         <tbody>
-          <tr><th>Subtotal</th><td class="num">${money(invoice.subtotal)}</td></tr>
-          <tr><th>Discount</th><td class="num">${money(invoice.discountTotal)}</td></tr>
-          <tr><th>Tax</th><td class="num">${money(invoice.taxTotal)}</td></tr>
-          <tr class="grand"><th>Total</th><td class="num">${money(invoice.total)}</td></tr>
-          <tr><th>Paid</th><td class="num">${money(invoice.amountPaid)}</td></tr>
-          <tr class="grand"><th>Balance due</th><td class="num">${money(invoice.balance)}</td></tr>
+          <tr><th>${escapeHtml(t('Subtotal', 'الإجمالي الفرعي'))}</th><td class="num">${money(invoice.subtotal)}</td></tr>
+          <tr><th>${escapeHtml(t('Discount', 'الخصم'))}</th><td class="num">${money(invoice.discountTotal)}</td></tr>
+          <tr><th>${escapeHtml(t('Tax', 'الضريبة'))}</th><td class="num">${money(invoice.taxTotal)}</td></tr>
+          <tr class="grand"><th>${escapeHtml(t('Total', 'الإجمالي'))}</th><td class="num">${money(invoice.total)}</td></tr>
+          <tr><th>${escapeHtml(t('Paid', 'المدفوع'))}</th><td class="num">${money(invoice.amountPaid)}</td></tr>
+          <tr class="grand"><th>${escapeHtml(t('Balance due', 'المستحق'))}</th><td class="num">${money(invoice.balance)}</td></tr>${
+            customer && previousBalance !== 0
+              ? `
+          <tr><th>${escapeHtml(t('Previous balance', 'الرصيد السابق'))}</th><td class="num">${money(previousBalance)}</td></tr>
+          <tr class="grand"><th>${escapeHtml(t('Total due', 'إجمالي المديونية'))}</th><td class="num">${money(
+            round2(previousBalance + Number(invoice.balance)),
+          )}</td></tr>`
+              : ''
+          }
         </tbody>
       </table>
     </div>${
       invoice.notes
         ? `
     <section class="panel">
-      <h3>Notes</h3>
+      <h3>${escapeHtml(t('Notes', 'ملاحظات'))}</h3>
       <div>${escapeHtml(invoice.notes)}</div>
     </section>`
         : ''
     }
 `;
 
-  return renderPage({ title: `Invoice ${invoice.number}`, company: settings, body });
+  return renderPage({
+    title: `${t('Invoice', 'فاتورة')} ${invoice.number}`,
+    company: settings,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang: ar ? 'ar' : 'en',
+  });
+}
+
+/** Arabic label for an invoice status. */
+function invoiceStatusAr(status: string): string {
+  switch (status) {
+    case 'DRAFT':
+      return 'مسودة';
+    case 'ISSUED':
+      return 'مُصدرة';
+    case 'PARTIALLY_PAID':
+      return 'مدفوعة جزئيًا';
+    case 'PAID':
+      return 'مدفوعة';
+    case 'VOID':
+      return 'ملغاة';
+    default:
+      return status;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -337,6 +392,12 @@ const ROW_TYPE_LABEL: Record<StatementRowType, string> = {
   INVOICE: 'Invoice',
   PAYMENT: 'Payment',
   PURCHASE_ORDER: 'Purchase order',
+};
+
+const ROW_TYPE_LABEL_AR: Record<StatementRowType, string> = {
+  INVOICE: 'فاتورة',
+  PAYMENT: 'سداد',
+  PURCHASE_ORDER: 'أمر شراء',
 };
 
 interface StatementView {
@@ -353,12 +414,16 @@ interface PartyInfo {
   lines: (string | null)[];
 }
 
-function statementBody(view: StatementView, party: PartyInfo): string {
+function statementBody(view: StatementView, party: PartyInfo, lang = 'en'): string {
+  const ar = lang === 'ar';
+  const t = (en: string, arabic: string) => (ar ? arabic : en);
+  const typeLabels = ar ? ROW_TYPE_LABEL_AR : ROW_TYPE_LABEL;
+
   const rows = view.rows
     .map(
       (row) => `      <tr>
         <td>${escapeHtml(formatDate(row.date))}</td>
-        <td>${escapeHtml(ROW_TYPE_LABEL[row.type])}</td>
+        <td>${escapeHtml(typeLabels[row.type])}</td>
         <td>${escapeHtml(row.number)}</td>
         <td>${escapeHtml(row.description)}</td>
         <td class="num">${row.debit ? money(row.debit) : ''}</td>
@@ -374,10 +439,10 @@ function statementBody(view: StatementView, party: PartyInfo): string {
     .join('\n');
 
   return `    <section class="meta">
-      <div><span class="label">Account</span><span class="value">${escapeHtml(party.name)}</span></div>
-      <div><span class="label">From</span><span class="value">${escapeHtml(view.from ?? '—')}</span></div>
-      <div><span class="label">To</span><span class="value">${escapeHtml(view.to ?? '—')}</span></div>
-      <div><span class="label">Opening balance</span><span class="value">${money(view.openingBalance)}</span></div>
+      <div><span class="label">${escapeHtml(t('Account', 'الحساب'))}</span><span class="value">${escapeHtml(party.name)}</span></div>
+      <div><span class="label">${escapeHtml(t('From', 'من'))}</span><span class="value">${escapeHtml(view.from ?? '—')}</span></div>
+      <div><span class="label">${escapeHtml(t('To', 'إلى'))}</span><span class="value">${escapeHtml(view.to ?? '—')}</span></div>
+      <div><span class="label">${escapeHtml(t('Opening balance', 'الرصيد الافتتاحي'))}</span><span class="value">${money(view.openingBalance)}</span></div>
     </section>
     <section class="panel">
       <h3>${escapeHtml(party.heading)}</h3>
@@ -387,48 +452,70 @@ ${contact}
     <table class="data">
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Type</th>
-          <th>Number</th>
-          <th>Description</th>
-          <th class="num">Debit</th>
-          <th class="num">Credit</th>
-          <th class="num">Balance</th>
+          <th>${escapeHtml(t('Date', 'التاريخ'))}</th>
+          <th>${escapeHtml(t('Type', 'النوع'))}</th>
+          <th>${escapeHtml(t('Number', 'رقم المستند'))}</th>
+          <th>${escapeHtml(t('Description', 'البيان'))}</th>
+          <th class="num">${escapeHtml(t('Debit', 'مدين'))}</th>
+          <th class="num">${escapeHtml(t('Credit', 'دائن'))}</th>
+          <th class="num">${escapeHtml(t('Balance', 'الرصيد'))}</th>
         </tr>
       </thead>
       <tbody>
-        <tr class="muted"><td colspan="6">Opening balance</td><td class="num">${money(view.openingBalance)}</td></tr>
-${rows || '        <tr><td colspan="7" class="muted center">No transactions in this period</td></tr>'}
-        <tr class="total"><td colspan="4">Totals</td><td class="num">${money(view.totals.debit)}</td><td class="num">${money(view.totals.credit)}</td><td class="num">${money(view.totals.closingBalance)}</td></tr>
+        <tr class="muted"><td colspan="6">${escapeHtml(t('Opening balance', 'الرصيد الافتتاحي'))}</td><td class="num">${money(view.openingBalance)}</td></tr>
+${rows || `        <tr><td colspan="7" class="muted center">${escapeHtml(t('No transactions in this period', 'لا توجد حركات في هذه الفترة'))}</td></tr>`}
+        <tr class="total"><td colspan="4">${escapeHtml(t('Totals', 'الإجماليات'))}</td><td class="num">${money(view.totals.debit)}</td><td class="num">${money(view.totals.credit)}</td><td class="num">${money(view.totals.closingBalance)}</td></tr>
       </tbody>
     </table>`;
 }
 
-export function customerStatementHtml(statement: CustomerStatement, settings: AppSettings): string {
-  const body = statementBody(statement, {
-    heading: 'Customer',
-    name: statement.customer.name,
-    lines: [statement.customer.address, statement.customer.email, statement.customer.phone],
-  });
+export function customerStatementHtml(
+  statement: CustomerStatement,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = lang === 'ar';
+  const body = statementBody(
+    statement,
+    {
+      heading: ar ? 'العميل' : 'Customer',
+      name: statement.customer.name,
+      lines: [statement.customer.address, statement.customer.email, statement.customer.phone],
+    },
+    lang,
+  );
   return renderPage({
-    title: 'Customer statement',
+    title: ar ? 'كشف حساب عميل' : 'Customer statement',
     company: settings,
     subtitle: statement.customer.name,
     body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang: ar ? 'ar' : 'en',
   });
 }
 
-export function supplierStatementHtml(statement: SupplierStatement, settings: AppSettings): string {
-  const body = statementBody(statement, {
-    heading: 'Supplier',
-    name: statement.supplier.name,
-    lines: [statement.supplier.address, statement.supplier.email, statement.supplier.phone],
-  });
+export function supplierStatementHtml(
+  statement: SupplierStatement,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = lang === 'ar';
+  const body = statementBody(
+    statement,
+    {
+      heading: ar ? 'المورد' : 'Supplier',
+      name: statement.supplier.name,
+      lines: [statement.supplier.address, statement.supplier.email, statement.supplier.phone],
+    },
+    lang,
+  );
   return renderPage({
-    title: 'Supplier statement',
+    title: ar ? 'كشف حساب مورد' : 'Supplier statement',
     company: settings,
     subtitle: statement.supplier.name,
     body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang: ar ? 'ar' : 'en',
   });
 }
 
@@ -475,6 +562,7 @@ ${rows || '        <tr><td colspan="6" class="muted center">No sales in this per
   return renderPage({
     title: 'Sales report',
     company: settings,
+    showCompanyDetails: false,
     subtitle: `${report.from} to ${report.to}`,
     body,
   });
@@ -517,7 +605,7 @@ ${rows || '        <tr><td colspan="9" class="muted center">No stock on hand</td
       </tbody>
     </table>`;
 
-  return renderPage({ title: 'Inventory valuation', company: settings, body });
+  return renderPage({ title: 'Inventory valuation', company: settings, body, showCompanyDetails: false });
 }
 
 export function topProductsHtml(report: TopProductsReport, settings: AppSettings): string {
@@ -557,6 +645,7 @@ ${rows || '        <tr><td colspan="6" class="muted center">No sales in this per
   return renderPage({
     title: 'Top products',
     company: settings,
+    showCompanyDetails: false,
     subtitle: `${report.from} to ${report.to}`,
     body,
   });
@@ -611,6 +700,7 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
   return renderPage({
     title: ar ? 'مديونية العملاء لكل مندوب' : 'Receivables by salesperson',
     company: settings,
+    showCompanyDetails: false,
     subtitle: rangeLabel(report),
     body,
     dir: ar ? 'rtl' : 'ltr',
@@ -658,6 +748,7 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
   return renderPage({
     title: ar ? 'مديونية الموردين' : 'Supplier payables',
     company: settings,
+    showCompanyDetails: false,
     subtitle: rangeLabel(report),
     body,
     dir: ar ? 'rtl' : 'ltr',
@@ -713,6 +804,7 @@ ${rows || `        <tr><td colspan="10" class="muted center">${empty}</td></tr>`
   return renderPage({
     title: ar ? 'رصيد المخزون (كمية وقيمة)' : 'Stock balance (quantity & value)',
     company: settings,
+    showCompanyDetails: false,
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,
@@ -771,6 +863,7 @@ ${rows || `        <tr><td colspan="10" class="muted center">${empty}</td></tr>`
   return renderPage({
     title: ar ? 'حركة صنف' : 'Item movement',
     company: settings,
+    showCompanyDetails: false,
     subtitle: `${report.product.name} (${report.product.sku})`,
     body,
     dir: ar ? 'rtl' : 'ltr',
@@ -828,6 +921,7 @@ ${rows}
   return renderPage({
     title: ar ? 'الإذن المجمع للمبيعات' : 'Consolidated sales note',
     company: settings,
+    showCompanyDetails: false,
     subtitle: rangeLabel(report),
     body,
     dir: ar ? 'rtl' : 'ltr',
@@ -875,6 +969,7 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
   return renderPage({
     title: ar ? 'ربحية كل مندوب' : 'Profitability by salesperson',
     company: settings,
+    showCompanyDetails: false,
     subtitle: rangeLabel(report),
     body,
     dir: ar ? 'rtl' : 'ltr',
@@ -916,6 +1011,7 @@ ${rows || `        <tr><td colspan="3" class="muted center">${empty}</td></tr>`}
   return renderPage({
     title: ar ? 'تحصيلات كل مندوب' : 'Collections by salesperson',
     company: settings,
+    showCompanyDetails: false,
     subtitle: rangeLabel(report),
     body,
     dir: ar ? 'rtl' : 'ltr',
@@ -969,6 +1065,7 @@ ${rows || `        <tr><td colspan="7" class="muted center">${empty}</td></tr>`}
   return renderPage({
     title: ar ? 'كشف حساب مندوب' : 'Salesperson statement',
     company: settings,
+    showCompanyDetails: false,
     subtitle: `${statement.salesperson.name} · ${statement.from} → ${statement.to}`,
     body,
     dir: ar ? 'rtl' : 'ltr',
@@ -1055,6 +1152,7 @@ ${boxRows || `        <tr><td colspan="2" class="muted center">${empty}</td></tr
   return renderPage({
     title: ar ? 'تقرير المصروفات' : 'Expense report',
     company: settings,
+    showCompanyDetails: false,
     subtitle: rangeLabel(report),
     body,
     dir: ar ? 'rtl' : 'ltr',
@@ -1109,6 +1207,7 @@ ${rows || `        <tr><td colspan="7" class="muted center">${empty}</td></tr>`}
   return renderPage({
     title: ar ? 'نواقص أوامر البيع' : 'Sales shortages',
     company: settings,
+    showCompanyDetails: false,
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,
@@ -1160,6 +1259,7 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
   return renderPage({
     title: ar ? 'مديونية عملاء المندوب' : 'Salesperson customer debt',
     company: settings,
+    showCompanyDetails: false,
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,
@@ -1217,6 +1317,7 @@ ${sections || `    <p class="muted center">${empty}</p>`}`;
   return renderPage({
     title: ar ? 'إيصالات التحصيل حسب الخزنة' : 'Collections by cash box',
     company: settings,
+    showCompanyDetails: false,
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,
@@ -1271,6 +1372,7 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
   return renderPage({
     title: ar ? `كشف بند: ${categoryName}` : `Expense statement: ${categoryName}`,
     company: settings,
+    showCompanyDetails: false,
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,
@@ -1334,6 +1436,7 @@ ${sections || `    <p class="muted center">${empty}</p>`}`;
   return renderPage({
     title: ar ? 'المتاح والمطلوب لكل أمر بيع' : 'Available vs. needed per order',
     company: settings,
+    showCompanyDetails: false,
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,
@@ -1420,6 +1523,7 @@ ${rows || `        <tr><td colspan="7" class="muted center">${empty}</td></tr>`}
   return renderPage({
     title: ar ? 'كشف التسويات' : 'Settlements statement',
     company: settings,
+    showCompanyDetails: false,
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,

@@ -118,6 +118,7 @@ class Session extends ChangeNotifier {
   SessionStatus get status => _status;
   AppUser? get user => _user;
   String? get role => _user?.role;
+  bool get isAdmin => (role ?? '').toUpperCase() == 'ADMIN';
   bool get busy => _busy;
   String? get error => _error;
   bool get isAuthenticated =>

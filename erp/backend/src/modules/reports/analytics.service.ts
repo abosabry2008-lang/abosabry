@@ -570,6 +570,32 @@ export async function buildAgingReport(
         if (row.oldestDueDate == null || iso < row.oldestDueDate) row.oldestDueDate = iso;
       }
     }
+
+    // Customers whose stored balance is not fully explained by their invoices
+    // carry an opening balance (or an un-invoiced adjustment). Include that
+    // remainder so customers created with an opening balance show up here too.
+    const customers = await prisma.customer.findMany({
+      where: { balance: { not: 0 } },
+      select: { id: true, name: true, phone: true, balance: true },
+    });
+    const invoicedByCustomer = await prisma.invoice.groupBy({
+      by: ['customerId'],
+      where: { status: { in: ['ISSUED', 'PARTIALLY_PAID'] }, customerId: { not: null } },
+      _sum: { balance: true },
+    });
+    const invoicedMap = new Map<string, number>();
+    for (const group of invoicedByCustomer) {
+      if (group.customerId) invoicedMap.set(group.customerId, Number(group._sum.balance ?? 0));
+    }
+    for (const customer of customers) {
+      const remainder = round2(
+        Number(customer.balance) - (invoicedMap.get(customer.id) ?? 0),
+      );
+      if (remainder === 0) continue;
+      const row = rowFor(customer.id, customer.name, customer.phone);
+      // No due date is recorded for an opening balance: report it as not yet due.
+      addToBucket(row, 0, remainder);
+    }
   } else {
     const suppliers = await prisma.supplier.findMany({
       where: { balance: { not: 0 } },

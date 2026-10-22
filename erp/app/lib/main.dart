@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'core/api_client.dart';
 import 'core/config.dart';
 import 'core/l10n.dart';
+import 'core/print_service.dart';
 import 'core/session.dart';
 import 'core/theme.dart';
 import 'features/auth/login_screen.dart';
@@ -173,6 +174,8 @@ class _ErpAppState extends State<ErpApp> {
           // Keep the API client's language in sync so server error messages are
           // shown in the active language.
           _api.locale = localeController.locale;
+          // Printable invoices / statements / reports follow the same language.
+          PrintService.lang = localeController.isArabic ? 'ar' : 'en';
           return MaterialApp(
           title: 'ERP',
           debugShowCheckedModeBanner: false,

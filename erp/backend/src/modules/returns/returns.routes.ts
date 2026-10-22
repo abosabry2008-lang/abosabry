@@ -7,6 +7,7 @@ import { prisma } from '../../lib/prisma';
 import { asEnum, asString } from '../../lib/query';
 import { roleHasPermission, type Permission } from '../../lib/permissions';
 import { authenticate, currentUser } from '../../middleware/authenticate';
+import { requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import {
   cancelReturnOrder,
@@ -152,6 +153,7 @@ router.post(
 router.post(
   '/:id/cancel',
   writePermission,
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
     const order = await cancelReturnOrder(req.params.id, {

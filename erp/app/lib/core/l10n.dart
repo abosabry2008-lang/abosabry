@@ -645,7 +645,6 @@ class AppStrings {
   String get customerUpdated => _t('Customer updated.', 'تم تحديث العميل.');
   String get customerCreated => _t('Customer created.', 'تم إنشاء العميل.');
   String get deleteCustomer => _t('Delete customer', 'حذف العميل');
-  String get searchCustomersHint => _t('Search customers…', 'ابحث في العملاء…');
 
   // ---------------------------------------------------------------------------
   // Sales
@@ -1635,6 +1634,13 @@ class AppStrings {
   // ---------------------------------------------------------------------------
   // Sales shortages (نواقص أوامر البيع)
   // ---------------------------------------------------------------------------
+  String get confirmDeleteTitle => _t('Delete?', 'حذف؟');
+  String get confirmDeleteMessage =>
+      _t('This action cannot be undone. Are you sure?', 'هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد؟');
+  String confirmDeleteItem(String name) => _t(
+        'Delete "$name"? This action cannot be undone.',
+        'هل تريد حذف "$name"؟ هذا الإجراء لا يمكن التراجع عنه.',
+      );
   String get shortages => _t('Sales shortages', 'نواقص أوامر البيع');
   String get shortagesHint => _t(
         'Products that open sales orders still need but are not on hand — buy '
@@ -1653,6 +1659,28 @@ class AppStrings {
   String get salespersonCustomerDebt =>
       _t('Salesperson customer debt', 'مديونية عملاء المندوب');
   String get previousBalance => _t('Previous', 'حساب سابق');
+  String get clearField => _t('Clear', 'مسح');
+  String get searchHint => _t('Type to search…', 'اكتب للبحث…');
+  String get searchCustomersHint => _t('Search customers…', 'ابحث عن العملاء…');
+  String get noMatches => _t('No matching results', 'لا توجد نتائج مطابقة');
+  String get typeNameToSearch =>
+      _t('Type a name to search', 'اكتب اسمًا للبحث');
+  String get availableQuantity => _t('Available', 'المتاح');  String get availableInStock => _t('Available in stock', 'المتاح في المخزون');
+  String stockOnHandHint(int quantity, String unit) =>
+      _t('Available: $quantity $unit', 'المتاح بالمخزون: $quantity $unit');
+  String stockShortageHint(int quantity, String unit) => _t(
+        'Only $quantity $unit available in stock',
+        'المتاح بالمخزون $quantity $unit فقط',
+      );
+  String get previousBalanceLabel =>
+      _t('Previous balance', 'المديونية السابقة');
+  String get totalDueLabel => _t('Total due', 'إجمالي المديونية');
+  String customerPreviousBalanceHint(String name) => _t(
+        'What $name already owes before this invoice.',
+        'المديونية السابقة على $name قبل هذه الفاتورة.',
+      );
+  String get noPreviousBalance =>
+      _t('No previous balance', 'لا توجد مديونية سابقة');
   String get shortageWarningTitle =>
       _t('Some items are out of stock', 'بعض الأصناف غير موجودة');
   String get shortageWarningMessage => _t(

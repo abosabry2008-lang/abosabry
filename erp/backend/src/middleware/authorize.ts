@@ -12,3 +12,17 @@ export function requirePermission(permission: Permission): RequestHandler {
     next();
   };
 }
+
+/**
+ * Requires the ADMIN role. Used for destructive operations (delete / cancel /
+ * void) that must never be delegable through the role-permission editor.
+ */
+export function requireAdmin(): RequestHandler {
+  return (req, _res, next) => {
+    if (!req.user) throw ApiError.unauthorized();
+    if ((req.user.role ?? '').toUpperCase() !== 'ADMIN') {
+      throw ApiError.forbidden('Only an administrator can perform this action');
+    }
+    next();
+  };
+}

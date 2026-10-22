@@ -800,6 +800,7 @@ class _TransfersTabState extends State<_TransfersTab>
     final theme = Theme.of(context);
     final controller = context.watch<TransfersController>();
     final canManage = context.watch<Session>().can('treasury.manage');
+    final isAdmin = context.watch<Session>().isAdmin;
 
     return Stack(
       children: <Widget>[
@@ -869,7 +870,7 @@ class _TransfersTabState extends State<_TransfersTab>
                 ),
                 onTap: transfer.cancelled || !canManage
                     ? null
-                    : () => _showActions(transfer),
+                    : () => _showActions(transfer, isAdmin),
               ),
             );
           },
@@ -889,7 +890,7 @@ class _TransfersTabState extends State<_TransfersTab>
     );
   }
 
-  Future<void> _showActions(CashTransfer transfer) async {
+  Future<void> _showActions(CashTransfer transfer, bool isAdmin) async {
     final s = context.s;
     await showModalBottomSheet<void>(
       context: context,
@@ -905,17 +906,18 @@ class _TransfersTabState extends State<_TransfersTab>
                 _edit(transfer);
               },
             ),
-            ListTile(
-              leading: Icon(
-                Icons.cancel_outlined,
-                color: Theme.of(context).colorScheme.error,
+            if (isAdmin)
+              ListTile(
+                leading: Icon(
+                  Icons.cancel_outlined,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(s.cancelTransfer),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _cancel(transfer);
+                },
               ),
-              title: Text(s.cancelTransfer),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _cancel(transfer);
-              },
-            ),
           ],
         ),
       ),
@@ -1014,6 +1016,7 @@ class _SettlementsTabState extends State<_SettlementsTab>
     final s = context.s;
     final session = context.watch<Session>();
     final canManage = session.can('treasury.write');
+    final isAdmin = session.isAdmin;
     final theme = Theme.of(context);
     final controller = context.watch<SettlementsController>();
 
@@ -1140,7 +1143,7 @@ class _SettlementsTabState extends State<_SettlementsTab>
                       ),
                       onTap: settlement.cancelled || !canManage
                           ? null
-                          : () => _showActions(settlement),
+                          : () => _showActions(settlement, isAdmin),
                     ),
                   );
                 },
@@ -1173,7 +1176,7 @@ class _SettlementsTabState extends State<_SettlementsTab>
     );
   }
 
-  Future<void> _showActions(AccountSettlement settlement) async {
+  Future<void> _showActions(AccountSettlement settlement, bool isAdmin) async {
     final s = context.s;
     await showModalBottomSheet<void>(
       context: context,
@@ -1189,17 +1192,18 @@ class _SettlementsTabState extends State<_SettlementsTab>
                 _edit(settlement);
               },
             ),
-            ListTile(
-              leading: Icon(
-                Icons.cancel_outlined,
-                color: Theme.of(context).colorScheme.error,
+            if (isAdmin)
+              ListTile(
+                leading: Icon(
+                  Icons.cancel_outlined,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(s.cancelSettlementQ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _cancel(settlement);
+                },
               ),
-              title: Text(s.cancelSettlementQ),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _cancel(settlement);
-              },
-            ),
           ],
         ),
       ),

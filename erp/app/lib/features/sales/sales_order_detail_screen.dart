@@ -302,12 +302,16 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
         body: <String, dynamic>{
           'salesOrderId': widget.orderId,
           if (skipUnavailable) 'skipUnavailable': true,
+          // One-step fulfilment: create and issue the invoice together so the
+          // operator never has to open it and press "issue" separately.
+          'issue': true,
         },
       );
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(context.s.draftInvoiceCreated)),
+        SnackBar(content: Text(context.s.invoiceIssued)),
       );
+      await _load();
     } on ApiException catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
@@ -332,18 +336,19 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
       );
     }
 
-    final canManage = context.watch<Session>().can('sales');
-    final canCancelOrder = context.watch<Session>().can('sales.cancel');
+    final session = context.watch<Session>();
+    final canManage = session.can('sales');
+    final isAdmin = session.isAdmin;
     final theme = Theme.of(context);
     final canConfirm = order.status == 'DRAFT';
     final canFulfill = order.status == 'CONFIRMED' ||
         order.status == 'PARTIALLY_FULFILLED';
-    // Admins can cancel any order that is not already cancelled — including a
-    // fulfilled one, whose stock and ledger entry are reversed by the API.
-    final canCancel = canCancelOrder && order.status != 'CANCELLED';
+    // Only admins may cancel an order — including a fulfilled one, whose stock
+    // and ledger entry are reversed by the API.
+    final canCancel = isAdmin && order.status != 'CANCELLED';
     // Admins can also rewrite the lines of an order that already shipped.
     final canEdit = order.status != 'CANCELLED' &&
-        (order.status == 'DRAFT' || canCancelOrder);
+        (order.status == 'DRAFT' || isAdmin);
     final canInvoice = order.status == 'CONFIRMED' ||
         order.status == 'PARTIALLY_FULFILLED' ||
         order.status == 'FULFILLED';

@@ -11,6 +11,7 @@ import '../../models/invoice.dart';
 import '../../models/user.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
+import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
 
 /// One editable line of the collection receipt.
@@ -21,9 +22,6 @@ class _LineDraft {
   final TextEditingController note = TextEditingController();
   String? customerId;
   String? invoiceId;
-
-  /// Optional per-line cash box; `null` means "use the receipt's box".
-  String? boxId;
 
   double get parsedAmount => double.tryParse(amount.text.trim()) ?? 0;
 
@@ -183,7 +181,6 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                 (line) => <String, dynamic>{
                   'customerId': line.customerId,
                   'invoiceId': line.invoiceId,
-                  'cashBoxId': line.boxId,
                   'amount': line.parsedAmount,
                   'note': line.note.text.trim().isEmpty
                       ? null
@@ -218,10 +215,6 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
           ),
         )
         .toList();
-    var receiptBoxName = s.receiptBox;
-    for (final box in _boxes) {
-      if (box.id == _boxId) receiptBoxName = box.name;
-    }
 
     return Form(
       key: _formKey,
@@ -242,17 +235,19 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                   onChanged: (value) => setState(() => _boxId = value),
                 ),
                 const SizedBox(height: 14),
-                AppSelectField<String>(
+                SearchablePickerField(
                   label: s.salesperson,
-                  value: _salespersonId ?? '',
+                  value: _salespersonId,
+                  hint: s.noSalesperson,
                   enabled: !_saving,
                   prefixIcon: Icons.badge_outlined,
-                  options: <SelectOption<String>>[
-                    SelectOption<String>('', s.noSalesperson),
-                    ..._salespeople.map(
-                      (user) => SelectOption<String>(user.id, user.name),
-                    ),
-                  ],
+                  searchHint: s.searchHint,
+                  clearable: _salespersonId != null,
+                  options: _salespeople
+                      .map(
+                        (user) => PickerOption(value: user.id, label: user.name),
+                      )
+                      .toList(),
                   onChanged: (value) => setState(
                     () => _salespersonId =
                         (value == null || value.isEmpty) ? null : value,
@@ -298,8 +293,6 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                     line: _lines[index],
                     enabled: !_saving,
                     customers: _customers,
-                    boxes: boxOptions,
-                    receiptBoxName: receiptBoxName,
                     invoices: _invoices
                         .where(
                           (invoice) =>
@@ -333,10 +326,6 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                           }
                         }
                       });
-                    },
-                    onBoxChanged: (value) {
-                      setState(() => _lines[index].boxId =
-                          (value == null || value.isEmpty) ? null : value);
                     },
                     onRemove: _lines.length > 1
                         ? () => _removeLine(_lines[index])
@@ -405,11 +394,8 @@ class _LineEditor extends StatelessWidget {
     required this.customers,
     required this.invoices,
     required this.invoice,
-    required this.boxes,
-    required this.receiptBoxName,
     required this.onCustomerChanged,
     required this.onInvoiceChanged,
-    required this.onBoxChanged,
     required this.onRemove,
   });
 
@@ -419,11 +405,8 @@ class _LineEditor extends StatelessWidget {
   final List<Customer> customers;
   final List<Invoice> invoices;
   final Invoice? invoice;
-  final List<SelectOption<String>> boxes;
-  final String receiptBoxName;
   final ValueChanged<String?> onCustomerChanged;
   final ValueChanged<String?> onInvoiceChanged;
-  final ValueChanged<String?> onBoxChanged;
   final VoidCallback? onRemove;
 
   @override
@@ -463,34 +446,44 @@ class _LineEditor extends StatelessWidget {
                 ),
             ],
           ),
-          AppSelectField<String>(
+          SearchablePickerField(
             label: s.customer,
             value: line.customerId,
             hint: s.selectCustomer,
             enabled: enabled,
             prefixIcon: Icons.person_outline,
+            searchHint: s.searchCustomersHint,
             options: customers
                 .map(
-                  (customer) => SelectOption<String>(customer.id, customer.name),
+                  (customer) => customerPickerOption(
+                    id: customer.id,
+                    name: customer.name,
+                    code: customer.code,
+                    balance: customer.balance,
+                  ),
                 )
                 .toList(),
             onChanged: onCustomerChanged,
           ),
           const SizedBox(height: 14),
-          AppSelectField<String>(
+          SearchablePickerField(
             label: s.invoice,
-            value: line.invoiceId ?? '',
+            value: line.invoiceId,
+            hint: s.noInvoice,
             enabled: enabled,
             prefixIcon: Icons.receipt_long_outlined,
-            options: <SelectOption<String>>[
-              SelectOption<String>('', s.noInvoice),
-              ...invoices.map(
-                (item) => SelectOption<String>(
-                  item.id,
-                  '${item.number} · ${Formatters.money(item.balance)}',
-                ),
-              ),
-            ],
+            searchHint: s.searchInvoicesHint,
+            clearable: line.invoiceId != null,
+            options: invoices
+                .map(
+                  (item) => PickerOption(
+                    value: item.id,
+                    label: item.number,
+                    trailing: Formatters.money(item.balance),
+                    keywords: <String>[if (item.customerName != null) item.customerName!],
+                  ),
+                )
+                .toList(),
             onChanged: onInvoiceChanged,
           ),
           const SizedBox(height: 14),
@@ -507,19 +500,6 @@ class _LineEditor extends StatelessWidget {
               if (parsed == null || parsed <= 0) return s.lineNeedsAmount;
               return null;
             },
-          ),
-          const SizedBox(height: 14),
-          AppSelectField<String>(
-            label: s.lineCashBox,
-            value: line.boxId ?? '',
-            enabled: enabled,
-            hint: receiptBoxName,
-            prefixIcon: Icons.account_balance_wallet_outlined,
-            options: <SelectOption<String>>[
-              SelectOption<String>('', s.useBox(receiptBoxName)),
-              ...boxes,
-            ],
-            onChanged: onBoxChanged,
           ),
           const SizedBox(height: 14),
           AppTextField(

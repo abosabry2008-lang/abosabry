@@ -9,7 +9,7 @@ import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
 import { asBool, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 
 const router = Router();
@@ -136,6 +136,7 @@ router.patch(
 router.delete(
   '/:id',
   requirePermission('purchasing.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const orders = await prisma.purchaseOrder.count({ where: { supplierId: req.params.id } });
     if (orders > 0) {

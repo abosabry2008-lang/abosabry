@@ -72,6 +72,7 @@ class Invoice {
     this.total = 0,
     this.amountPaid = 0,
     this.balance = 0,
+    this.previousBalance = 0,
     this.exchangeRate = 1,
     this.notes,
     this.customerName,
@@ -94,6 +95,9 @@ class Invoice {
   final double total;
   final double amountPaid;
   final double balance;
+  /// What the customer owed before this invoice (open balance on their other
+  /// documents plus any opening balance). Shown on screen and on the print.
+  final double previousBalance;
   final double exchangeRate;
   final String? notes;
   final String? customerName;
@@ -127,6 +131,7 @@ class Invoice {
       total: asDouble(json['total']),
       amountPaid: asDouble(json['amountPaid']),
       balance: asDouble(json['balance']),
+      previousBalance: asDouble(json['previousBalance']),
       exchangeRate: asDouble(json['exchangeRate'], fallback: 1),
       notes: asStringOrNull(json['notes']),
       customerName: asStringOrNull(customer['name']) ??

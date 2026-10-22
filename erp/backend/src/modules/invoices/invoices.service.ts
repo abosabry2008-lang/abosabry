@@ -7,7 +7,7 @@ import { getSettings, isTaxEnabled } from '../../lib/settings';
 import { ACCOUNT, postJournal, reverseJournalBySource, type JournalLineInput } from '../accounting/accounting.service';
 
 export const invoiceInclude = {
-  customer: { select: { id: true, name: true, email: true, phone: true, address: true } },
+  customer: { select: { id: true, name: true, email: true, phone: true, address: true, balance: true } },
   currency: { select: { id: true, code: true, symbol: true } },
   salesOrder: { select: { id: true, number: true } },
   lines: {
@@ -57,16 +57,55 @@ export interface CreateInvoiceInput {
    * it, every ordered line is billed even if the stock is short.
    */
   skipUnavailable?: boolean;
+  /**
+   * Issues the invoice in the same transaction it is created in. Used by the
+   * one-step "تنفيذ" (fulfil) action so the operator never has to open the
+   * invoice and press issue separately.
+   */
+  issue?: boolean;
 }
 
 /**
- * Recomputes a customer's outstanding balance from their open invoices plus
- * any live account settlements (تسويات), which adjust the balance outside the
- * invoice flow. Without folding in the settlements every recalculation would
- * silently wipe a manual adjustment.
+ * Opening balance recorded for a single customer, summed from the two places it
+ * can come from:
+ *  - the `OPENING_CUSTOMER` journal posted when the customer is created, and
+ *  - the per-customer amounts inside a bulk opening-balance document
+ *    (`OpeningBalance.details.customers`).
+ */
+async function customerOpeningBalance(tx: Tx, customerId: string): Promise<number> {
+  const [lines, docs] = await Promise.all([
+    tx.journalLine.findMany({
+      where: {
+        account: { code: '1100' },
+        journalEntry: { sourceType: 'OPENING_CUSTOMER', sourceId: customerId },
+      },
+      select: { debit: true, credit: true },
+    }),
+    tx.openingBalance.findMany({ where: { cancelledAt: null }, select: { details: true } }),
+  ]);
+
+  let total = lines.reduce((sum, line) => sum + Number(line.debit) - Number(line.credit), 0);
+
+  for (const doc of docs) {
+    const details = doc.details as { customers?: { customerId?: string; amount?: number }[] } | null;
+    for (const row of details?.customers ?? []) {
+      if (row.customerId === customerId) total += Number(row.amount ?? 0);
+    }
+  }
+
+  return round2(total);
+}
+
+/**
+ * Recomputes a customer's outstanding balance from their open invoices, any
+ * live account settlements (تسويات) and their opening balance.
+ *
+ * The opening balance is not stored on the customer row itself, so it is read
+ * back from the ledger. Without it every recalculation (issued invoice, payment,
+ * settlement) silently wiped the opening balance.
  */
 export async function recalcCustomerBalance(tx: Tx, customerId: string): Promise<void> {
-  const [aggregate, settlements] = await Promise.all([
+  const [aggregate, settlements, openingBalance] = await Promise.all([
     tx.invoice.aggregate({
       where: {
         customerId,
@@ -78,6 +117,7 @@ export async function recalcCustomerBalance(tx: Tx, customerId: string): Promise
       where: { customerId, cancelledAt: null },
       select: { direction: true, amount: true },
     }),
+    customerOpeningBalance(tx, customerId),
   ]);
 
   const invoiceBalance = Number(aggregate._sum.balance ?? 0);
@@ -88,7 +128,7 @@ export async function recalcCustomerBalance(tx: Tx, customerId: string): Promise
 
   await tx.customer.update({
     where: { id: customerId },
-    data: { balance: round2(invoiceBalance + adjustment) },
+    data: { balance: round2(openingBalance + invoiceBalance + adjustment) },
   });
 }
 
@@ -488,7 +528,11 @@ export async function voidInvoiceTx(tx: Tx, id: string, userId?: string) {
 // ---------------------------------------------------------------------------
 
 export async function createInvoice(input: CreateInvoiceInput) {
-  return prisma.$transaction((tx) => createInvoiceTx(tx, input));
+  return prisma.$transaction(async (tx) => {
+    const invoice = await createInvoiceTx(tx, input);
+    if (!input.issue) return invoice;
+    return issueInvoiceTx(tx, invoice.id, input.userId);
+  });
 }
 
 export async function issueInvoice(id: string, userId?: string) {

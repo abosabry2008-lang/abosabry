@@ -62,41 +62,6 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
   }
 
-  Future<void> _act(
-    String action, {
-    required String confirmTitle,
-    required String confirmMessage,
-    required String successMessage,
-    bool closeOnSuccess = false,
-  }) async {
-    final confirmed = await confirmDialog(
-      context,
-      title: confirmTitle,
-      message: confirmMessage,
-      confirmLabel: context.s.continueLabel,
-    );
-    if (!confirmed || !mounted) return;
-    setState(() => _busy = true);
-    final api = context.read<Session>().api;
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    try {
-      await api.post(
-        '/invoices/${widget.invoiceId}/$action',
-        body: const <String, dynamic>{},
-      );
-      await _load();
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(successMessage)));
-      if (closeOnSuccess) navigator.pop(true);
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   Future<void> _recordPayment() async {
     final invoice = _invoice;
     if (invoice == null) return;
@@ -132,6 +97,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final s = context.s;
+    final session = context.watch<Session>();
     final invoice = _invoice;
     if (_loading && invoice == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -145,10 +111,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       );
     }
 
-    final session = context.watch<Session>();
     final canManage = session.can('invoices');
-    final canCancelInvoice = session.can('invoices.cancel');
-    final canEditPosted = session.can('invoices.edit');
 
     return Scaffold(
       body: RefreshIndicator(
@@ -258,11 +221,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   icon: const Icon(Icons.print_outlined),
                   label: Text(s.print),
                 ),
-                if ((canManage && invoice.status == 'DRAFT') ||
-                    (canEditPosted &&
-                        (invoice.status == 'ISSUED' ||
-                            invoice.status == 'PARTIALLY_PAID' ||
-                            invoice.status == 'PAID')))
+                if (session.isAdmin && invoice.status != 'VOID')
                   FilledButton.tonalIcon(
                     onPressed: _busy ? null : _edit,
                     icon: const Icon(Icons.edit_outlined),
@@ -270,22 +229,42 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   ),
               ],
             ),
-            if ((canManage || canCancelInvoice) && invoice.status != 'VOID') ...<Widget>[
+            if (invoice.status != 'VOID') ...<Widget>[
               const SizedBox(height: 12),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: <Widget>[
-                  if (invoice.canIssue)
+                  // Issuing is a single tap: no confirmation step. Any operator
+                  // who may write invoices can issue; only an admin may edit or
+                  // void an issued invoice.
+                  if (invoice.canIssue && canManage)
                     FilledButton.tonalIcon(
                       onPressed: _busy
                           ? null
-                          : () => _act(
-                                'issue',
-                                confirmTitle: s.issueInvoiceQ,
-                                confirmMessage: s.issueInvoiceMessage,
-                                successMessage: s.invoiceIssued,
-                              ),
+                          : () async {
+                                final api = context.read<Session>().api;
+                                final messenger = ScaffoldMessenger.of(context);
+                                setState(() => _busy = true);
+                                try {
+                                  await api.post(
+                                    '/invoices/${widget.invoiceId}/issue',
+                                    body: const <String, dynamic>{},
+                                  );
+                                  await _load();
+                                  if (!mounted) return;
+                                  messenger.showSnackBar(
+                                    SnackBar(content: Text(context.s.invoiceIssued)),
+                                  );
+                                } on ApiException catch (error) {
+                                  if (!mounted) return;
+                                  messenger.showSnackBar(
+                                    SnackBar(content: Text(error.message)),
+                                  );
+                                } finally {
+                                  if (mounted) setState(() => _busy = false);
+                                }
+                              },
                       icon: const Icon(Icons.send_outlined),
                       label: Text(s.issue),
                     ),
@@ -296,17 +275,43 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                       icon: const Icon(Icons.payments_outlined),
                       label: Text(s.recordPayment),
                     ),
-                  if (invoice.canVoid && canCancelInvoice)
+                  if (invoice.canVoid && session.isAdmin)
                     OutlinedButton.icon(
                       onPressed: _busy
                           ? null
-                          : () => _act(
-                                'void',
-                                confirmTitle: s.voidInvoiceQ,
-                                confirmMessage: s.voidInvoiceMessage,
-                                successMessage: s.invoiceVoided,
-                                closeOnSuccess: true,
-                              ),
+                          : () async {
+                                final confirmed = await confirmDialog(
+                                  context,
+                                  title: s.voidInvoiceQ,
+                                  message: s.voidInvoiceMessage,
+                                  confirmLabel: s.continueLabel,
+                                  destructive: true,
+                                );
+                                if (!confirmed || !mounted) return;
+                                final api = context.read<Session>().api;
+                                final messenger = ScaffoldMessenger.of(context);
+                                final navigator = Navigator.of(context);
+                                setState(() => _busy = true);
+                                try {
+                                  await api.post(
+                                    '/invoices/${widget.invoiceId}/void',
+                                    body: const <String, dynamic>{},
+                                  );
+                                  await _load();
+                                  if (!mounted) return;
+                                  messenger.showSnackBar(
+                                    SnackBar(content: Text(context.s.invoiceVoided)),
+                                  );
+                                  navigator.pop(true);
+                                } on ApiException catch (error) {
+                                  if (!mounted) return;
+                                  messenger.showSnackBar(
+                                    SnackBar(content: Text(error.message)),
+                                  );
+                                } finally {
+                                  if (mounted) setState(() => _busy = false);
+                                }
+                              },
                       icon: const Icon(Icons.cancel_outlined),
                       label: Text(s.voidLabel),
                     ),

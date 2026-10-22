@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_exception.dart';
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
+import '../../models/customer.dart';
 import '../../models/invoice.dart';
 import '../../models/product.dart';
 import '../../state/customers_controller.dart';
@@ -11,7 +12,9 @@ import '../../state/invoices_controller.dart';
 import '../../state/product_catalog.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/last_purchase_price_hint.dart';
+import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
+import '../../widgets/stock_on_hand_hint.dart';
 import '../inventory/product_picker_field.dart';
 
 /// Editable draft invoice: customer, due date, notes and lines.
@@ -115,6 +118,25 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
     final s = context.s;
     final customers = context.watch<CustomersController>();
 
+    // The customer's stored balance is what they owe overall. For an issued
+    // invoice that already includes this invoice's own balance, so subtract it
+    // to get the debt that existed before this invoice.
+    final selectedCustomer = _customerId == null
+        ? null
+        : customers.items
+            .where((customer) => customer.id == _customerId)
+            .cast<Customer?>()
+            .firstWhere((customer) => true, orElse: () => null);
+    final counted = <String>{'ISSUED', 'PARTIALLY_PAID', 'PAID'}
+        .contains(widget.invoice.status);
+    final previousBalance = selectedCustomer == null
+        ? 0.0
+        : double.parse(
+            (selectedCustomer.balance -
+                    (counted ? widget.invoice.balance : 0))
+                .toStringAsFixed(2),
+          );
+
     return Scaffold(
       body: Form(
         key: _formKey,
@@ -162,6 +184,60 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            if (selectedCustomer != null) ...<Widget>[
+              SectionCard(
+                title: s.previousBalanceLabel,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            s.customerPreviousBalanceHint(
+                              selectedCustomer.name,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        MoneyText(previousBalance),
+                      ],
+                    ),
+                    if (previousBalance != 0) ...<Widget>[
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              s.totalDueLabel,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          MoneyText(
+                            double.parse(
+                              (previousBalance +
+                                      (counted
+                                          ? 0
+                                          : widget.invoice.balance))
+                                  .toStringAsFixed(2),
+                            ),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             SectionCard(
               title: s.lines,
               subtitle: s.productsAndServices,
@@ -579,6 +655,10 @@ class _CompactInvoiceLineState extends State<_CompactInvoiceLine> {
                     },
                   ),
                   LastPurchasePriceHint(product: line.product),
+                  StockOnHandHint(
+                    product: line.product,
+                    requestedQuantity: line.quantity,
+                  ),
                   const SizedBox(height: 8),
                   AppTextField(
                     label: s.description,

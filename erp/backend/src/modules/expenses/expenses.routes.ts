@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { asyncHandler, created, getPaging, ok } from '../../lib/http';
 import { asBool, asDate, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import {
   buildExpenseReport,
@@ -88,6 +88,7 @@ router.patch(
 router.delete(
   '/categories/:id',
   requirePermission('expenses.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const result = await deleteExpenseCategory(req.params.id);
     ok(res, result);
@@ -156,6 +157,7 @@ router.patch(
 router.post(
   '/:id/cancel',
   requirePermission('expenses.write'),
+  requireAdmin(),
   asyncHandler(async (req, res) => {
     const expense = await cancelExpense(req.params.id, currentUser(req).id);
     ok(res, serializeExpense(expense));

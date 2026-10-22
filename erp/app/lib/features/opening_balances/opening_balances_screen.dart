@@ -170,6 +170,7 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
   void _showDetails(BuildContext context, OpeningBalance entry) {
     final s = context.s;
     final canWrite = context.read<Session>().can('openingBalances');
+    final isAdmin = context.read<Session>().isAdmin;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -207,7 +208,7 @@ class _OpeningBalancesScreenState extends State<OpeningBalancesScreen> {
             if (entry.userName != null)
               _DetailRow(label: s.user, value: entry.userName!),
             const SizedBox(height: 16),
-            if (!entry.isCancelled && canWrite)
+            if (!entry.isCancelled && canWrite && isAdmin)
               OutlinedButton.icon(
                 onPressed: () {
                   Navigator.of(sheetContext).pop();

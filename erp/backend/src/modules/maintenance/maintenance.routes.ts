@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler, ok } from '../../lib/http';
+import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
 import { authenticate } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
@@ -209,6 +210,234 @@ router.post(
       products: await prisma.product.count(),
       customers: await prisma.customer.count(),
       suppliers: await prisma.supplier.count(),
+    });
+  }),
+);
+
+/**
+ * Repairs inventory quantities that were doubled by importing the same opening
+ * stock file twice.
+ *
+ * When duplicate product rows were merged, their stock movements were kept and
+ * their stock levels summed, so each product ended up with two identical
+ * `OPENING` movements and a doubled `StockLevel.quantity`.
+ *
+ * This endpoint groups movements by (product, location, type, quantity,
+ * reference) and keeps only the first of each group, subtracting the removed
+ * quantity from the matching stock level. Only `OPENING` movements are touched,
+ * so real receiving/selling history is never altered.
+ *
+ * `confirmation` must equal `FIX-OPENING-DUPLICATES`. Pass `dryRun: true` to
+ * see what would change without writing anything.
+ */
+router.post(
+  '/fix-opening-duplicates',
+  requirePermission('settings.write'),
+  asyncHandler(async (req, res) => {
+    const body = (req.body ?? {}) as { confirmation?: unknown; dryRun?: unknown };
+    const confirmation = String(body.confirmation ?? '');
+    const dryRun = body.dryRun === true;
+
+    if (confirmation !== 'FIX-OPENING-DUPLICATES') {
+      res.status(400).json({
+        error: {
+          message: 'Type FIX-OPENING-DUPLICATES to confirm this operation',
+          code: 'CONFIRMATION_REQUIRED',
+        },
+      });
+      return;
+    }
+
+    const movements = await prisma.stockMovement.findMany({
+      where: { type: 'OPENING' },
+      select: {
+        id: true,
+        productId: true,
+        locationId: true,
+        quantity: true,
+        type: true,
+        reference: true,
+        createdAt: true,
+        product: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Group identical opening movements; the first (oldest) of each group stays.
+    const seen = new Set<string>();
+    const toRemove: typeof movements = [];
+    for (const movement of movements) {
+      const key = [
+        movement.productId,
+        movement.locationId ?? '',
+        movement.type,
+        movement.quantity,
+        movement.reference ?? '',
+      ].join('::');
+
+      if (seen.has(key)) {
+        toRemove.push(movement);
+      } else {
+        seen.add(key);
+      }
+    }
+
+    if (dryRun) {
+      ok(res, {
+        dryRun: true,
+        openingMovements: movements.length,
+        duplicates: toRemove.length,
+        affectedProducts: new Set(toRemove.map((m) => m.productId)).size,
+        sample: toRemove.slice(0, 20).map((m) => ({
+          product: m.product.name,
+          quantity: m.quantity,
+          createdAt: m.createdAt,
+        })),
+      });
+      return;
+    }
+
+    let levelAdjustments = 0;
+
+    for (const movement of toRemove) {
+      await prisma.stockMovement.delete({ where: { id: movement.id } });
+
+      // Give the quantity back to the kept movement by reducing the doubled
+      // stock level.
+      const level = await prisma.stockLevel.findUnique({
+        where: {
+          productId_locationId: {
+            productId: movement.productId,
+            locationId: movement.locationId,
+          },
+        },
+      });
+      if (level) {
+        await prisma.stockLevel.update({
+          where: { id: level.id },
+          data: { quantity: Math.max(0, level.quantity - movement.quantity) },
+        });
+        levelAdjustments += 1;
+      }
+    }
+
+    ok(res, {
+      openingMovements: movements.length,
+      removedMovements: toRemove.length,
+      levelAdjustments,
+      products: await prisma.product.count(),
+    });
+  }),
+);
+
+/**
+ * Repairs customer balances that were silently wiped by the old balance
+ * recalculation.
+ *
+ * `recalcCustomerBalance` used to rebuild a customer's balance from their
+ * invoices and settlements only, ignoring the opening balance. Any customer who
+ * had an invoice issued, a payment recorded or a settlement made after their
+ * opening balance was entered lost it.
+ *
+ * This endpoint recomputes every customer balance with the corrected formula
+ * (opening balance read back from the ledger + open invoices + live
+ * settlements) and writes it back.
+ *
+ * `confirmation` must equal `FIX-CUSTOMER-BALANCES`. Pass `dryRun: true` to see
+ * which customers would change without writing anything.
+ */
+router.post(
+  '/fix-customer-balances',
+  requirePermission('settings.write'),
+  asyncHandler(async (req, res) => {
+    const body = (req.body ?? {}) as { confirmation?: unknown; dryRun?: unknown };
+    const confirmation = String(body.confirmation ?? '');
+    const dryRun = body.dryRun === true;
+
+    if (confirmation !== 'FIX-CUSTOMER-BALANCES') {
+      res.status(400).json({
+        error: {
+          message: 'Type FIX-CUSTOMER-BALANCES to confirm this operation',
+          code: 'CONFIRMATION_REQUIRED',
+        },
+      });
+      return;
+    }
+
+    const customers = await prisma.customer.findMany({
+      select: { id: true, code: true, name: true, balance: true },
+      orderBy: { code: 'asc' },
+    });
+
+    // Bulk opening-balance documents store per-customer amounts in `details`.
+    const docs = await prisma.openingBalance.findMany({
+      where: { cancelledAt: null },
+      select: { details: true },
+    });
+    const bulkOpening = new Map<string, number>();
+    for (const doc of docs) {
+      const details = doc.details as { customers?: { customerId?: string; amount?: number }[] } | null;
+      for (const row of details?.customers ?? []) {
+        if (!row.customerId) continue;
+        bulkOpening.set(
+          row.customerId,
+          (bulkOpening.get(row.customerId) ?? 0) + Number(row.amount ?? 0),
+        );
+      }
+    }
+
+    const changes: { code: string; name: string; from: number; to: number }[] = [];
+
+    for (const customer of customers) {
+      const [aggregate, settlements, openingLines] = await Promise.all([
+        prisma.invoice.aggregate({
+          where: {
+            customerId: customer.id,
+            status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+          },
+          _sum: { balance: true },
+        }),
+        prisma.accountSettlement.findMany({
+          where: { customerId: customer.id, cancelledAt: null },
+          select: { direction: true, amount: true },
+        }),
+        prisma.journalLine.findMany({
+          where: {
+            account: { code: '1100' },
+            journalEntry: { sourceType: 'OPENING_CUSTOMER', sourceId: customer.id },
+          },
+          select: { debit: true, credit: true },
+        }),
+      ]);
+
+      const opening =
+        openingLines.reduce((sum, l) => sum + Number(l.debit) - Number(l.credit), 0) +
+        (bulkOpening.get(customer.id) ?? 0);
+      const invoiceBalance = Number(aggregate._sum.balance ?? 0);
+      const adjustment = settlements.reduce(
+        (sum, row) => sum + (row.direction === 'INCREASE' ? Number(row.amount) : -Number(row.amount)),
+        0,
+      );
+      const target = round2(opening + invoiceBalance + adjustment);
+      const current = round2(Number(customer.balance));
+
+      if (Math.abs(target - current) > 0.009) {
+        changes.push({ code: customer.code ?? '', name: customer.name, from: current, to: target });
+        if (!dryRun) {
+          await prisma.customer.update({
+            where: { id: customer.id },
+            data: { balance: target },
+          });
+        }
+      }
+    }
+
+    ok(res, {
+      dryRun,
+      customers: customers.length,
+      changed: changes.length,
+      restoredTotal: round2(changes.reduce((sum, c) => sum + (c.to - c.from), 0)),
+      sample: changes.slice(0, 25),
     });
   }),
 );

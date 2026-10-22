@@ -140,7 +140,7 @@ class _PurchaseOrderDetailScreenState extends State<PurchaseOrderDetailScreen> {
     // including received ones, whose goods, payable and ledger entry are
     // reversed automatically by the API.
     final canCancel =
-        order.status != 'CANCELLED' && (canCancelOrder || !hasReceived);
+        order.status != 'CANCELLED' && session.isAdmin;
     final canEdit = order.status != 'CANCELLED' &&
         ((order.status == 'DRAFT' && canManage) || canCancelOrder);
 
