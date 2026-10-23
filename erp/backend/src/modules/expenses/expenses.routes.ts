@@ -26,6 +26,7 @@ const methods: PaymentMethod[] = ['CASH', 'CARD', 'BANK_TRANSFER', 'MOBILE_MONEY
 const categorySchema = z.object({
   name: z.string().min(1).max(120),
   accountCode: z.string().nullable().optional(),
+  openingBalance: z.number().optional(),
   active: z.boolean().optional(),
 });
 

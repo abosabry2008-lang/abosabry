@@ -25,6 +25,7 @@ export const expenseCategoryInclude = {
 export interface ExpenseCategoryInput {
   name: string;
   accountCode?: string | null;
+  openingBalance?: number;
   active?: boolean;
 }
 
@@ -49,7 +50,12 @@ export async function createExpenseCategory(input: ExpenseCategoryInput) {
   if (existing) throw ApiError.conflict('An expense category with this name already exists', 'DUPLICATE_CODE');
   const accountId = await resolveAccountId(input.accountCode);
   return prisma.expenseCategory.create({
-    data: { name, accountId, active: input.active ?? true },
+    data: {
+      name,
+      accountId,
+      openingBalance: round2(Number(input.openingBalance ?? 0)),
+      active: input.active ?? true,
+    },
     include: expenseCategoryInclude,
   });
 }
@@ -74,6 +80,9 @@ export async function updateExpenseCategory(id: string, input: Partial<ExpenseCa
     data: {
       ...(input.name !== undefined ? { name: input.name.trim() } : {}),
       ...(accountId !== undefined ? { accountId } : {}),
+      ...(input.openingBalance !== undefined
+        ? { openingBalance: round2(Number(input.openingBalance)) }
+        : {}),
       ...(input.active !== undefined ? { active: input.active } : {}),
     },
     include: expenseCategoryInclude,

@@ -16,7 +16,16 @@ import 'report_widgets.dart';
 /// General ledger for one account: opening balance, every journal line in the
 /// period and a running balance.
 class GeneralLedgerScreen extends StatefulWidget {
-  const GeneralLedgerScreen({super.key});
+  const GeneralLedgerScreen({
+    super.key,
+    this.initialAccountId,
+    this.initialFrom,
+    this.initialTo,
+  });
+
+  final String? initialAccountId;
+  final DateTime? initialFrom;
+  final DateTime? initialTo;
 
   @override
   State<GeneralLedgerScreen> createState() => _GeneralLedgerScreenState();
@@ -34,6 +43,9 @@ class _GeneralLedgerScreenState extends State<GeneralLedgerScreen> {
   @override
   void initState() {
     super.initState();
+    _accountId = widget.initialAccountId;
+    _from = widget.initialFrom;
+    _to = widget.initialTo;
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadAccounts());
   }
 

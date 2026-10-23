@@ -109,6 +109,11 @@ class PrintService {
         if (to != null) 'to': Formatters.isoDate(to),
       });
 
+  static Uri investmentEquationUrl(String? token) =>
+      _uri('/print/reports/investment-equation', <String, String?>{
+        'token': token,
+      });
+
   static Uri priceListUrl(
     String? token, {
     bool availableOnly = false,
@@ -250,6 +255,9 @@ class PrintService {
         if (to != null) 'to': Formatters.isoDate(to),
         'filter': filter,
       });
+
+  static Future<bool> printInvestmentEquation(BuildContext context) =>
+      open(context, investmentEquationUrl(token(context)));
 
   static Future<bool> printPriceList(
     BuildContext context, {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
+import '../../core/formatters.dart';
 import '../../core/l10n.dart';
 import '../../core/print_service.dart';
 import '../../core/session.dart';
@@ -134,8 +135,12 @@ class _ExpenseCategoriesScreenState extends State<ExpenseCategoriesScreen> {
                   ),
                   title: Text(category.name),
                   subtitle: Text(
-                    '${s.expenseCount}: ${category.expenseCount}'
-                    '${category.accountCode == null ? '' : ' · ${category.accountCode} ${category.accountName ?? ''}'}',
+                    <String>[
+                      '${s.expenseCount}: ${category.expenseCount}',
+                      if (category.accountCode != null)
+                        '${category.accountCode} ${category.accountName ?? ''}',
+                      '${s.openingBalance}: ${Formatters.money(category.openingBalance)}',
+                    ].join(' · '),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -195,6 +200,9 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
   late final TextEditingController _name =
       TextEditingController(text: widget.category?.name ?? '');
   late String? _accountCode = widget.category?.accountCode;
+  late final TextEditingController _openingBalance = TextEditingController(
+    text: (widget.category?.openingBalance ?? 0).toString(),
+  );
   late bool _active = widget.category?.active ?? true;
   bool _saving = false;
   List<Account> _accounts = <Account>[];
@@ -210,6 +218,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
   @override
   void dispose() {
     _name.dispose();
+    _openingBalance.dispose();
     super.dispose();
   }
 
@@ -241,6 +250,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
     final body = <String, dynamic>{
       'name': _name.text.trim(),
       'accountCode': _accountCode,
+      'openingBalance': double.tryParse(_openingBalance.text.trim()) ?? 0,
       'active': _active,
     };
     try {
@@ -286,6 +296,12 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
                 controller: _name,
                 validator: (value) =>
                     (value ?? '').trim().isEmpty ? s.nameRequired : null,
+              ),
+              const SizedBox(height: 12),
+              AppNumberField(
+                label: s.openingBalance,
+                controller: _openingBalance,
+                prefixIcon: Icons.account_balance_wallet_outlined,
               ),
               const SizedBox(height: 12),
               AppSelectField<String?>(

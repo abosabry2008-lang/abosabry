@@ -1266,6 +1266,49 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
   });
 }
 
+export function investmentEquationHtml(
+  data: {
+    inventory: { total: number; rows: { name: string; sku: string | null; quantity: number; value: number }[] };
+    cash: { total: number; rows: { name: string; balance: number }[] };
+    customers: { total: number; rows: { name: string; balance: number }[] };
+    suppliers: { total: number; rows: { name: string; balance: number }[] };
+    net: number;
+  },
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const section = (
+    title: string,
+    total: number,
+    rows: { name: string; value: string }[],
+  ) => `    <h3 class="section-title">${escapeHtml(title)} — ${money(total)}</h3>
+    <table class="data">
+      <thead><tr><th>${ar ? 'البيان' : 'Item'}</th><th class="num">${ar ? 'القيمة' : 'Value'}</th></tr></thead>
+      <tbody>
+${rows.map((row) => `        <tr><td>${escapeHtml(row.name)}</td><td class="num">${escapeHtml(row.value)}</td></tr>`).join('\n')}
+      </tbody>
+    </table>`;
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'المخزون' : 'Inventory'}</span><span class="value">${money(data.inventory.total)}</span></div>
+      <div><span class="label">${ar ? 'الخزائن' : 'Cash boxes'}</span><span class="value">${money(data.cash.total)}</span></div>
+      <div><span class="label">${ar ? 'مديونية العملاء' : 'Customer debt'}</span><span class="value">${money(data.customers.total)}</span></div>
+      <div><span class="label">${ar ? 'أرصدة الموردين' : 'Supplier balances'}</span><span class="value">${money(data.suppliers.total)}</span></div>
+    </section>
+    <h2>${ar ? 'صافي معادلة الاستثمار' : 'Investment equation net'}: ${money(data.net)}</h2>
+${section(ar ? 'تفاصيل المخزون' : 'Inventory details', data.inventory.total, data.inventory.rows.map((row) => ({ name: `${row.sku ?? ''} ${row.name}`, value: `${row.quantity} · ${money(row.value)}` })))}
+${section(ar ? 'تفاصيل الخزائن' : 'Cash box details', data.cash.total, data.cash.rows.map((row) => ({ name: row.name, value: money(row.balance) })))}
+${section(ar ? 'تفاصيل العملاء' : 'Customer details', data.customers.total, data.customers.rows.map((row) => ({ name: row.name, value: money(row.balance) })))}
+${section(ar ? 'تفاصيل الموردين' : 'Supplier details', data.suppliers.total, data.suppliers.rows.map((row) => ({ name: row.name, value: money(row.balance) })))}`;
+  return renderPage({
+    title: ar ? 'معادلة الاستثمار' : 'Investment equation',
+    company: settings,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang: ar ? 'ar' : 'en',
+  });
+}
+
 export function cashBoxStatementHtml(
   statement: BoxStatement,
   settings: AppSettings,

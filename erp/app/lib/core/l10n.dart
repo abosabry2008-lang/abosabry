@@ -1054,6 +1054,10 @@ class AppStrings {
   String get noEntriesForPeriod => _t('No entries for this period.', 'لا توجد قيود في هذه الفترة.');
   String get openingBalance => _t('Opening balance', 'الرصيد الافتتاحي');
   String get generalLedger => _t('General ledger', 'دفتر الأستاذ العام');
+  String get investmentEquation =>
+      _t('Investment equation', 'معادلة الاستثمار');
+  String get netInvestment => _t('Net investment', 'صافي الاستثمار');
+  String get customerDebt => _t('Total customer debt', 'مديونية العملاء');
   String get chooseAccount => _t('Choose an account', 'اختر حساباً');
   String get totalDebit => _t('Total debit', 'إجمالي المدين');
   String get totalCredit => _t('Total credit', 'إجمالي الدائن');

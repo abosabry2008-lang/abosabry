@@ -832,6 +832,8 @@ model ExpenseCategory {
   name      String   @unique
   /// حساب المصروف في دليل الحسابات (يُستخدم في القيد المحاسبي).
   accountId String?
+  /// رصيد افتتاحي معلوماتي لهذا البند قبل بدء استخدام النظام.
+  openingBalance Decimal @default(0) @db.Decimal(14, 2)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

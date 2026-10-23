@@ -7,6 +7,7 @@ import { asDate, asString } from '../../lib/query';
 import { round2 } from '../../lib/money';
 import { getSettings } from '../../lib/settings';
 import { buildCashBoxStatement } from '../treasury/treasury.service';
+import { buildInvestmentEquation } from '../reports/investment.service';
 import { authenticateToken } from '../../middleware/authenticate-token';
 import { currentUser } from '../../middleware/authenticate';
 import { scopedSalespersonId } from '../../lib/salesperson-scope';
@@ -38,6 +39,7 @@ import {
   customerBalancesHtml,
   priceListHtml,
   cashBoxStatementHtml,
+  investmentEquationHtml,
   supplierPayablesHtml,
   supplierStatementHtml,
   topProductsHtml,
@@ -233,6 +235,20 @@ router.get(
       getSettings(),
     ]);
     sendHtml(res, cashBoxStatementHtml(statement, settings, lang));
+  }),
+);
+
+// GET /print/reports/investment-equation
+router.get(
+  '/reports/investment-equation',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const lang = asString(req.query.lang) ?? 'en';
+    const [data, settings] = await Promise.all([
+      buildInvestmentEquation(),
+      getSettings(),
+    ]);
+    sendHtml(res, investmentEquationHtml(data, settings, lang));
   }),
 );
 

@@ -9,6 +9,8 @@ import '../../widgets/date_range_button.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
+import '../shell/navigation.dart';
+import 'general_ledger_screen.dart';
 import 'report_widgets.dart';
 
 // ---------------------------------------------------------------------------
@@ -161,6 +163,8 @@ class _IncomeStatementReportScreenState
           child: _EmptyOrRows(
             rows: revenue,
             emptyLabel: s.noDataForFilters,
+            from: _from,
+            to: _to,
           ),
         ),
         const SizedBox(height: 12),
@@ -169,6 +173,8 @@ class _IncomeStatementReportScreenState
           child: _EmptyOrRows(
             rows: expenses,
             emptyLabel: s.noDataForFilters,
+            from: _from,
+            to: _to,
           ),
         ),
       ],
@@ -177,10 +183,17 @@ class _IncomeStatementReportScreenState
 }
 
 class _EmptyOrRows extends StatelessWidget {
-  const _EmptyOrRows({required this.rows, required this.emptyLabel});
+  const _EmptyOrRows({
+    required this.rows,
+    required this.emptyLabel,
+    this.from,
+    this.to,
+  });
 
   final List<Map<String, dynamic>> rows;
   final String emptyLabel;
+  final DateTime? from;
+  final DateTime? to;
 
   @override
   Widget build(BuildContext context) {
@@ -192,28 +205,49 @@ class _EmptyOrRows extends StatelessWidget {
     }
     return Column(
       children: <Widget>[
-        for (final row in rows) _StatementRow(row: row),
+        for (final row in rows)
+          _StatementRow(row: row, from: from, to: to),
       ],
     );
   }
 }
 
 class _StatementRow extends StatelessWidget {
-  const _StatementRow({required this.row});
+  const _StatementRow({required this.row, this.from, this.to});
 
   final Map<String, dynamic> row;
+  final DateTime? from;
+  final DateTime? to;
 
   @override
   Widget build(BuildContext context) {
     final code = asString(row['code']);
     final name = asString(row['name']);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: <Widget>[
-          Expanded(child: Text('$code $name'.trim())),
-          MoneyText(asDouble(row['amount']), colorNegative: true),
-        ],
+    final accountId = asString(row['accountId']);
+    return InkWell(
+      onTap: accountId.isEmpty
+          ? null
+          : () => pushScreen<void>(
+                context,
+                '$code $name'.trim(),
+                GeneralLedgerScreen(
+                  initialAccountId: accountId,
+                  initialFrom: from,
+                  initialTo: to,
+                ),
+              ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: <Widget>[
+            Expanded(child: Text('$code $name'.trim())),
+            MoneyText(asDouble(row['amount']), colorNegative: true),
+            if (accountId.isNotEmpty) ...<Widget>[
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right, size: 18),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -296,23 +330,30 @@ class _BalanceSheetReportScreenState extends State<BalanceSheetReportScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        SectionCard(title: s.assets, child: _StatementRows(rows: assets)),
+        SectionCard(
+          title: s.assets,
+          child: _StatementRows(rows: assets, to: _asOf),
+        ),
         const SizedBox(height: 12),
         SectionCard(
           title: s.liabilities,
-          child: _StatementRows(rows: liabilities),
+          child: _StatementRows(rows: liabilities, to: _asOf),
         ),
         const SizedBox(height: 12),
-        SectionCard(title: s.equity, child: _StatementRows(rows: equity)),
+        SectionCard(
+          title: s.equity,
+          child: _StatementRows(rows: equity, to: _asOf),
+        ),
       ],
     );
   }
 }
 
 class _StatementRows extends StatelessWidget {
-  const _StatementRows({required this.rows});
+  const _StatementRows({required this.rows, this.to});
 
   final List<Map<String, dynamic>> rows;
+  final DateTime? to;
 
   @override
   Widget build(BuildContext context) {
@@ -322,7 +363,7 @@ class _StatementRows extends StatelessWidget {
     }
     return Column(
       children: <Widget>[
-        for (final row in rows) _StatementRow(row: row),
+        for (final row in rows) _StatementRow(row: row, to: to),
       ],
     );
   }

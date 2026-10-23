@@ -23,6 +23,7 @@ import 'dormant_customers_screen.dart';
 import 'extra_report_screen.dart';
 import 'financial_reports_screen.dart';
 import 'general_ledger_screen.dart';
+import 'investment_equation_screen.dart';
 import 'expense_report_screen.dart';
 import 'item_movement_screen.dart';
 import 'operations_reports_screen.dart';
@@ -586,6 +587,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
               icon: Icons.menu_book_outlined,
               title: s.generalLedger,
               builder: (_) => const GeneralLedgerScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.account_balance_wallet_outlined,
+              title: s.investmentEquation,
+              builder: (_) => const InvestmentEquationScreen(),
             ),
             _ReportSpec(
               icon: Icons.balance_outlined,
