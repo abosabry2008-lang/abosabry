@@ -81,54 +81,58 @@ export async function buildConsolidatedSalesNote(
   const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
   const to = toInput ?? now;
 
-  const where: Prisma.SalesOrderWhereInput = {
-    orderDate: { gte: from, lte: to },
-    status: { in: ['PARTIALLY_FULFILLED', 'FULFILLED'] },
+  const where: Prisma.InvoiceWhereInput = {
+    status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+    issueDate: { gte: from, lte: to },
   };
   if (salespersonId) {
     where.OR = [
       { customer: { salespersonId } },
-      { userId: salespersonId },
+      { salesOrder: { userId: salespersonId } },
     ];
   }
 
-  const orders = await prisma.salesOrder.findMany({
+  const invoices = await prisma.invoice.findMany({
     where,
     select: {
       id: true,
       number: true,
-      orderDate: true,
-      userId: true,
+      issueDate: true,
       customer: {
         select: {
           name: true,
           salesperson: { select: { id: true, name: true } },
         },
       },
-      user: { select: { id: true, name: true } },
+      salesOrder: {
+        select: {
+          userId: true,
+          user: { select: { id: true, name: true } },
+        },
+      },
       lines: {
         select: {
           productId: true,
-          fulfilledQty: true,
+          quantity: true,
           unitPrice: true,
           discount: true,
-          quantity: true,
           product: { select: { sku: true, name: true, unit: true } },
         },
       },
     },
-    orderBy: { orderDate: 'asc' },
+    orderBy: [{ issueDate: 'asc' }, { number: 'asc' }],
   });
 
   const byRep = new Map<string, ConsolidatedSalesperson>();
 
-  for (const order of orders) {
-    // Fulfilled quantity is what actually moved; fall back to nothing when the
-    // order has no fulfilled line at all.
-    const fulfilledLines = order.lines.filter((line) => line.fulfilledQty > 0);
-    if (fulfilledLines.length === 0) continue;
+  for (const invoice of invoices) {
+    const invoiceLines = invoice.lines.filter((line) => line.productId);
+    if (invoiceLines.length === 0) continue;
 
-    const rep = resolveRep(order.customer, order);
+    const rep = resolveRep(
+      invoice.customer,
+      invoice.salesOrder ?? { userId: null, user: null },
+    );
     const key = rep?.id ?? '-';
     const row =
       byRep.get(key) ??
@@ -142,17 +146,20 @@ export async function buildConsolidatedSalesNote(
         orderRows: [],
       } satisfies ConsolidatedSalesperson);
 
-    // Distribute a line's discount proportionally to what was fulfilled.
     const lineMap = new Map<string, ConsolidatedLine>();
-    let orderQuantity = 0;
-    let orderNet = 0;
+    let invoiceQuantity = 0;
+    let invoiceNet = 0;
 
-    for (const line of fulfilledLines) {
-      const share = Math.min(1, line.fulfilledQty / (line.quantity || 1));
-      const discount = round2(Number(line.discount) * share);
-      const net = Math.max(0, round2(line.fulfilledQty * Number(line.unitPrice) - discount));
-      orderQuantity += line.fulfilledQty;
-      orderNet += net;
+    for (const line of invoiceLines) {
+      if (!line.productId) continue;
+      const net = Math.max(
+        0,
+        round2(
+          line.quantity * Number(line.unitPrice) - Number(line.discount),
+        ),
+      );
+      invoiceQuantity += line.quantity;
+      invoiceNet = round2(invoiceNet + net);
 
       const entry =
         lineMap.get(line.productId) ??
@@ -164,24 +171,23 @@ export async function buildConsolidatedSalesNote(
           quantity: 0,
           net: 0,
         } satisfies ConsolidatedLine);
-      entry.quantity += line.fulfilledQty;
+      entry.quantity += line.quantity;
       entry.net = round2(entry.net + net);
       lineMap.set(line.productId, entry);
     }
 
     row.orders += 1;
-    row.quantity += orderQuantity;
-    row.net = round2(row.net + orderNet);
+    row.quantity += invoiceQuantity;
+    row.net = round2(row.net + invoiceNet);
     row.orderRows.push({
-      id: order.id,
-      number: order.number,
-      orderDate: dayKey(order.orderDate),
-      customer: order.customer?.name ?? null,
-      quantity: orderQuantity,
-      net: round2(orderNet),
+      id: invoice.id,
+      number: invoice.number,
+      orderDate: dayKey(invoice.issueDate),
+      customer: invoice.customer?.name ?? null,
+      quantity: invoiceQuantity,
+      net: invoiceNet,
     });
 
-    // Merge this order's product lines into the salesperson's consolidated list.
     for (const entry of lineMap.values()) {
       const existing = row.lines.find((line) => line.productId === entry.productId);
       if (existing) {

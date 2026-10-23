@@ -161,6 +161,7 @@ router.get(
       prisma.invoice.aggregate({
         where: { status: { in: ['ISSUED', 'PARTIALLY_PAID'] }, ...invoiceScope },
         _sum: { balance: true },
+        _count: { _all: true },
       }),
       own
         ? { _sum: { balance: 0 } }
@@ -268,6 +269,8 @@ router.get(
         suppliers: supplierCount,
         warehouses: warehouseCount,
         lowStock: lowStock.length,
+        openInvoices: receivables._count._all,
+        invoices: receivables._count._all,
       },
       inventory: {
         units: stockUnits,

@@ -15,6 +15,7 @@ import {
   assertInvoiceAccess,
   assertSalesOrderAccess,
   invoiceAccessWhere,
+  scopedSalespersonId,
 } from '../../lib/salesperson-scope';
 import {
   backfillCostSnapshots,
@@ -98,7 +99,12 @@ router.get(
     const from = asDate(query.from);
     const to = asDate(query.to);
     const unpaidOnly = asString(query.unpaid) === 'true';
-    const access = invoiceAccessWhere(currentUser(req));
+    const user = currentUser(req);
+    const salespersonId = scopedSalespersonId(
+      user,
+      asString(query.salespersonId),
+    );
+    const access = invoiceAccessWhere(user);
 
     const where: Prisma.InvoiceWhereInput = {};
     if (customerId) where.customerId = customerId;
@@ -115,6 +121,17 @@ router.get(
     }
     if (access) {
       where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), access];
+    }
+    if (salespersonId) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            { customer: { salespersonId } },
+            { customerId: null, salesOrder: { userId: salespersonId } },
+          ],
+        },
+      ];
     }
 
     const [total, invoices] = await Promise.all([

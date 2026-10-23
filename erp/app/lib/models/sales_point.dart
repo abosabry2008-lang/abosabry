@@ -32,7 +32,11 @@ class SalesPoint {
             json['balance'],
       ),
       quantity: asInt(
-        json['quantity'] ?? json['qty'] ?? json['totalQuantity'] ?? json['sold'],
+        json['quantity'] ??
+            json['qty'] ??
+            json['totalQuantity'] ??
+            json['quantitySold'] ??
+            json['sold'],
       ),
       count: asInt(json['count'] ?? json['orders'] ?? json['invoiceCount']),
       productId: asStringOrNull(json['productId']) ??

@@ -99,13 +99,21 @@ class DashboardSummary {
       purchaseOrderCount: pickInt(
         <dynamic>[json['purchaseOrderCount'], counts['purchaseOrders']],
       ),
-      invoiceCount: pickInt(<dynamic>[json['invoiceCount'], counts['invoices']]),
+      invoiceCount: pickInt(<dynamic>[
+        json['invoiceCount'],
+        counts['openInvoices'],
+        counts['invoices'],
+      ]),
       currencyCode: asStringOrNull(json['currencyCode']) ??
           asStringOrNull(settings['baseCurrencyCode']),
       topProducts:
           asMapList(json['topProducts']).map(SalesPoint.fromJson).toList(),
       salesTrend: asMapList(
-        json['salesTrend'] ?? sales['trend'] ?? json['trend'],
+        json['salesTrend'] ??
+            json['salesSeries'] ??
+            sales['trend'] ??
+            sales['series'] ??
+            json['trend'],
       ).map(SalesPoint.fromJson).toList(),
       movements: asMapList(json['recentMovements'] ?? json['movements']),
     );
