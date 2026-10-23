@@ -93,13 +93,15 @@ async function resolveLines(
     if (!product) throw ApiError.badRequest(`Product ${line.productId} not found`, 'PRODUCT_NOT_FOUND');
     const sellUnit = line.sellUnit === 'box' || line.sellUnit === 'carton' ? line.sellUnit : 'unit';
     const pack = resolvePack(product, sellUnit);
-    const enteredPrice = line.unitPrice ?? pack.unitPrice;
     // A carton price is split across its boxes; stock and line quantities are
-    // stored in boxes, so the stored unit price must be per box.
+    // stored in boxes, so the stored unit price must be per box. `pack.unitPrice`
+    // is already per box, while an operator-entered carton price is per carton.
     const unitPrice =
       sellUnit === 'carton' && (product.boxesPerCarton ?? 0) > 0
-        ? enteredPrice / Number(product.boxesPerCarton)
-        : enteredPrice;
+        ? line.unitPrice != null
+          ? line.unitPrice / Number(product.boxesPerCarton)
+          : pack.unitPrice
+        : line.unitPrice ?? pack.unitPrice;
     // لا يُسمح بالبيع بسعر أقل من التكلفة.
     const costPrice = Number(product.costPrice);
     if (unitPrice < costPrice) {
