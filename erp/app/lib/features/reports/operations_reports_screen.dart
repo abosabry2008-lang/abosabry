@@ -203,7 +203,15 @@ class _ProfitReportScreenState extends State<ProfitReportScreen> {
               value: Formatters.integer(asDouble(totals['invoices'])),
             ),
             ReportKeyValueRow(
-              label: s.revenue,
+              label: s.grossSales,
+              amount: asDouble(totals['grossRevenue']),
+            ),
+            ReportKeyValueRow(
+              label: s.returns,
+              amount: -asDouble(totals['returnsValue']),
+            ),
+            ReportKeyValueRow(
+              label: s.netSales,
               amount: asDouble(totals['revenue']),
             ),
             ReportKeyValueRow(

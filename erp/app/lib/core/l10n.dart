@@ -1217,6 +1217,7 @@ class AppStrings {
       );
   String get soldProducts => _t('Products sold', 'الأصناف المباعة');
   String get netSales => _t('Net sales', 'صافي المبيعات');
+  String get grossSales => _t('Gross sales', 'إجمالي المبيعات');
   String get collected => _t('Collected', 'المحصّل');
   String get collectionVouchers =>
       _t('Collection receipts', 'إيصالات التحصيل');

@@ -313,8 +313,12 @@ export interface ProfitReport {
   to: string;
   totals: {
     invoices: number;
+    returns: number;
+    grossRevenue: number;
+    returnsValue: number;
     revenue: number;
     cost: number;
+    returnCost: number;
     profit: number;
     margin: number;
   };
@@ -347,9 +351,44 @@ export async function buildProfitReport(
     },
   });
 
+  const returnOrders = await prisma.returnOrder.findMany({
+    where: {
+      type: 'CUSTOMER_RETURN',
+      status: 'POSTED',
+      returnDate: { gte: from, lte: to },
+    },
+    select: {
+      lines: {
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          unitCost: true,
+          product: { select: { sku: true, name: true, costPrice: true } },
+        },
+      },
+    },
+  });
+
   const byProduct = new Map<string, ProfitRow & { name: string }>();
-  let revenue = 0;
-  let cost = 0;
+  let grossRevenue = 0;
+  let invoiceCost = 0;
+  let returnsValue = 0;
+  let returnCost = 0;
+
+  const rowFor = (line: {
+    productId: string;
+    product: { sku: string; name: string };
+  }) =>
+    byProduct.get(line.productId) ?? {
+      productId: line.productId,
+      sku: line.product.sku,
+      name: line.product.name,
+      quantity: 0,
+      revenue: 0,
+      cost: 0,
+      profit: 0,
+    };
 
   for (const invoice of invoices) {
     for (const line of invoice.lines) {
@@ -357,25 +396,40 @@ export async function buildProfitReport(
       const unitCost =
         Number(line.unitCost) || (line.product ? Number(line.product.costPrice) : 0);
       const lineCost = round2(line.quantity * unitCost);
-      revenue += net;
-      cost += lineCost;
+      grossRevenue += net;
+      invoiceCost += lineCost;
 
       if (!line.productId || !line.product) continue;
-      const row = byProduct.get(line.productId) ?? {
-        productId: line.productId,
-        sku: line.product.sku,
-        name: line.product.name,
-        quantity: 0,
-        revenue: 0,
-        cost: 0,
-        profit: 0,
-      };
+      const row = rowFor({ productId: line.productId, product: line.product });
       row.quantity += line.quantity;
       row.revenue = round2(row.revenue + net);
       row.cost = round2(row.cost + lineCost);
       byProduct.set(line.productId, row);
     }
   }
+
+  // Posted customer returns reverse both revenue and cost.
+  for (const order of returnOrders) {
+    for (const line of order.lines) {
+      const value = round2(line.quantity * Number(line.unitPrice));
+      const unitCost =
+        Number(line.unitCost) ||
+        (line.product ? Number(line.product.costPrice) : 0);
+      const valueCost = round2(line.quantity * unitCost);
+      returnsValue += value;
+      returnCost += valueCost;
+
+      if (!line.product) continue;
+      const row = rowFor({ productId: line.productId, product: line.product });
+      row.quantity -= line.quantity;
+      row.revenue = round2(row.revenue - value);
+      row.cost = round2(row.cost - valueCost);
+      byProduct.set(line.productId, row);
+    }
+  }
+
+  const revenue = round2(grossRevenue - returnsValue);
+  const cost = round2(invoiceCost - returnCost);
 
   const rows = [...byProduct.values()]
     .map((row) => ({ ...row, profit: round2(row.revenue - row.cost) }))
@@ -387,8 +441,12 @@ export async function buildProfitReport(
     to: dayKey(to),
     totals: {
       invoices: invoices.length,
+      returns: returnOrders.length,
+      grossRevenue: round2(grossRevenue),
+      returnsValue: round2(returnsValue),
       revenue: round2(revenue),
       cost: round2(cost),
+      returnCost: round2(returnCost),
       profit,
       margin: revenue > 0 ? round2((profit / revenue) * 100) : 0,
     },
