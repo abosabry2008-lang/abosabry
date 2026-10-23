@@ -22,6 +22,7 @@ import '../sales/sales_orders_screen.dart';
 import '../settings/settings_screen.dart';
 import '../suppliers/suppliers_screen.dart';
 import '../warehouses/warehouses_screen.dart';
+import 'global_search_screen.dart';
 import 'navigation.dart';
 
 enum _NavGroup { main, sales, purchasing, inventory, treasury, accounting, reports }
@@ -352,6 +353,7 @@ class _AppShellState extends State<AppShell> {
         title: Text(destination.label(s)),
         surfaceTintColor: Colors.transparent,
         actions: <Widget>[
+          const _GlobalSearchButton(),
           if (session.can('settings')) const _SettingsButton(),
           const _LanguageButton(),
           _UserMenu(session: session),
@@ -470,6 +472,24 @@ class _AppShellState extends State<AppShell> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// AppBar action that opens the global search page.
+class _GlobalSearchButton extends StatelessWidget {
+  const _GlobalSearchButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.search),
+      tooltip: context.s.globalSearch,
+      onPressed: () => pushScreen(
+        context,
+        context.s.globalSearch,
+        const GlobalSearchScreen(),
       ),
     );
   }

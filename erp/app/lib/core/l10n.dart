@@ -135,6 +135,13 @@ class AppStrings {
   String get refresh => _t('Refresh', 'تحديث');
   String get clear => _t('Clear', 'مسح');
   String get search => _t('Search', 'بحث');
+  String get globalSearch => _t('Global search', 'البحث الشامل');
+  String get searchEverythingHint => _t(
+        'Search customers, products, invoices, orders or suppliers…',
+        'ابحث عن عميل، صنف، فاتورة، أمر بيع أو مورد…',
+      );
+  String get searchDifferentTerm =>
+      _t('Try a different search term.', 'جرّب كلمة بحث أخرى.');
   String get searchEllipsis => _t('Search…', 'بحث…');
   String get add => _t('Add', 'إضافة');
   String get remove => _t('Remove', 'إزالة');
