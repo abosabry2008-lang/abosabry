@@ -180,10 +180,17 @@ abstract class PagedListController<T> extends ChangeNotifier {
   }
 
   /// Removes an item from the loaded list after a local mutation.
+  ///
+  /// Also keeps [total] / [totalPages] in sync so counters shown by the
+  /// screens (e.g. "417 منتج") do not go stale after a delete.
   void removeWhere(bool Function(T item) test) {
-    final removed = items.length;
+    final before = items.length;
     items.removeWhere(test);
-    if (items.length != removed) notifyListeners();
+    final removed = before - items.length;
+    if (removed == 0) return;
+    _total = _total > removed ? _total - removed : 0;
+    _totalPages = _pageSize > 0 ? (_total + _pageSize - 1) ~/ _pageSize : 0;
+    notifyListeners();
   }
 
   Future<Paginated<T>> _fetch(int pageNumber) {
