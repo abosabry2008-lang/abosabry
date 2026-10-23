@@ -36,6 +36,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   bool _loading = false;
   bool _busy = false;
   String? _error;
+  bool _showProfit = false;
 
   @override
   void initState() {
@@ -199,6 +200,17 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             SectionCard(
               title: s.lines,
               subtitle: s.lineCount(invoice.lines.length),
+              trailing: session.canViewProfit
+                  ? TextButton.icon(
+                      onPressed: () => setState(() => _showProfit = !_showProfit),
+                      icon: Icon(
+                        _showProfit
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                      label: Text(_showProfit ? s.hideProfit : s.showProfit),
+                    )
+                  : null,
               child: invoice.lines.isEmpty
                   ? Text(
                       s.noLinesOnInvoice,
@@ -215,10 +227,49 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                             unitPrice: line.unitPrice,
                             total: line.total,
                             currencyCode: invoice.currencyCode,
+                            profit: _showProfit && session.canViewProfit
+                                ? line.profit
+                                : null,
                           ),
                       ],
                     ),
             ),
+            if (_showProfit && session.canViewProfit) ...<Widget>[
+              const SizedBox(height: 16),
+              SectionCard(
+                title: s.netProfit,
+                child: Column(
+                  children: <Widget>[
+                    _TotalRow(
+                      label: s.netSales,
+                      amount: invoice.lines.fold<double>(
+                        0,
+                        (sum, line) => sum + line.netRevenue,
+                      ),
+                      currencyCode: invoice.currencyCode,
+                    ),
+                    _TotalRow(
+                      label: s.costOfSales,
+                      amount: -invoice.lines.fold<double>(
+                        0,
+                        (sum, line) => sum + line.quantity * line.unitCost,
+                      ),
+                      currencyCode: invoice.currencyCode,
+                    ),
+                    const Divider(),
+                    _TotalRow(
+                      label: s.netProfit,
+                      amount: invoice.lines.fold<double>(
+                        0,
+                        (sum, line) => sum + line.profit,
+                      ),
+                      currencyCode: invoice.currencyCode,
+                      emphasise: true,
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             SectionCard(
               title: s.totals,
@@ -356,6 +407,7 @@ class _LineTile extends StatelessWidget {
     required this.unitPrice,
     required this.total,
     this.currencyCode,
+    this.profit,
   });
 
   final String description;
@@ -363,6 +415,8 @@ class _LineTile extends StatelessWidget {
   final double unitPrice;
   final double total;
   final String? currencyCode;
+  /// Line profit; null hides it (non-managers, or the toggle is off).
+  final double? profit;
 
   @override
   Widget build(BuildContext context) {
@@ -387,6 +441,14 @@ class _LineTile extends StatelessWidget {
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.outline),
                 ),
+                if (profit != null)
+                  Text(
+                    '${s.netProfit}: ${Formatters.money(profit!, currencyCode: currencyCode)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: profit! < 0 ? theme.colorScheme.error : Colors.green.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
               ],
             ),
           ),

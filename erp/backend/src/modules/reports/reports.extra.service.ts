@@ -1,5 +1,6 @@
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
+import { invoiceAccessWhere, isSalesperson, type ScopeUser } from '../../lib/salesperson-scope';
 
 /**
  * Additional operational reports that complement `reports.service.ts` and
@@ -41,12 +42,13 @@ export interface SalesByCustomerRow {
   balance: number;
 }
 
-export async function buildSalesByCustomer(fromInput?: Date, toInput?: Date) {
+export async function buildSalesByCustomer(fromInput?: Date, toInput?: Date, user?: ScopeUser) {
   const { from, to } = resolveRange(fromInput, toInput);
   const invoices = await prisma.invoice.findMany({
     where: {
       issueDate: { gte: from, lte: to },
       status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+      ...(user ? (invoiceAccessWhere(user) ?? {}) : {}),
     },
     select: {
       customerId: true,
@@ -97,13 +99,14 @@ export async function buildSalesByCustomer(fromInput?: Date, toInput?: Date) {
 // Sales by category
 // ---------------------------------------------------------------------------
 
-export async function buildSalesByCategory(fromInput?: Date, toInput?: Date) {
+export async function buildSalesByCategory(fromInput?: Date, toInput?: Date, user?: ScopeUser) {
   const { from, to } = resolveRange(fromInput, toInput);
   const lines = await prisma.invoiceLine.findMany({
     where: {
       invoice: {
         issueDate: { gte: from, lte: to },
         status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+        ...(user ? (invoiceAccessWhere(user) ?? {}) : {}),
       },
     },
     select: {
@@ -171,12 +174,13 @@ export async function buildSalesByCategory(fromInput?: Date, toInput?: Date) {
 // Sales by salesperson
 // ---------------------------------------------------------------------------
 
-export async function buildSalesBySalesperson(fromInput?: Date, toInput?: Date) {
+export async function buildSalesBySalesperson(fromInput?: Date, toInput?: Date, user?: ScopeUser) {
   const { from, to } = resolveRange(fromInput, toInput);
   const invoices = await prisma.invoice.findMany({
     where: {
       issueDate: { gte: from, lte: to },
       status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+      ...(user ? (invoiceAccessWhere(user) ?? {}) : {}),
     },
     select: {
       total: true,
@@ -315,11 +319,13 @@ export async function buildReturnsReport(
   fromInput?: Date,
   toInput?: Date,
   type?: string,
+  user?: ScopeUser,
 ) {
   const { from, to } = resolveRange(fromInput, toInput);
   const returns = await prisma.returnOrder.findMany({
     where: {
       returnDate: { gte: from, lte: to },
+      ...(user && isSalesperson(user) ? { customer: { salespersonId: user.id } } : {}),
       ...(type === 'CUSTOMER_RETURN' || type === 'SUPPLIER_RETURN'
         ? { type: type as 'CUSTOMER_RETURN' | 'SUPPLIER_RETURN' }
         : {}),

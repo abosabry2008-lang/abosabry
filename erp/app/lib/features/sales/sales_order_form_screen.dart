@@ -209,7 +209,8 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
               title: s.orderDetails,
               child: Column(
                 children: <Widget>[
-                  SearchablePickerField(
+                  if (!context.watch<Session>().isSalesperson)
+                    SearchablePickerField(
                     label: s.salesperson,
                     value: _salespersonId,
                     hint: s.chooseSalesperson,

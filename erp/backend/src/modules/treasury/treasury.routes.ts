@@ -1,12 +1,18 @@
 import { CashBoxType, Prisma } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
+import { ApiError } from '../../lib/api-error';
 import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http';
 import { prisma } from '../../lib/prisma';
 import { asBool, asDate, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
+import {
+  assertCustomerAccess,
+  assertInvoiceAccess,
+  isSalesperson,
+} from '../../lib/salesperson-scope';
 import {
   cancelCollection,
   collectionInclude,
@@ -251,7 +257,8 @@ router.get(
     const query = req.query as Record<string, unknown>;
     const paging = getPaging(query, 25);
     const includeCancelled = asBool(query.includeCancelled) === true;
-    const salespersonId = asString(query.salespersonId);
+    const user = currentUser(req);
+    const salespersonId = isSalesperson(user) ? user.id : asString(query.salespersonId);
     const customerId = asString(query.customerId);
     const from = asDate(query.from);
     const to = asDate(query.to);
@@ -285,7 +292,16 @@ router.post(
   requirePermission('payments.write'),
   validateBody(collectionSchema),
   asyncHandler(async (req, res) => {
-    const voucher = await createCollection({ ...req.body, userId: currentUser(req).id });
+    const user = currentUser(req);
+    const body = { ...req.body };
+    if (isSalesperson(user)) {
+      body.salespersonId = user.id;
+      for (const line of body.lines ?? []) {
+        await assertCustomerAccess(user, line.customerId);
+        if (line.invoiceId) await assertInvoiceAccess(user, line.invoiceId);
+      }
+    }
+    const voucher = await createCollection({ ...body, userId: user.id });
     created(res, serializeCollection(voucher));
   }),
 );
@@ -294,6 +310,7 @@ router.get(
   '/collections/:id',
   requirePermission('payments.read'),
   asyncHandler(async (req, res) => {
+    const user = currentUser(req);
     const voucher = await prisma.collectionVoucher.findUnique({
       where: { id: req.params.id },
       include: collectionInclude,
@@ -301,6 +318,9 @@ router.get(
     if (!voucher) {
       res.status(404).json({ error: { message: 'Collection receipt not found', code: 'NOT_FOUND' } });
       return;
+    }
+    if (isSalesperson(user) && voucher.salespersonId !== user.id) {
+      throw ApiError.forbidden('You can only view your own collection receipts', 'COLLECTION_NOT_ASSIGNED');
     }
     ok(res, serializeCollection(voucher));
   }),

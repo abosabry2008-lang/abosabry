@@ -10,6 +10,12 @@ import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import { roleHasPermission } from '../../lib/permissions';
+import {
+  assertCustomerAccess,
+  assertInvoiceAccess,
+  assertSalesOrderAccess,
+  invoiceAccessWhere,
+} from '../../lib/salesperson-scope';
 import { createInvoice, invoiceInclude, issueInvoice, previewInvoiceFromOrder, updateInvoice, voidInvoice } from './invoices.service';
 
 const router = Router();
@@ -84,6 +90,7 @@ router.get(
     const from = asDate(query.from);
     const to = asDate(query.to);
     const unpaidOnly = asString(query.unpaid) === 'true';
+    const access = invoiceAccessWhere(currentUser(req));
 
     const where: Prisma.InvoiceWhereInput = {};
     if (customerId) where.customerId = customerId;
@@ -97,6 +104,9 @@ router.get(
     }
     if (from || to) {
       where.issueDate = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+    }
+    if (access) {
+      where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), access];
     }
 
     const [total, invoices] = await Promise.all([
@@ -122,6 +132,7 @@ router.get(
   '/preview-from-order/:orderId',
   requirePermission('invoices.read'),
   asyncHandler(async (req, res) => {
+    await assertSalesOrderAccess(currentUser(req), req.params.orderId);
     ok(res, await previewInvoiceFromOrder(req.params.orderId));
   }),
 );
@@ -130,6 +141,7 @@ router.get(
   '/:id',
   requirePermission('invoices.read'),
   asyncHandler(async (req, res) => {
+    await assertInvoiceAccess(currentUser(req), req.params.id);
     const invoice = await prisma.invoice.findUnique({
       where: { id: req.params.id },
       include: invoiceInclude,
@@ -154,7 +166,10 @@ router.post(
   requirePermission('invoices.write'),
   validateBody(createSchema),
   asyncHandler(async (req, res) => {
-    const invoice = await createInvoice({ ...req.body, userId: currentUser(req).id });
+    const user = currentUser(req);
+    await assertCustomerAccess(user, req.body.customerId);
+    if (req.body.salesOrderId) await assertSalesOrderAccess(user, req.body.salesOrderId);
+    const invoice = await createInvoice({ ...req.body, userId: user.id });
     created(res, serializeInvoice(invoice));
   }),
 );
@@ -163,6 +178,7 @@ router.post(
   '/:id/issue',
   requirePermission('invoices.write'),
   asyncHandler(async (req, res) => {
+    await assertInvoiceAccess(currentUser(req), req.params.id);
     const invoice = await issueInvoice(req.params.id, currentUser(req).id);
     ok(res, serializeInvoice(invoice));
   }),
@@ -174,6 +190,8 @@ router.patch(
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
+    await assertInvoiceAccess(user, req.params.id);
+    await assertCustomerAccess(user, req.body.customerId);
     // Draft invoices may be edited by whoever is entering them; once issued only
     // an administrator may change them.
     const existing = await prisma.invoice.findUnique({

@@ -64,7 +64,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
     final s = context.s;
     final controller = context.watch<CustomersController>();
     final salespeople = context.watch<SalespeopleController>().salespeople;
-    final canManage = context.watch<Session>().can('customers');
+    final session = context.watch<Session>();
+    final canManage = session.can('customers');
 
     return Scaffold(
       body: Column(
@@ -78,18 +79,20 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   initialValue: controller.search,
                   onChanged: controller.searchWith,
                 ),
-                const SizedBox(height: 10),
-                AppSelectField<String?>(
-                  label: s.salesperson,
-                  value: controller.salespersonId,
-                  prefixIcon: Icons.support_agent_outlined,
-                  options: <SelectOption<String?>>[
-                    SelectOption<String?>(null, s.allSalespeople),
-                    for (final person in salespeople)
-                      SelectOption<String?>(person.id, person.name),
-                  ],
-                  onChanged: controller.filterBySalesperson,
-                ),
+                if (!session.isSalesperson) ...<Widget>[
+                  const SizedBox(height: 10),
+                  AppSelectField<String?>(
+                    label: s.salesperson,
+                    value: controller.salespersonId,
+                    prefixIcon: Icons.support_agent_outlined,
+                    options: <SelectOption<String?>>[
+                      SelectOption<String?>(null, s.allSalespeople),
+                      for (final person in salespeople)
+                        SelectOption<String?>(person.id, person.name),
+                    ],
+                    onChanged: controller.filterBySalesperson,
+                  ),
+                ],
               ],
             ),
           ),

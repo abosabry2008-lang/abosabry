@@ -2,6 +2,12 @@ import { Prisma } from '@prisma/client';
 import { ApiError } from '../../lib/api-error';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
+import {
+  customerAccessWhere,
+  invoiceAccessWhere,
+  salesOrderAccessWhere,
+  type ScopeUser,
+} from '../../lib/salesperson-scope';
 
 // ---------------------------------------------------------------------------
 // Receivables grouped by salesperson (مديونية العملاء لكل مندوب)
@@ -552,6 +558,7 @@ function emptyBuckets(): Pick<
 export async function buildAgingReport(
   side: 'receivable' | 'payable',
   asOfInput?: Date,
+  user?: ScopeUser,
 ): Promise<AgingReport> {
   const asOf = asOfInput ?? new Date();
   const map = new Map<string, AgingRow>();
@@ -574,8 +581,10 @@ export async function buildAgingReport(
   };
 
   if (side === 'receivable') {
+    const invoiceScope = user ? (invoiceAccessWhere(user) ?? {}) : {};
+    const customerScope = user ? (customerAccessWhere(user) ?? {}) : {};
     const invoices = await prisma.invoice.findMany({
-      where: { status: { in: ['ISSUED', 'PARTIALLY_PAID'] }, balance: { not: 0 } },
+      where: { status: { in: ['ISSUED', 'PARTIALLY_PAID'] }, balance: { not: 0 }, ...invoiceScope },
       select: {
         number: true,
         dueDate: true,
@@ -601,12 +610,16 @@ export async function buildAgingReport(
     // carry an opening balance (or an un-invoiced adjustment). Include that
     // remainder so customers created with an opening balance show up here too.
     const customers = await prisma.customer.findMany({
-      where: { balance: { not: 0 } },
+      where: { balance: { not: 0 }, ...customerScope },
       select: { id: true, name: true, phone: true, balance: true },
     });
     const invoicedByCustomer = await prisma.invoice.groupBy({
       by: ['customerId'],
-      where: { status: { in: ['ISSUED', 'PARTIALLY_PAID'] }, customerId: { not: null } },
+      where: {
+        status: { in: ['ISSUED', 'PARTIALLY_PAID'] },
+        customerId: { not: null },
+        ...invoiceScope,
+      },
       _sum: { balance: true },
     });
     const invoicedMap = new Map<string, number>();
@@ -623,10 +636,14 @@ export async function buildAgingReport(
       addToBucket(row, 0, remainder);
     }
   } else {
-    const suppliers = await prisma.supplier.findMany({
-      where: { balance: { not: 0 } },
-      select: { id: true, name: true, phone: true, balance: true },
-    });
+    // Supplier balances are not part of a representative's work.
+    const suppliers =
+      user && user.role === 'SALES'
+        ? []
+        : await prisma.supplier.findMany({
+            where: { balance: { not: 0 } },
+            select: { id: true, name: true, phone: true, balance: true },
+          });
     for (const supplier of suppliers) {
       const row = rowFor(supplier.id, supplier.name, supplier.phone);
       addToBucket(row, 0, Number(supplier.balance));
@@ -704,12 +721,17 @@ export interface ShortagesReport {
  * each line we look at what is still to be delivered (`quantity - fulfilledQty`)
  * and compare it against the physical stock on hand.
  */
-export async function buildShortagesReport(warehouseId?: string): Promise<ShortagesReport> {
+export async function buildShortagesReport(
+  warehouseId?: string,
+  user?: ScopeUser,
+): Promise<ShortagesReport> {
+  const access = user ? salesOrderAccessWhere(user) : null;
   const lines = await prisma.salesOrderLine.findMany({
     where: {
       salesOrder: {
         status: { in: ['DRAFT', 'CONFIRMED', 'PARTIALLY_FULFILLED'] },
         ...(warehouseId ? { warehouseId } : {}),
+        ...(access ?? {}),
       },
     },
     select: {
@@ -863,11 +885,14 @@ export interface OrderFulfilmentReport {
  */
 export async function buildOrderFulfilmentReport(
   warehouseId?: string,
+  user?: ScopeUser,
 ): Promise<OrderFulfilmentReport> {
+  const access = user ? salesOrderAccessWhere(user) : null;
   const orders = await prisma.salesOrder.findMany({
     where: {
       status: { in: ['DRAFT', 'CONFIRMED', 'PARTIALLY_FULFILLED'] },
       ...(warehouseId ? { warehouseId } : {}),
+      ...(access ?? {}),
     },
     orderBy: { orderDate: 'asc' },
     include: {

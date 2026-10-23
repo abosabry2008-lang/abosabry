@@ -1350,6 +1350,8 @@ class AppStrings {
   String get equity => _t('Equity', 'حقوق الملكية');
   String get netProfit => _t('Net profit', 'صافي الربح');
   String get costOfSales => _t('Cost of sales', 'تكلفة المبيعات');
+  String get showProfit => _t('Show profit', 'إظهار الربح');
+  String get hideProfit => _t('Hide profit', 'إخفاء الربح');
   String get marginPercent => _t('Margin %', 'الهامش %');
   String get outputTax => _t('Output tax (sales)', 'ضريبة المخرجات (المبيعات)');
   String get inputTax =>

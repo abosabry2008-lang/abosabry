@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
 import '../../core/l10n.dart';
+import '../../core/session.dart';
 import '../../models/customer.dart';
 import '../../state/customers_controller.dart';
 import '../../state/salespeople_controller.dart';
@@ -230,19 +231,20 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
                     ),
                   ],
                   const SizedBox(height: 14),
-                  AppSelectField<String?>(
-                    label: s.salesperson,
-                    value: _salespersonId,
-                    enabled: !_saving,
-                    prefixIcon: Icons.support_agent_outlined,
-                    options: <SelectOption<String?>>[
-                      SelectOption<String?>(null, s.unassigned),
-                      for (final person in salespeople)
-                        SelectOption<String?>(person.id, person.name),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _salespersonId = value),
-                  ),
+                  if (!context.watch<Session>().isSalesperson)
+                    AppSelectField<String?>(
+                      label: s.salesperson,
+                      value: _salespersonId,
+                      enabled: !_saving,
+                      prefixIcon: Icons.support_agent_outlined,
+                      options: <SelectOption<String?>>[
+                        SelectOption<String?>(null, s.unassigned),
+                        for (final person in salespeople)
+                          SelectOption<String?>(person.id, person.name),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _salespersonId = value),
+                    ),
                   const SizedBox(height: 8),
                   AppSwitchField(
                     label: s.active,

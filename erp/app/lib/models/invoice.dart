@@ -13,6 +13,7 @@ class InvoiceLine {
     this.taxRate = 0,
     this.total = 0,
     this.sellUnit = 'unit',
+    this.unitCost = 0,
   });
 
   final String id;
@@ -25,6 +26,13 @@ class InvoiceLine {
   final double taxRate;
   final double total;
   final String sellUnit;
+  /// Product cost per unit, used for profit (managers and admins only).
+  final double unitCost;
+
+  /// Revenue before tax: quantity × price minus the line discount.
+  double get netRevenue => quantity * unitPrice - discount;
+
+  double get profit => netRevenue - quantity * unitCost;
 
   factory InvoiceLine.fromJson(Map<String, dynamic> json) {
     final product = asMap(json['product']);
@@ -41,6 +49,7 @@ class InvoiceLine {
       taxRate: asDouble(json['taxRate']),
       total: asDouble(json['total']),
       sellUnit: asString(json['sellUnit'], fallback: 'unit'),
+      unitCost: asDouble(product['costPrice']),
     );
   }
 

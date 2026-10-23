@@ -195,15 +195,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ReportColumn('categoryName', s.category),
                 ReportColumn('quantity', s.quantity, value: ReportValue.integer),
                 ReportColumn('revenue', s.revenue, value: ReportValue.money),
-                ReportColumn('cost', s.costOfSales, value: ReportValue.money),
-                ReportColumn('profit', s.netProfit, value: ReportValue.money),
+                if (session.canViewProfit) ...<ReportColumn>[
+                  ReportColumn('cost', s.costOfSales, value: ReportValue.money),
+                  ReportColumn('profit', s.netProfit, value: ReportValue.money),
+                ],
               ],
               totals: <ReportTotal>[
                 ReportTotal('categories', s.categories, money: false),
                 ReportTotal('quantity', s.quantity, money: false),
                 ReportTotal('revenue', s.revenue),
-                ReportTotal('cost', s.costOfSales),
-                ReportTotal('profit', s.netProfit),
+                if (session.canViewProfit) ...<ReportTotal>[
+                  ReportTotal('cost', s.costOfSales),
+                  ReportTotal('profit', s.netProfit),
+                ],
               ],
             ),
           ),
@@ -213,6 +217,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             onOpen: (controller) => controller.loadTopProducts(),
             builder: (_) => const _TopProductsTab(),
           ),
+          if (session.canViewProfit)
           _ReportSpec(
             icon: Icons.savings_outlined,
             title: s.salesProfit,
@@ -296,6 +301,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ],
             ),
           ),
+          if (session.canViewProfit)
           _ReportSpec(
             icon: Icons.savings_outlined,
             title: s.profitBySalesperson,

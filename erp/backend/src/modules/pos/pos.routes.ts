@@ -10,6 +10,7 @@ import { validateBody } from '../../middleware/validate';
 import { createInvoiceTx, invoiceInclude, issueInvoiceTx } from '../invoices/invoices.service';
 import { createPaymentTx } from '../payments/payments.service';
 import { registerSaleTx } from '../sales/sales.service';
+import { assertCustomerAccess } from '../../lib/salesperson-scope';
 
 const router = Router();
 router.use(authenticate);
@@ -46,6 +47,7 @@ router.post(
   validateBody(saleSchema),
   asyncHandler(async (req, res) => {
     const userId = currentUser(req).id;
+    await assertCustomerAccess(currentUser(req), req.body.customerId);
 
     const result = await prisma.$transaction(async (tx) => {
       const salesOrder = await registerSaleTx(

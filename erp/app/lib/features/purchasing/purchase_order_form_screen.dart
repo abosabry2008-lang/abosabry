@@ -36,7 +36,7 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<SuppliersController>().ensureLoaded();
+      context.read<SuppliersController>().ensureCatalogLoaded();
       _loadWarehouses();
     });
   }
@@ -137,7 +137,7 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
                     value: _supplierId,
                     enabled: !_saving,
                     prefixIcon: Icons.local_shipping_outlined,
-                    options: suppliers.items
+                    options: suppliers.catalog
                         .map(
                           (supplier) => SelectOption<String>(
                             supplier.id,

@@ -1,5 +1,6 @@
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
+import { salesOrderAccessWhere, type ScopeUser } from '../../lib/salesperson-scope';
 
 export type SalesGroupBy = 'day' | 'month';
 
@@ -35,13 +36,15 @@ export async function buildSalesReport(
   fromInput?: Date,
   toInput?: Date,
   groupBy: SalesGroupBy = 'day',
+  user?: ScopeUser,
 ): Promise<SalesReport> {
   const now = new Date();
   const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
   const to = toInput ?? now;
+  const access = user ? salesOrderAccessWhere(user) : null;
 
   const orders = await prisma.salesOrder.findMany({
-    where: { orderDate: { gte: from, lte: to }, status: { not: 'CANCELLED' } },
+    where: { orderDate: { gte: from, lte: to }, status: { not: 'CANCELLED' }, ...(access ?? {}) },
     select: { orderDate: true, subtotal: true, taxTotal: true, discountTotal: true, total: true },
   });
 
@@ -171,14 +174,22 @@ export async function buildTopProducts(
   fromInput?: Date,
   toInput?: Date,
   limitInput = 10,
+  user?: ScopeUser,
 ): Promise<TopProductsReport> {
   const now = new Date();
   const from = fromInput ?? new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const to = toInput ?? now;
   const limit = Number.isFinite(limitInput) ? Math.min(100, Math.max(1, Math.floor(limitInput))) : 10;
+  const access = user ? salesOrderAccessWhere(user) : null;
 
   const lines = await prisma.salesOrderLine.findMany({
-    where: { salesOrder: { orderDate: { gte: from, lte: to }, status: { not: 'CANCELLED' } } },
+    where: {
+      salesOrder: {
+        orderDate: { gte: from, lte: to },
+        status: { not: 'CANCELLED' },
+        ...(access ?? {}),
+      },
+    },
     select: { productId: true, quantity: true, unitPrice: true, salesOrderId: true },
   });
 

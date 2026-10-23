@@ -119,6 +119,11 @@ class Session extends ChangeNotifier {
   AppUser? get user => _user;
   String? get role => _user?.role;
   bool get isAdmin => (role ?? '').toUpperCase() == 'ADMIN';
+  bool get isManager => (role ?? '').toUpperCase() == 'MANAGER';
+  bool get isSalesperson => (role ?? '').toUpperCase() == 'SALES';
+
+  /// Profit and cost figures are only shown to managers and administrators.
+  bool get canViewProfit => isAdmin || isManager;
   bool get busy => _busy;
   String? get error => _error;
   bool get isAuthenticated =>

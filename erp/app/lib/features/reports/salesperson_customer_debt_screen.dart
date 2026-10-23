@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/json_utils.dart';
 import '../../core/l10n.dart';
 import '../../core/print_service.dart';
+import '../../core/session.dart';
 import '../../state/reports_controller.dart';
 import '../../state/salespeople_controller.dart';
 import '../../widgets/date_range_button.dart';
@@ -33,7 +34,9 @@ class _SalespersonCustomerDebtScreenState
   @override
   void initState() {
     super.initState();
-    _salespersonId = widget.initialSalespersonId;
+    final session = context.read<Session>();
+    _salespersonId = widget.initialSalespersonId ??
+        (session.isSalesperson ? session.user?.id : null);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<SalespeopleController>().ensureLoaded();
@@ -95,7 +98,7 @@ class _SalespersonCustomerDebtScreenState
             onChanged: (from, to) => _apply(from, to, _salespersonId),
           ),
           const SizedBox(width: 10),
-          AppSelectField<String?>(
+          if (!context.watch<Session>().isSalesperson) AppSelectField<String?>(
             label: s.salesperson,
             value: _salespersonId,
             prefixIcon: Icons.support_agent_outlined,

@@ -10,6 +10,11 @@ import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import { roleHasPermission } from '../../lib/permissions';
 import {
+  assertCustomerAccess,
+  assertSalesOrderAccess,
+  salesOrderAccessWhere,
+} from '../../lib/salesperson-scope';
+import {
   cancelSalesOrder,
   checkSalesOrderAvailability,
   confirmSalesOrder,
@@ -85,6 +90,7 @@ router.get(
     const search = asString(query.search);
     const from = asDate(query.from);
     const to = asDate(query.to);
+    const access = salesOrderAccessWhere(currentUser(req));
 
     const where: Prisma.SalesOrderWhereInput = {};
     if (customerId) where.customerId = customerId;
@@ -99,6 +105,9 @@ router.get(
     }
     if (from || to) {
       where.orderDate = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+    }
+    if (access) {
+      where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), access];
     }
 
     const [total, orders] = await Promise.all([
@@ -124,6 +133,7 @@ router.get(
   '/:id',
   requirePermission('sales.read'),
   asyncHandler(async (req, res) => {
+    await assertSalesOrderAccess(currentUser(req), req.params.id);
     const order = await prisma.salesOrder.findUnique({
       where: { id: req.params.id },
       include: { ...salesOrderInclude, invoices: { select: { id: true, number: true, status: true, total: true, balance: true } } },
@@ -138,7 +148,9 @@ router.post(
   requirePermission('sales.write'),
   validateBody(createSchema),
   asyncHandler(async (req, res) => {
-    const order = await createSalesOrder({ ...req.body, userId: currentUser(req).id });
+    const user = currentUser(req);
+    await assertCustomerAccess(user, req.body.customerId);
+    const order = await createSalesOrder({ ...req.body, userId: user.id });
     created(res, serialize(order));
   }),
 );
@@ -149,6 +161,8 @@ router.patch(
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
+    await assertSalesOrderAccess(user, req.params.id);
+    await assertCustomerAccess(user, req.body.customerId);
     const order = await updateSalesOrder(req.params.id, req.body, {
       allowPosted: roleHasPermission(user.role, 'sales.cancel'),
       userId: user.id,
@@ -161,6 +175,7 @@ router.get(
   '/:id/availability',
   requirePermission('sales.read'),
   asyncHandler(async (req, res) => {
+    await assertSalesOrderAccess(currentUser(req), req.params.id);
     ok(res, await checkSalesOrderAvailability(req.params.id));
   }),
 );
@@ -169,6 +184,7 @@ router.post(
   '/:id/confirm',
   requirePermission('sales.write'),
   asyncHandler(async (req, res) => {
+    await assertSalesOrderAccess(currentUser(req), req.params.id);
     const order = await confirmSalesOrder(req.params.id);
     ok(res, serialize(order));
   }),
@@ -179,10 +195,12 @@ router.post(
   requirePermission('sales.write'),
   validateBody(fulfillSchema),
   asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    await assertSalesOrderAccess(user, req.params.id);
     const order = await fulfillSalesOrder(req.params.id, {
       lines: req.body.lines,
       onlyAvailable: req.body.onlyAvailable,
-      userId: currentUser(req).id,
+      userId: user.id,
     });
     ok(res, serialize(order));
   }),

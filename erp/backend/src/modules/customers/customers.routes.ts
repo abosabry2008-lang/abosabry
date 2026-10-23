@@ -11,6 +11,11 @@ import { asBool, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
+import {
+  assertCustomerAccess,
+  isSalesperson,
+  scopedSalespersonId,
+} from '../../lib/salesperson-scope';
 
 const router = Router();
 router.use(authenticate);
@@ -59,7 +64,10 @@ router.get(
     const paging = getPaging(query, 50);
     const search = asString(query.search);
     const active = asBool(query.active);
-    const salespersonId = asString(query.salespersonId);
+    const salespersonId = scopedSalespersonId(
+      currentUser(req),
+      asString(query.salespersonId),
+    );
 
     const where: Prisma.CustomerWhereInput = {
       ...(search
@@ -94,6 +102,7 @@ router.get(
   '/:id',
   requirePermission('customers.read'),
   asyncHandler(async (req, res) => {
+    await assertCustomerAccess(currentUser(req), req.params.id);
     const customer = await prisma.customer.findUnique({ where: { id: req.params.id }, include });
     if (!customer) throw ApiError.notFound('Customer not found');
     ok(res, serialize(customer));
@@ -105,7 +114,10 @@ router.post(
   requirePermission('customers.write'),
   validateBody(schema),
   asyncHandler(async (req, res) => {
+    const user = currentUser(req);
     const { openingBalance, code, ...data } = req.body as any;
+    // A representative cannot create customers for somebody else.
+    if (isSalesperson(user)) data.salespersonId = user.id;
     const amount = round2(Number(openingBalance ?? 0));
     const customer = await prisma.$transaction(async (tx) => {
       const resolvedCode = hasCode(code) ? code.trim() : await generateCustomerCode();
@@ -143,7 +155,16 @@ router.patch(
   requirePermission('customers.write'),
   validateBody(schema.partial()),
   asyncHandler(async (req, res) => {
-    const customer = await prisma.customer.update({ where: { id: req.params.id }, data: req.body, include });
+    const user = currentUser(req);
+    await assertCustomerAccess(user, req.params.id);
+    const data = { ...(req.body as Prisma.CustomerUncheckedUpdateInput) };
+    // Representatives may edit their customers but cannot reassign them.
+    if (isSalesperson(user)) data.salespersonId = user.id;
+    const customer = await prisma.customer.update({
+      where: { id: req.params.id },
+      data,
+      include,
+    });
     ok(res, serialize(customer));
   }),
 );

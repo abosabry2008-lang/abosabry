@@ -5,6 +5,7 @@ import '../../core/formatters.dart';
 import '../../core/json_utils.dart';
 import '../../core/l10n.dart';
 import '../../core/print_service.dart';
+import '../../core/session.dart';
 import '../../state/reports_controller.dart';
 import '../../state/salespeople_controller.dart';
 import '../../widgets/date_range_button.dart';
@@ -42,7 +43,7 @@ class _SalespersonFilter extends StatelessWidget {
           onChanged: (from, to) => onChanged(from, to, salespersonId),
         ),
         const SizedBox(height: 10),
-        AppSelectField<String?>(
+        if (!context.watch<Session>().isSalesperson) AppSelectField<String?>(
           label: s.salesperson,
           value: salespersonId,
           prefixIcon: Icons.support_agent_outlined,
@@ -435,7 +436,9 @@ class _SalespersonStatementScreenState
   @override
   void initState() {
     super.initState();
-    salespersonId = widget.initialSalespersonId;
+    final session = context.read<Session>();
+    salespersonId = widget.initialSalespersonId ??
+        (session.isSalesperson ? session.user?.id : null);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<SalespeopleController>().ensureLoaded();

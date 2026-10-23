@@ -8,6 +8,11 @@ import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import {
+  assertCustomerAccess,
+  assertInvoiceAccess,
+  isSalesperson,
+} from '../../lib/salesperson-scope';
+import {
   cancelPayment,
   createPayment,
   paymentInclude,
@@ -82,6 +87,15 @@ router.get(
     if (from || to) {
       where.paidAt = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
     }
+    const user = currentUser(req);
+    if (isSalesperson(user)) {
+      // Representatives only see receipts tied to their own customers/invoices.
+      where.OR = [
+        { customer: { salespersonId: user.id } },
+        { invoice: { customer: { salespersonId: user.id } } },
+        { invoice: { customerId: null, salesOrder: { userId: user.id } } },
+      ];
+    }
 
     const [total, payments] = await Promise.all([
       prisma.payment.count({ where }),
@@ -103,7 +117,10 @@ router.post(
   requirePermission('payments.write'),
   validateBody(createSchema),
   asyncHandler(async (req, res) => {
-    const payment = await createPayment({ ...req.body, userId: currentUser(req).id });
+    const user = currentUser(req);
+    await assertCustomerAccess(user, req.body.customerId);
+    if (req.body.invoiceId) await assertInvoiceAccess(user, req.body.invoiceId);
+    const payment = await createPayment({ ...req.body, userId: user.id });
     created(res, serializePayment(payment));
   }),
 );
@@ -113,7 +130,16 @@ router.patch(
   requirePermission('treasury.write'),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
-    const payment = await updatePayment(req.params.id, req.body, currentUser(req).id);
+    const user = currentUser(req);
+    if (isSalesperson(user)) {
+      const existing = await prisma.payment.findUnique({
+        where: { id: req.params.id },
+        select: { invoiceId: true, customerId: true },
+      });
+      if (existing?.invoiceId) await assertInvoiceAccess(user, existing.invoiceId);
+      else await assertCustomerAccess(user, existing?.customerId);
+    }
+    const payment = await updatePayment(req.params.id, req.body, user.id);
     ok(res, serializePayment(payment));
   }),
 );

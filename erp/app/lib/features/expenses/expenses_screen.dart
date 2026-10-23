@@ -163,6 +163,27 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                 Row(
                   children: <Widget>[
                     Expanded(
+                      child: AppDateField(
+                        label: s.date,
+                        value: controller.date,
+                        clearable: false,
+                        onChanged: (value) {
+                          if (value != null) controller.filterByDate(value);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.tonalIcon(
+                      onPressed: () => controller.refresh(),
+                      icon: const Icon(Icons.search),
+                      label: Text(s.search),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: <Widget>[
+                    Expanded(
                       child: AppSelectField<String>(
                         label: s.expenseCategory,
                         value: controller.categoryId ?? '',

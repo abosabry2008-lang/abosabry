@@ -1,10 +1,20 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { ApiError } from '../../lib/api-error';
 import { asyncHandler, ok } from '../../lib/http';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
 import { asDate, asString } from '../../lib/query';
+import {
+  assertCustomerAccess,
+  canViewProfit,
+  customerAccessWhere,
+  invoiceAccessWhere,
+  isSalesperson,
+  salesOrderAccessWhere,
+  scopedSalespersonId,
+} from '../../lib/salesperson-scope';
 import { authenticateToken } from '../../middleware/authenticate-token';
+import { currentUser } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
 import { lowStockProducts } from '../inventory/inventory.service';
 import {
@@ -55,10 +65,45 @@ function startOfDay(date: Date): Date {
 }
 
 // GET /reports/dashboard
+function requireProfitAccess(req: Request): void {
+  if (!canViewProfit(currentUser(req))) {
+    throw ApiError.forbidden('Only managers and administrators can view profit');
+  }
+}
+
+/** A representative may only open their own salesperson statements. */
+function requireOwnSalesperson(req: Request): void {
+  const user = currentUser(req);
+  if (isSalesperson(user) && req.params.id !== user.id) {
+    throw ApiError.forbidden('You can only view your own reports', 'SALESPERSON_NOT_ASSIGNED');
+  }
+}
+
+/** Removes cost and profit figures from a report for users who may not see profit. */
+function stripProfit<T extends { totals?: Record<string, unknown>; rows?: Record<string, unknown>[] }>(
+  report: T,
+  keys: string[],
+): T {
+  const strip = (row: Record<string, unknown>) => {
+    const copy = { ...row };
+    for (const key of keys) delete copy[key];
+    return copy;
+  };
+  return {
+    ...report,
+    totals: report.totals ? strip(report.totals) : report.totals,
+    rows: report.rows?.map(strip),
+  } as T;
+}
+
 router.get(
   '/dashboard',
   requirePermission('reports.read'),
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const own = isSalesperson(user);
+    const orderScope = salesOrderAccessWhere(user) ?? {};
+    const invoiceScope = invoiceAccessWhere(user) ?? {};
     const now = new Date();
     const todayStart = startOfDay(now);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -81,24 +126,27 @@ router.get(
       recentOrders,
     ] = await Promise.all([
       prisma.product.count({ where: { deletedAt: null, active: true } }),
-      prisma.customer.count({ where: { active: true } }),
-      prisma.supplier.count({ where: { active: true } }),
+      prisma.customer.count({ where: { active: true, ...(customerAccessWhere(user) ?? {}) } }),
+      // Supplier figures are not part of a representative's work.
+      own ? 0 : prisma.supplier.count({ where: { active: true } }),
       prisma.warehouse.count({ where: { active: true } }),
       prisma.salesOrder.aggregate({
-        where: { orderDate: { gte: todayStart }, status: { not: 'CANCELLED' } },
+        where: { orderDate: { gte: todayStart }, status: { not: 'CANCELLED' }, ...orderScope },
         _sum: { total: true },
         _count: { _all: true },
       }),
       prisma.salesOrder.aggregate({
-        where: { orderDate: { gte: monthStart }, status: { not: 'CANCELLED' } },
+        where: { orderDate: { gte: monthStart }, status: { not: 'CANCELLED' }, ...orderScope },
         _sum: { total: true },
         _count: { _all: true },
       }),
       prisma.invoice.aggregate({
-        where: { status: { in: ['ISSUED', 'PARTIALLY_PAID'] } },
+        where: { status: { in: ['ISSUED', 'PARTIALLY_PAID'] }, ...invoiceScope },
         _sum: { balance: true },
       }),
-      prisma.supplier.aggregate({ _sum: { balance: true } }),
+      own
+        ? { _sum: { balance: 0 } }
+        : prisma.supplier.aggregate({ _sum: { balance: true } }),
       prisma.stockLevel.findMany({ select: { productId: true, quantity: true } }),
       lowStockProducts(),
       prisma.stockMovement.findMany({
@@ -111,12 +159,12 @@ router.get(
       }),
       prisma.salesOrderLine.findMany({
         where: {
-          salesOrder: { orderDate: { gte: last30 }, status: { not: 'CANCELLED' } },
+          salesOrder: { orderDate: { gte: last30 }, status: { not: 'CANCELLED' }, ...orderScope },
         },
         select: { productId: true, quantity: true, unitPrice: true },
       }),
       prisma.salesOrder.findMany({
-        where: { orderDate: { gte: weekStart }, status: { not: 'CANCELLED' } },
+        where: { orderDate: { gte: weekStart }, status: { not: 'CANCELLED' }, ...orderScope },
         select: { orderDate: true, total: true },
       }),
     ]);
@@ -229,7 +277,7 @@ router.get(
     const to = asDate(req.query.to);
     const groupBy = asString(req.query.groupBy) === 'month' ? 'month' : 'day';
 
-    ok(res, await buildSalesReport(from, to, groupBy));
+    ok(res, await buildSalesReport(from, to, groupBy, currentUser(req)));
   }),
 );
 
@@ -252,7 +300,7 @@ router.get(
     const to = asDate(req.query.to);
     const limit = Number(asString(req.query.limit) ?? 10);
 
-    ok(res, await buildTopProducts(from, to, limit));
+    ok(res, await buildTopProducts(from, to, limit, currentUser(req)));
   }),
 );
 
@@ -260,9 +308,9 @@ router.get(
 router.get(
   '/customer-balances',
   requirePermission('reports.read'),
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
     const customers = await prisma.customer.findMany({
-      where: { balance: { not: 0 } },
+      where: { balance: { not: 0 }, ...(customerAccessWhere(currentUser(req)) ?? {}) },
       orderBy: { balance: 'desc' },
       include: { _count: { select: { invoices: true } } },
     });
@@ -312,7 +360,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
-    const userId = asString(req.query.userId);
+    const userId = scopedSalespersonId(currentUser(req), asString(req.query.userId));
     ok(res, await buildReceivablesBySalesperson(from, to, userId));
   }),
 );
@@ -335,7 +383,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
-    const salespersonId = asString(req.query.salespersonId);
+    const salespersonId = scopedSalespersonId(currentUser(req), asString(req.query.salespersonId));
     ok(res, await buildConsolidatedSalesNote(from, to, salespersonId));
   }),
 );
@@ -347,7 +395,8 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
-    const salespersonId = asString(req.query.salespersonId);
+    requireProfitAccess(req);
+    const salespersonId = scopedSalespersonId(currentUser(req), asString(req.query.salespersonId));
     ok(res, await buildProfitBySalesperson(from, to, salespersonId));
   }),
 );
@@ -359,7 +408,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
-    const salespersonId = asString(req.query.salespersonId);
+    const salespersonId = scopedSalespersonId(currentUser(req), asString(req.query.salespersonId));
     ok(res, await buildCollectionsBySalesperson(from, to, salespersonId));
   }),
 );
@@ -369,6 +418,7 @@ router.get(
   '/salespeople/:id/statement',
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
+    requireOwnSalesperson(req);
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
     try {
@@ -387,6 +437,7 @@ router.get(
   '/salespeople/:id/customers',
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
+    requireOwnSalesperson(req);
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
     try {
@@ -432,6 +483,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
+    await assertCustomerAccess(currentUser(req), req.params.id);
     ok(res, await buildCustomerStatement(req.params.id, from, to));
   }),
 );
@@ -466,6 +518,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
+    requireProfitAccess(req);
     ok(res, await buildProfitReport(from, to));
   }),
 );
@@ -488,7 +541,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const side = asString(req.query.side) === 'payable' ? 'payable' : 'receivable';
     const asOf = asDate(req.query.asOf);
-    ok(res, await buildAgingReport(side, asOf));
+    ok(res, await buildAgingReport(side, asOf, currentUser(req)));
   }),
 );
 
@@ -498,7 +551,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const warehouseId = asString(req.query.warehouseId);
-    ok(res, await buildShortagesReport(warehouseId));
+    ok(res, await buildShortagesReport(warehouseId, currentUser(req)));
   }),
 );
 
@@ -508,7 +561,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const warehouseId = asString(req.query.warehouseId);
-    ok(res, await buildOrderFulfilmentReport(warehouseId));
+    ok(res, await buildOrderFulfilmentReport(warehouseId, currentUser(req)));
   }),
 );
 
@@ -538,7 +591,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
-    ok(res, await buildSalesByCustomer(from, to));
+    ok(res, await buildSalesByCustomer(from, to, currentUser(req)));
   }),
 );
 
@@ -549,7 +602,8 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
-    ok(res, await buildSalesByCategory(from, to));
+    const report = await buildSalesByCategory(from, to, currentUser(req));
+    ok(res, canViewProfit(currentUser(req)) ? report : stripProfit(report, ['cost', 'profit']));
   }),
 );
 
@@ -560,7 +614,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
-    ok(res, await buildSalesBySalesperson(from, to));
+    ok(res, await buildSalesBySalesperson(from, to, currentUser(req)));
   }),
 );
 
@@ -582,7 +636,10 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
-    ok(res, await buildReturnsReport(from, to, asString(req.query.type)));
+    const user = currentUser(req);
+    // Representatives see only their customers' returns, never supplier returns.
+    const type = isSalesperson(user) ? 'CUSTOMER_RETURN' : asString(req.query.type);
+    ok(res, await buildReturnsReport(from, to, type, user));
   }),
 );
 
