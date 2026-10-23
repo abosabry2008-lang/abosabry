@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
+import '../../core/formatters.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
 import '../../models/cash_box.dart';
@@ -153,8 +154,17 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     ];
     final boxOptions = _boxes
         .where((box) => box.active)
-        .map((box) => SelectOption<String?>(box.id, box.name))
+        .map(
+          (box) => SelectOption<String?>(
+            box.id,
+            '${box.name} · ${Formatters.money(box.balance)}',
+          ),
+        )
         .toList();
+    final selectedBox = _boxes
+        .where((box) => box.id == _cashBoxId)
+        .cast<CashBox?>()
+        .firstWhere((box) => true, orElse: () => null);
 
     return Form(
       key: _formKey,
@@ -197,6 +207,15 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                   options: boxOptions,
                   onChanged: (value) => setState(() => _cashBoxId = value),
                 ),
+                if (selectedBox != null) ...<Widget>[
+                  const SizedBox(height: 6),
+                  Text(
+                    '${s.openingBalance}: '
+                    '${Formatters.money(selectedBox.openingBalance)} · '
+                    '${s.balance}: ${Formatters.money(selectedBox.balance)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
                 const SizedBox(height: 14),
                 AppSelectField<String>(
                   label: s.method,
