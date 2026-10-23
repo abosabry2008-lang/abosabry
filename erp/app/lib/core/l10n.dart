@@ -345,6 +345,7 @@ class AppStrings {
   String get boxesPerCarton => _t('Boxes per carton', 'عدد العلب في الكرتونة');
   String get boxPrice => _t('Box price', 'سعر العلبة');
   String get cartonPrice => _t('Carton price', 'سعر الكرتونة');
+  String get cartonCost => _t('Carton cost', 'تكلفة الكرتونة');
   String get reorderLevel => _t('Reorder level', 'حد إعادة الطلب');
   String get reorderLevelHelper => _t(
         'Trigger a low-stock alert at or below this qty',

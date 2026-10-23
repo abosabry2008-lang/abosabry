@@ -49,6 +49,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   late final TextEditingController _cartonPrice = TextEditingController(
     text: widget.product?.cartonPrice?.toString() ?? '',
   );
+  late final TextEditingController _cartonCost = TextEditingController(
+    text: ((widget.product?.costPrice ?? 0) *
+            (widget.product?.boxesPerCarton ?? 0))
+        .toString(),
+  );
   late final TextEditingController _taxRate =
       TextEditingController(text: (widget.product?.taxRate ?? 0).toString());
   late final TextEditingController _reorderLevel = TextEditingController(
@@ -56,6 +61,41 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   );
 
   String? _categoryId;
+
+  int get _boxes => int.tryParse(_boxesPerCarton.text.trim()) ?? 0;
+
+  String _fmt(double value) =>
+      value == value.roundToDouble() ? value.round().toString() : value.toStringAsFixed(2);
+
+  /// The carton price is the entered one; the box price is its division.
+  void _syncPricesFromCarton(double carton) {
+    if (_boxes <= 0) return;
+    final box = carton / _boxes;
+    _salePrice.text = _fmt(box);
+    _boxPrice.text = _fmt(box);
+    setState(() {});
+  }
+
+  void _syncCostFromCarton(double carton) {
+    if (_boxes <= 0) return;
+    _costPrice.text = (carton / _boxes).toStringAsFixed(2);
+    setState(() {});
+  }
+
+  void _recalculateFromBoxes() {
+    if (_boxes <= 0) return;
+    final cartonPrice = double.tryParse(_cartonPrice.text.trim());
+    if (cartonPrice != null) {
+      final box = cartonPrice / _boxes;
+      _salePrice.text = _fmt(box);
+      _boxPrice.text = _fmt(box);
+    }
+    final cartonCost = double.tryParse(_cartonCost.text.trim());
+    if (cartonCost != null) {
+      _costPrice.text = (cartonCost / _boxes).toStringAsFixed(2);
+    }
+    setState(() {});
+  }
   late bool _trackInventory = widget.product?.trackInventory ?? true;
   late bool _active = widget.product?.active ?? true;
   bool _saving = false;
@@ -82,6 +122,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _boxesPerCarton.dispose();
     _boxPrice.dispose();
     _cartonPrice.dispose();
+    _cartonCost.dispose();
     _taxRate.dispose();
     _reorderLevel.dispose();
     super.dispose();
@@ -272,6 +313,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     controller: _boxesPerCarton,
                     enabled: !_saving,
                     decimal: false,
+                    onChanged: (_) => _recalculateFromBoxes(),
                     prefixIcon: Icons.view_module_outlined,
                   ),
                   const SizedBox(height: 14),
@@ -279,10 +321,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     children: <Widget>[
                       Expanded(
                         child: AppNumberField(
-                          label: s.boxPrice,
-                          controller: _boxPrice,
+                          label: s.cartonCost,
+                          controller: _cartonCost,
                           enabled: !_saving,
-                          prefixIcon: Icons.sell_outlined,
+                          onChanged: _syncCostFromCarton,
+                          prefixIcon: Icons.attach_money,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -291,6 +334,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                           label: s.cartonPrice,
                           controller: _cartonPrice,
                           enabled: !_saving,
+                          onChanged: _syncPricesFromCarton,
                           prefixIcon: Icons.inventory_2_outlined,
                         ),
                       ),

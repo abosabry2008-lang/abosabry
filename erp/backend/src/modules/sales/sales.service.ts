@@ -64,7 +64,14 @@ function resolvePack(
   if (sellUnit === 'carton' && boxesPerCarton > 0) {
     const cartonPrice =
       product.cartonPrice != null ? Number(product.cartonPrice) : boxesPerCarton * Number(product.salePrice);
-    return { baseQty: boxesPerCarton, qtyInBase: boxesPerCarton, unitPrice: cartonPrice, sellUnit: 'carton' };
+    // Stock and invoice quantities are stored in boxes (the base unit), so the
+    // carton price is split across its boxes.
+    return {
+      baseQty: boxesPerCarton,
+      qtyInBase: boxesPerCarton,
+      unitPrice: cartonPrice / boxesPerCarton,
+      sellUnit: 'carton',
+    };
   }
   return { baseQty: 1, qtyInBase: 1, unitPrice: Number(product.salePrice), sellUnit: 'unit' };
 }
