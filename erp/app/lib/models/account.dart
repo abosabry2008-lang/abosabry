@@ -8,6 +8,8 @@ class Account {
     required this.name,
     required this.type,
     this.active = true,
+    this.debit = 0,
+    this.credit = 0,
   });
 
   final String id;
@@ -15,6 +17,11 @@ class Account {
   final String name;
   final String type;
   final bool active;
+  final double debit;
+  final double credit;
+
+  /// Signed balance: positive is a debit balance, negative is a credit balance.
+  double get balance => debit - credit;
 
   static const List<String> types = <String>[
     'ASSET',
@@ -30,6 +37,8 @@ class Account {
         name: asString(json['name']),
         type: asString(json['type'], fallback: 'ASSET'),
         active: asBool(json['active'], fallback: true),
+        debit: asDouble(json['debit']),
+        credit: asDouble(json['credit']),
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{

@@ -217,7 +217,15 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
     try {
       final rows = await context.read<Session>().api.getList('/accounting/accounts');
       if (!mounted) return;
-      setState(() => _accounts = rows.map(Account.fromJson).toList());
+      setState(() {
+        // Expense categories belong on P&L accounts. Keep the current link even
+        // if it points somewhere else so an existing category never breaks.
+        _accounts = rows
+            .map(Account.fromJson)
+            .where((account) =>
+                account.type == 'EXPENSE' || account.code == _accountCode)
+            .toList();
+      });
     } on ApiException {
       // The account link is optional.
     }
@@ -259,7 +267,10 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
       const SelectOption<String?>(null, '—'),
       ..._accounts.map(
         (account) =>
-            SelectOption<String?>(account.code, '${account.code} · ${account.name}'),
+            SelectOption<String?>(
+              account.code,
+              '${account.code} · ${account.name} · ${context.s.status(account.type)}',
+            ),
       ),
     ];
     return AlertDialog(

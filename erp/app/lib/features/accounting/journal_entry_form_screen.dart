@@ -353,7 +353,7 @@ class _JournalLineEditor extends StatelessWidget {
               for (final account in accounts)
                 SelectOption<String?>(
                   account.id,
-                  '${account.code} · ${account.name}',
+                  '${account.code} · ${account.name} · ${s.status(account.type)}',
                 ),
             ],
             onChanged: (value) {

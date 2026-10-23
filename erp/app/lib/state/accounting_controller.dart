@@ -13,8 +13,9 @@ class AccountsController extends PagedListController<Account> {
   @override
   String get path => '/accounting/accounts';
 
+  // The chart of accounts is always shown; it is small and drives every filter.
   @override
-  bool get requiresSearch => true;
+  bool get requiresSearch => false;
 
   @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{

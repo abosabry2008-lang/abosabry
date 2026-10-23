@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
+import '../../core/formatters.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
 import '../../models/account.dart';
 import '../../state/accounting_controller.dart';
 import '../../widgets/async_list_view.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
-import '../../widgets/status_chip.dart';
 
 /// Chart of accounts with a trial-balance style debit/credit view.
 class AccountsScreen extends StatefulWidget {
@@ -56,8 +57,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   (type) => SelectOption<String>(type, s.status(type)),
                 ),
               ],
-              onChanged: (value) =>
-                  setState(() => _type = (value == null || value.isEmpty) ? null : value),
+              onChanged: (value) {
+                final next = (value == null || value.isEmpty) ? null : value;
+                setState(() => _type = next);
+                controller.filterByType(next);
+              },
             ),
           ),
           const SizedBox(height: 8),
@@ -68,9 +72,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
               emptyTitle: s.noAccounts,
               emptyMessage: s.chartCreatedHint,
               itemBuilder: (context, account, index) {
-                if (_type != null && account.type != _type) {
-                  return const SizedBox.shrink();
-                }
                 return SectionCard(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -83,10 +84,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     ),
                     title: Text(account.name),
                     subtitle: Text(s.status(account.type)),
-                    trailing: StatusChip(
-                      status: account.active ? 'ACTIVE' : 'INACTIVE',
-                      label: account.active ? s.active : s.inactive,
-                      compact: true,
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        MoneyText(account.balance, colorNegative: true),
+                        Text(
+                          '${s.debit}: ${Formatters.money(account.debit)} · '
+                          '${s.credit}: ${Formatters.money(account.credit)}',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ],
                     ),
                   ),
                 );

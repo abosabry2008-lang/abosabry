@@ -47,9 +47,12 @@ const manualJournalSchema = z.object({
 router.get(
   '/accounts',
   requirePermission('accounting.read'),
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
     await prisma.$transaction((tx) => ensureDefaultAccounts(tx));
-    const rows = await trialBalance(prisma);
+    const type = asString(req.query.type);
+    const rows = (await trialBalance(prisma)).filter(
+      (row) => !type || row.type === type,
+    );
     ok(
       res,
       rows.map((row) => ({
