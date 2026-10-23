@@ -16,8 +16,9 @@ import {
 } from '../../lib/salesperson-scope';
 import { authenticateToken } from '../../middleware/authenticate-token';
 import { currentUser } from '../../middleware/authenticate';
-import { requirePermission } from '../../middleware/authorize';
+import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { lowStockProducts } from '../inventory/inventory.service';
+import { postJournal } from '../accounting/accounting.service';
 import {
   buildInventoryValuation,
   buildProfitReport,
@@ -572,6 +573,82 @@ router.get(
       suppliers: { total: suppliersTotal, rows: supplierRows },
       net: round2(inventoryTotal + cashTotal + customersTotal - suppliersTotal),
     });
+  }),
+);
+
+// POST /reports/reconcile-inventory?apply=true — compares physical stock value
+// with the Inventory ledger account and can post the difference as opening
+// equity. Preview by default.
+router.post(
+  '/reconcile-inventory',
+  requireAdmin(),
+  asyncHandler(async (req, res) => {
+    const apply = asString(req.query.apply) === 'true';
+    const [levels, products, inventoryAccount] = await Promise.all([
+      prisma.stockLevel.groupBy({ by: ['productId'], _sum: { quantity: true } }),
+      prisma.product.findMany({ select: { id: true, costPrice: true } }),
+      prisma.account.findUnique({ where: { code: '1200' } }),
+    ]);
+    const costById = new Map(
+      products.map((product) => [product.id, Number(product.costPrice)]),
+    );
+    const stockValue = round2(
+      levels.reduce(
+        (sum, level) =>
+          sum +
+          Number(level._sum.quantity ?? 0) *
+            (costById.get(level.productId) ?? 0),
+        0,
+      ),
+    );
+    const ledger = inventoryAccount
+      ? await prisma.journalLine.aggregate({
+          where: { accountId: inventoryAccount.id },
+          _sum: { debit: true, credit: true },
+        })
+      : null;
+    const ledgerValue = round2(
+      Number(ledger?._sum.debit ?? 0) - Number(ledger?._sum.credit ?? 0),
+    );
+    const difference = round2(stockValue - ledgerValue);
+
+    if (apply && difference !== 0) {
+      await prisma.$transaction(async (tx) => {
+        await postJournal(tx, {
+          memo: 'Inventory reconciliation with physical stock',
+          sourceType: 'INVENTORY_RECONCILIATION',
+          lines:
+            difference > 0
+              ? [
+                  {
+                    accountCode: '1200',
+                    debit: difference,
+                    description: 'Inventory reconciliation',
+                  },
+                  {
+                    accountCode: '3000',
+                    credit: difference,
+                    description: 'Opening equity for inventory',
+                  },
+                ]
+              : [
+                  {
+                    accountCode: '3000',
+                    debit: -difference,
+                    description: 'Opening equity for inventory',
+                  },
+                  {
+                    accountCode: '1200',
+                    credit: -difference,
+                    description: 'Inventory reconciliation',
+                  },
+                ],
+          userId: currentUser(req).id,
+        });
+      });
+    }
+
+    ok(res, { stockValue, ledgerValue, difference, applied: apply });
   }),
 );
 
