@@ -360,6 +360,7 @@ async function postInvoiceJournalTx(
     lines: { productId: string | null; quantity: number }[];
   },
   userId?: string,
+  entryDate?: Date,
 ): Promise<void> {
   const total = round2(Number(invoice.total));
   const subtotal = round2(Number(invoice.subtotal));
@@ -396,6 +397,7 @@ async function postInvoiceJournalTx(
     sourceType: 'INVOICE',
     sourceId: invoice.id,
     userId,
+    entryDate,
     lines: journalLines,
   });
 }
@@ -449,20 +451,26 @@ export async function createInvoiceTx(tx: Tx, input: CreateInvoiceInput) {
   });
 }
 
-export async function issueInvoiceTx(tx: Tx, id: string, userId?: string) {
+export async function issueInvoiceTx(
+  tx: Tx,
+  id: string,
+  userId?: string,
+  issueDate?: Date,
+) {
   const invoice = await tx.invoice.findUnique({ where: { id }, include: { lines: true } });
   if (!invoice) throw ApiError.notFound('Invoice not found');
   if (invoice.status !== 'DRAFT') {
     throw ApiError.badRequest(`Only draft invoices can be issued (current status: ${invoice.status})`, 'NOT_ISSUABLE');
   }
 
+  const issuedAt = issueDate ?? new Date();
   const updated = await tx.invoice.update({
     where: { id },
-    data: { status: 'ISSUED', issueDate: new Date() },
+    data: { status: 'ISSUED', issueDate: issuedAt },
     include: invoiceInclude,
   });
 
-  await postInvoiceJournalTx(tx, invoice, userId);
+  await postInvoiceJournalTx(tx, invoice, userId, issuedAt);
 
   if (invoice.customerId) await recalcCustomerBalance(tx, invoice.customerId);
 
@@ -543,6 +551,47 @@ export async function createInvoice(input: CreateInvoiceInput) {
 
 export async function issueInvoice(id: string, userId?: string) {
   return prisma.$transaction((tx) => issueInvoiceTx(tx, id, userId));
+}
+
+/**
+ * Repairs orders that were fulfilled under the old two-step flow, where the
+ * invoice had to be created separately and was sometimes skipped. Every fully
+ * fulfilled order without a live invoice gets one, issued at the fulfilment
+ * date so the customer statement shows it in the right period.
+ */
+export async function backfillFulfilledOrderInvoices(userId?: string) {
+  return prisma.$transaction(async (tx) => {
+    const orders = await tx.salesOrder.findMany({
+      where: {
+        status: 'FULFILLED',
+        invoices: { none: { status: { not: 'VOID' } } },
+      },
+      select: { id: true, number: true, fulfilledAt: true, orderDate: true },
+      orderBy: { orderDate: 'asc' },
+    });
+
+    const created: { orderNumber: string; invoiceNumber: string; total: number }[] = [];
+    for (const order of orders) {
+      const draft = await createInvoiceTx(tx, { salesOrderId: order.id, userId });
+      const invoice = await issueInvoiceTx(
+        tx,
+        draft.id,
+        userId,
+        order.fulfilledAt ?? order.orderDate,
+      );
+      created.push({
+        orderNumber: order.number,
+        invoiceNumber: invoice.number,
+        total: Number(invoice.total),
+      });
+    }
+
+    return {
+      count: created.length,
+      total: round2(created.reduce((sum, row) => sum + row.total, 0)),
+      invoices: created,
+    };
+  });
 }
 
 export async function voidInvoice(id: string, userId?: string) {

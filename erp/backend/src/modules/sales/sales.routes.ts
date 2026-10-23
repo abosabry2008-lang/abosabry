@@ -9,7 +9,11 @@ import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import { roleHasPermission } from '../../lib/permissions';
-import { createInvoiceTx, issueInvoiceTx } from '../invoices/invoices.service';
+import {
+  backfillFulfilledOrderInvoices,
+  createInvoiceTx,
+  issueInvoiceTx,
+} from '../invoices/invoices.service';
 import {
   assertCustomerAccess,
   assertSalesOrderAccess,
@@ -189,6 +193,16 @@ router.post(
     await assertSalesOrderAccess(currentUser(req), req.params.id);
     const order = await confirmSalesOrder(req.params.id);
     ok(res, serialize(order));
+  }),
+);
+
+// Repairs old fulfilled orders that were never invoiced. Admin-only and
+// idempotent: orders that already have a live invoice are skipped.
+router.post(
+  '/backfill-invoices',
+  requireAdmin(),
+  asyncHandler(async (req, res) => {
+    ok(res, await backfillFulfilledOrderInvoices(currentUser(req).id));
   }),
 );
 
