@@ -77,7 +77,12 @@ async function customerOpeningBalance(tx: Tx, customerId: string): Promise<numbe
     tx.journalLine.findMany({
       where: {
         account: { code: '1100' },
-        journalEntry: { sourceType: 'OPENING_CUSTOMER', sourceId: customerId },
+        journalEntry: {
+          // Include corrections: an edited opening balance is the old entry
+          // reversed plus the new one, so both sides must be summed.
+          sourceType: { in: ['OPENING_CUSTOMER', 'OPENING_CUSTOMER_REVERSAL'] },
+          sourceId: customerId,
+        },
       },
       select: { debit: true, credit: true },
     }),
@@ -105,30 +110,57 @@ async function customerOpeningBalance(tx: Tx, customerId: string): Promise<numbe
  * settlement) silently wiped the opening balance.
  */
 export async function recalcCustomerBalance(tx: Tx, customerId: string): Promise<void> {
-  const [aggregate, settlements, openingBalance] = await Promise.all([
-    tx.invoice.aggregate({
-      where: {
-        customerId,
-        status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
-      },
-      _sum: { balance: true },
-    }),
-    tx.accountSettlement.findMany({
-      where: { customerId, cancelledAt: null },
-      select: { direction: true, amount: true },
-    }),
-    customerOpeningBalance(tx, customerId),
-  ]);
+  const [aggregate, settlements, openingBalance, unlinkedIn, unlinkedOut] =
+    await Promise.all([
+      tx.invoice.aggregate({
+        where: {
+          customerId,
+          status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+        },
+        _sum: { balance: true },
+      }),
+      tx.accountSettlement.findMany({
+        where: { customerId, cancelledAt: null },
+        select: { direction: true, amount: true },
+      }),
+      customerOpeningBalance(tx, customerId),
+      // Payments on account (not tied to an invoice) reduce the customer's
+      // balance directly; invoice-linked payments are already reflected in the
+      // invoice balance above.
+      tx.payment.aggregate({
+        where: {
+          customerId,
+          invoiceId: null,
+          direction: 'INBOUND',
+          cancelledAt: null,
+        },
+        _sum: { amount: true },
+      }),
+      tx.payment.aggregate({
+        where: {
+          customerId,
+          invoiceId: null,
+          direction: 'OUTBOUND',
+          cancelledAt: null,
+        },
+        _sum: { amount: true },
+      }),
+    ]);
 
   const invoiceBalance = Number(aggregate._sum.balance ?? 0);
   const adjustment = settlements.reduce((sum, row) => {
     const amount = Number(row.amount);
     return sum + (row.direction === 'INCREASE' ? amount : -amount);
   }, 0);
+  const onAccount = round2(
+    Number(unlinkedIn._sum.amount ?? 0) - Number(unlinkedOut._sum.amount ?? 0),
+  );
 
   await tx.customer.update({
     where: { id: customerId },
-    data: { balance: round2(openingBalance + invoiceBalance + adjustment) },
+    data: {
+      balance: round2(openingBalance + invoiceBalance + adjustment - onAccount),
+    },
   });
 }
 

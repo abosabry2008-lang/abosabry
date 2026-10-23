@@ -872,6 +872,12 @@ async function createBulkCollectionTx(
     })),
   });
 
+  // Keep the stored customer balance in step with the receipts. The bulk path
+  // bypasses createPaymentTx, so it must refresh each affected account itself.
+  for (const customerId of customerIds) {
+    await recalcCustomerBalance(tx, customerId);
+  }
+
   const total = round2(payments.reduce((sum, payment) => sum + payment.amount, 0));
   return tx.collectionVoucher.update({
     where: { id: voucher.id },

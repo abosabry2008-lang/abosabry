@@ -17,6 +17,7 @@ import {
   scopedSalespersonId,
 } from '../../lib/salesperson-scope';
 import { getCustomerOpeningBalance, setCustomerOpeningBalance } from './customer-opening';
+import { recalcCustomerBalance } from '../invoices/invoices.service';
 
 const router = Router();
 router.use(authenticate);
@@ -96,6 +97,25 @@ router.get(
       }),
     ]);
     paginated(res, customers.map((c) => serialize(c)), total, paging);
+  }),
+);
+
+// Repairs stored customer balances from invoices, on-account payments,
+// settlements and opening balances. Admin-only and safe to re-run.
+router.post(
+  '/recalc-balances',
+  requireAdmin(),
+  asyncHandler(async (_req, res) => {
+    const customers = await prisma.customer.findMany({ select: { id: true } });
+    await prisma.$transaction(
+      async (tx) => {
+        for (const customer of customers) {
+          await recalcCustomerBalance(tx, customer.id);
+        }
+      },
+      { timeout: 180_000 },
+    );
+    ok(res, { count: customers.length });
   }),
 );
 
