@@ -6,6 +6,7 @@ import '../../core/l10n.dart';
 import '../../models/payment.dart';
 import '../../state/payments_controller.dart';
 import '../../widgets/async_list_view.dart';
+import '../../widgets/day_search_row.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
@@ -32,6 +33,12 @@ class PaymentsScreen extends StatelessWidget {
                   hintText: s.searchPaymentsHint,
                   initialValue: controller.search,
                   onChanged: controller.searchWith,
+                ),
+                const SizedBox(height: 8),
+                DaySearchRow(
+                  day: controller.dayFilter.day,
+                  onDayChanged: controller.filterByDay,
+                  onSearch: () => controller.refresh(),
                 ),
                 const SizedBox(height: 8),
                 AppSelectField<String>(

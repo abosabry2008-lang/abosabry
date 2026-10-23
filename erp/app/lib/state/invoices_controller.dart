@@ -1,11 +1,13 @@
 import '../models/invoice.dart';
+import 'day_filter.dart';
 import 'paged_list_controller.dart';
 
-/// Invoice list with customer / status filters.
+/// Invoice list filtered by a mandatory day (defaults to today) and status.
 class InvoicesController extends PagedListController<Invoice> {
   InvoicesController(super.api);
 
   String? _status;
+  final DayFilter dayFilter = DayFilter();
 
   String? get status => _status;
 
@@ -13,17 +15,18 @@ class InvoicesController extends PagedListController<Invoice> {
   String get path => '/invoices';
 
   @override
-  bool get requiresSearch => true;
-
-  @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{
+        ...dayFilter.query(),
         if (_status != null && _status!.isNotEmpty) 'status': _status,
       };
+
+  void filterByDay(DateTime value) {
+    if (dayFilter.select(value)) refresh();
+  }
 
   void filterByStatus(String? value) {
     if (value == _status) return;
     _status = value;
-    markFilterChanged();
     refresh();
   }
 

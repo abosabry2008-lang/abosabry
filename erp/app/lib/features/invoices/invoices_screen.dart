@@ -11,6 +11,7 @@ import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
 import '../shell/navigation.dart';
+import '../../widgets/day_search_row.dart';
 import 'invoice_detail_screen.dart';
 
 const List<String> invoiceStatuses = <String>[
@@ -52,6 +53,12 @@ class InvoicesScreen extends StatelessWidget {
                       label: Text(s.search),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                DaySearchRow(
+                  day: controller.dayFilter.day,
+                  onDayChanged: controller.filterByDay,
+                  onSearch: () => controller.refresh(),
                 ),
                 const SizedBox(height: 8),
                 AppSelectField<String>(
