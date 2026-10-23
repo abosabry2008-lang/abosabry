@@ -209,6 +209,12 @@ router.post(
         select: { status: true },
       });
       if (!current) throw ApiError.notFound('Sales order not found');
+      if (current.status === 'DRAFT') {
+        throw ApiError.badRequest(
+          'Confirm the sales order before executing it',
+          'ORDER_NOT_CONFIRMED',
+        );
+      }
       // Pressing execute again on an already fulfilled order just returns it.
       const order =
         current.status === 'FULFILLED'

@@ -111,7 +111,7 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
     try {
       await api.post(
         '/sales-orders/${widget.orderId}/execute',
-        body: const <String, dynamic>{'onlyAvailable': true},
+        body: const <String, dynamic>{'onlyAvailable': false},
       );
       await _load();
       if (!mounted) return;
