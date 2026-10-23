@@ -2,7 +2,12 @@ import { ApiError } from '../../lib/api-error';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
 
-export type StatementRowType = 'INVOICE' | 'PAYMENT' | 'PURCHASE_ORDER';
+export type StatementRowType =
+  | 'INVOICE'
+  | 'PAYMENT'
+  | 'PURCHASE_ORDER'
+  | 'RETURN'
+  | 'SETTLEMENT';
 
 export interface StatementRow {
   /** ISO timestamp of the accounting event. */
@@ -132,7 +137,7 @@ export async function buildCustomerStatement(
 
   const range = from || to ? { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } : undefined;
 
-  const [invoices, payments] = await Promise.all([
+  const [invoices, payments, returns, settlements] = await Promise.all([
     prisma.invoice.findMany({
       where: {
         customerId,
@@ -151,6 +156,33 @@ export async function buildCustomerStatement(
         method: true,
         reference: true,
         paidAt: true,
+        createdAt: true,
+      },
+    }),
+    prisma.returnOrder.findMany({
+      where: {
+        customerId,
+        type: 'CUSTOMER_RETURN',
+        status: 'POSTED',
+        ...(range ? { returnDate: range } : {}),
+      },
+      select: { id: true, number: true, total: true, returnDate: true, notes: true, createdAt: true },
+    }),
+    prisma.accountSettlement.findMany({
+      where: {
+        customerId,
+        target: 'CUSTOMER',
+        cancelledAt: null,
+        ...(range ? { settledAt: range } : {}),
+      },
+      select: {
+        id: true,
+        number: true,
+        direction: true,
+        amount: true,
+        note: true,
+        reference: true,
+        settledAt: true,
         createdAt: true,
       },
     }),
@@ -183,25 +215,44 @@ export async function buildCustomerStatement(
   // entered when the customer was created (posted to the ledger, but with no
   // invoice or payment behind it). Reconcile the statement to that figure so the
   // opening balance shows up here too.
-  const [allInvoiceSum, allInboundSum, allOutboundSum] = await Promise.all([
-    prisma.invoice.aggregate({
-      where: { customerId, status: { not: 'VOID' } },
-      _sum: { total: true },
-    }),
-    prisma.payment.aggregate({
-      where: { customerId, direction: 'INBOUND', cancelledAt: null },
-      _sum: { amount: true },
-    }),
-    prisma.payment.aggregate({
-      where: { customerId, direction: 'OUTBOUND', cancelledAt: null },
-      _sum: { amount: true },
-    }),
-  ]);
+  const [allInvoiceSum, allInboundSum, allOutboundSum, allReturnSum, allSettlements] =
+    await Promise.all([
+      prisma.invoice.aggregate({
+        where: { customerId, status: { not: 'VOID' } },
+        _sum: { total: true },
+      }),
+      prisma.payment.aggregate({
+        where: { customerId, direction: 'INBOUND', cancelledAt: null },
+        _sum: { amount: true },
+      }),
+      prisma.payment.aggregate({
+        where: { customerId, direction: 'OUTBOUND', cancelledAt: null },
+        _sum: { amount: true },
+      }),
+      prisma.returnOrder.aggregate({
+        where: { customerId, type: 'CUSTOMER_RETURN', status: 'POSTED' },
+        _sum: { total: true },
+      }),
+      prisma.accountSettlement.findMany({
+        where: { customerId, target: 'CUSTOMER', cancelledAt: null },
+        select: { direction: true, amount: true },
+      }),
+    ]);
+  const settlementNet = allSettlements.reduce(
+    (sum, row) =>
+      sum +
+      (row.direction === 'INCREASE'
+        ? Number(row.amount)
+        : -Number(row.amount)),
+    0,
+  );
   const ledgerOpeningBalance = round2(
     Number(customer.balance) -
       Number(allInvoiceSum._sum.total ?? 0) +
       Number(allInboundSum._sum.amount ?? 0) -
-      Number(allOutboundSum._sum.amount ?? 0),
+      Number(allOutboundSum._sum.amount ?? 0) +
+      Number(allReturnSum._sum.total ?? 0) -
+      settlementNet,
   );
   openingBalance = round2(openingBalance + ledgerOpeningBalance);
 
@@ -233,6 +284,38 @@ export async function buildCustomerStatement(
       description: paymentDescription(payment),
       debit: inbound ? 0 : amount,
       credit: inbound ? amount : 0,
+    });
+  }
+
+  for (const order of returns) {
+    const note = order.notes?.trim();
+    raw.push({
+      date: order.returnDate,
+      createdAt: order.createdAt,
+      kind: 0,
+      type: 'RETURN',
+      number: order.number,
+      description:
+        note && note.length > 0 ? note : `Sales return ${order.number}`,
+      debit: 0,
+      credit: round2(Number(order.total)),
+    });
+  }
+
+  for (const settlement of settlements) {
+    const amount = round2(Number(settlement.amount));
+    raw.push({
+      date: settlement.settledAt,
+      createdAt: settlement.createdAt,
+      kind: 1,
+      type: 'SETTLEMENT',
+      number: settlement.number,
+      description:
+        settlement.note?.trim() ||
+        settlement.reference ||
+        `Settlement ${settlement.number}`,
+      debit: settlement.direction === 'INCREASE' ? amount : 0,
+      credit: settlement.direction === 'INCREASE' ? 0 : amount,
     });
   }
 
@@ -271,17 +354,30 @@ export async function buildSupplierStatement(
 
   const range = from || to ? { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } : undefined;
 
-  const [orders, payments] = await Promise.all([
+  const receivedValue = (order: {
+    lines: { receivedQty: number; unitCost: unknown }[];
+  }) =>
+    round2(
+      order.lines.reduce(
+        (sum, line) => sum + line.receivedQty * Number(line.unitCost),
+        0,
+      ),
+    );
+
+  const [allOrders, allPayments, returns, settlements] = await Promise.all([
     prisma.purchaseOrder.findMany({
-      where: {
-        supplierId,
-        status: { not: 'CANCELLED' },
-        ...(range ? { orderDate: range } : {}),
+      where: { supplierId, status: { not: 'CANCELLED' } },
+      select: {
+        id: true,
+        number: true,
+        orderDate: true,
+        notes: true,
+        createdAt: true,
+        lines: { select: { receivedQty: true, unitCost: true } },
       },
-      select: { id: true, number: true, total: true, orderDate: true, notes: true, createdAt: true },
     }),
     prisma.payment.findMany({
-      where: { supplierId, direction: 'OUTBOUND', cancelledAt: null, ...(range ? { paidAt: range } : {}) },
+      where: { supplierId, direction: 'OUTBOUND', cancelledAt: null },
       select: {
         id: true,
         number: true,
@@ -292,45 +388,127 @@ export async function buildSupplierStatement(
         createdAt: true,
       },
     }),
+    prisma.returnOrder.findMany({
+      where: {
+        supplierId,
+        type: 'SUPPLIER_RETURN',
+        status: 'POSTED',
+        ...(range ? { returnDate: range } : {}),
+      },
+      select: { id: true, number: true, total: true, returnDate: true, notes: true, createdAt: true },
+    }),
+    prisma.accountSettlement.findMany({
+      where: {
+        supplierId,
+        target: 'SUPPLIER',
+        cancelledAt: null,
+        ...(range ? { settledAt: range } : {}),
+      },
+      select: {
+        id: true,
+        number: true,
+        direction: true,
+        amount: true,
+        note: true,
+        reference: true,
+        settledAt: true,
+        createdAt: true,
+      },
+    }),
   ]);
+
+  const inRange = (date: Date) =>
+    (!from || date >= from) && (!to || date <= to);
+  const orders = allOrders.filter((order) => inRange(order.orderDate));
+  const payments = allPayments.filter((payment) => inRange(payment.paidAt));
+
+  const allReceived = round2(
+    allOrders.reduce((sum, order) => sum + receivedValue(order), 0),
+  );
+  const allPaymentsTotal = round2(
+    allPayments.reduce((sum, payment) => sum + Number(payment.amount), 0),
+  );
+  const [allReturnSum, allSettlements] = await Promise.all([
+    prisma.returnOrder.aggregate({
+      where: { supplierId, type: 'SUPPLIER_RETURN', status: 'POSTED' },
+      _sum: { total: true },
+    }),
+    prisma.accountSettlement.findMany({
+      where: { supplierId, target: 'SUPPLIER', cancelledAt: null },
+      select: { direction: true, amount: true },
+    }),
+  ]);
+  const allSettlementNet = allSettlements.reduce(
+    (sum, row) =>
+      sum +
+      (row.direction === 'INCREASE'
+        ? Number(row.amount)
+        : -Number(row.amount)),
+    0,
+  );
 
   let openingBalance = 0;
   if (from) {
-    const [orderSum, paymentSum] = await Promise.all([
-      prisma.purchaseOrder.aggregate({
-        where: { supplierId, status: { not: 'CANCELLED' }, orderDate: { lt: from } },
-        _sum: { total: true },
-      }),
-      prisma.payment.aggregate({
-        where: { supplierId, direction: 'OUTBOUND', cancelledAt: null, paidAt: { lt: from } },
-        _sum: { amount: true },
-      }),
-    ]);
-    openingBalance = round2(Number(orderSum._sum.total ?? 0) - Number(paymentSum._sum.amount ?? 0));
+    const priorReceived = round2(
+      allOrders
+        .filter((order) => order.orderDate < from)
+        .reduce((sum, order) => sum + receivedValue(order), 0),
+    );
+    const priorPayments = round2(
+      allPayments
+        .filter((payment) => payment.paidAt < from)
+        .reduce((sum, payment) => sum + Number(payment.amount), 0),
+    );
+    const priorReturns = await prisma.returnOrder.aggregate({
+      where: {
+        supplierId,
+        type: 'SUPPLIER_RETURN',
+        status: 'POSTED',
+        returnDate: { lt: from },
+      },
+      _sum: { total: true },
+    });
+    const priorSettlements = await prisma.accountSettlement.findMany({
+      where: {
+        supplierId,
+        target: 'SUPPLIER',
+        cancelledAt: null,
+        settledAt: { lt: from },
+      },
+      select: { direction: true, amount: true },
+    });
+    const priorSettlementNet = priorSettlements.reduce(
+      (sum, row) =>
+        sum +
+        (row.direction === 'INCREASE'
+          ? Number(row.amount)
+          : -Number(row.amount)),
+      0,
+    );
+    openingBalance = round2(
+      priorReceived -
+        priorPayments +
+        priorSettlementNet -
+        Number(priorReturns._sum?.total ?? 0),
+    );
   }
 
   // Include the supplier's opening balance (entered at creation and posted to
   // the ledger without a purchase order behind it) so it shows on the statement.
-  const [allOrderSum, allPaymentSum] = await Promise.all([
-    prisma.purchaseOrder.aggregate({
-      where: { supplierId, status: { not: 'CANCELLED' } },
-      _sum: { total: true },
-    }),
-    prisma.payment.aggregate({
-      where: { supplierId, direction: 'OUTBOUND', cancelledAt: null },
-      _sum: { amount: true },
-    }),
-  ]);
   const ledgerOpeningBalance = round2(
     Number(supplier.balance) -
-      Number(allOrderSum._sum.total ?? 0) +
-      Number(allPaymentSum._sum.amount ?? 0),
+      allReceived +
+      allPaymentsTotal -
+      allSettlementNet +
+      Number(allReturnSum._sum?.total ?? 0),
   );
   openingBalance = round2(openingBalance + ledgerOpeningBalance);
 
   const raw: RawRow[] = [];
 
   for (const order of orders) {
+    const value = receivedValue(order);
+    if (value === 0) continue;
     const note = order.notes?.trim();
     raw.push({
       date: order.orderDate,
@@ -340,7 +518,7 @@ export async function buildSupplierStatement(
       number: order.number,
       description: note && note.length > 0 ? note : `Purchase order ${order.number}`,
       debit: 0,
-      credit: round2(Number(order.total)),
+      credit: value,
     });
   }
 
@@ -354,6 +532,38 @@ export async function buildSupplierStatement(
       description: paymentDescription(payment),
       debit: round2(Number(payment.amount)),
       credit: 0,
+    });
+  }
+
+  for (const order of returns) {
+    const note = order.notes?.trim();
+    raw.push({
+      date: order.returnDate,
+      createdAt: order.createdAt,
+      kind: 0,
+      type: 'RETURN',
+      number: order.number,
+      description:
+        note && note.length > 0 ? note : `Purchase return ${order.number}`,
+      debit: round2(Number(order.total)),
+      credit: 0,
+    });
+  }
+
+  for (const settlement of settlements) {
+    const amount = round2(Number(settlement.amount));
+    raw.push({
+      date: settlement.settledAt,
+      createdAt: settlement.createdAt,
+      kind: 1,
+      type: 'SETTLEMENT',
+      number: settlement.number,
+      description:
+        settlement.note?.trim() ||
+        settlement.reference ||
+        `Settlement ${settlement.number}`,
+      debit: settlement.direction === 'INCREASE' ? 0 : amount,
+      credit: settlement.direction === 'INCREASE' ? amount : 0,
     });
   }
 

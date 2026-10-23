@@ -368,12 +368,16 @@ const ROW_TYPE_LABEL: Record<StatementRowType, string> = {
   INVOICE: 'Invoice',
   PAYMENT: 'Payment',
   PURCHASE_ORDER: 'Purchase order',
+  RETURN: 'Return',
+  SETTLEMENT: 'Settlement',
 };
 
 const ROW_TYPE_LABEL_AR: Record<StatementRowType, string> = {
   INVOICE: 'فاتورة',
   PAYMENT: 'سداد',
   PURCHASE_ORDER: 'أمر شراء',
+  RETURN: 'مرتجع',
+  SETTLEMENT: 'تسوية',
 };
 
 interface StatementView {

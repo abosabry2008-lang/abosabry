@@ -21,6 +21,7 @@ import '../shell/navigation.dart';
 import '../suppliers/supplier_statement_screen.dart';
 import 'extra_report_screen.dart';
 import 'financial_reports_screen.dart';
+import 'general_ledger_screen.dart';
 import 'expense_report_screen.dart';
 import 'item_movement_screen.dart';
 import 'operations_reports_screen.dart';
@@ -561,6 +562,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
           title: s.accounting,
           description: s.accountingReportsDesc,
           reports: <_ReportSpec>[
+            _ReportSpec(
+              icon: Icons.menu_book_outlined,
+              title: s.generalLedger,
+              builder: (_) => const GeneralLedgerScreen(),
+            ),
             _ReportSpec(
               icon: Icons.balance_outlined,
               title: s.trialBalance,

@@ -1038,6 +1038,8 @@ class AppStrings {
   String entriesCount(int n) => _t('$n entr${n == 1 ? 'y' : 'ies'}', '$n قيد');
   String get noEntriesForPeriod => _t('No entries for this period.', 'لا توجد قيود في هذه الفترة.');
   String get openingBalance => _t('Opening balance', 'الرصيد الافتتاحي');
+  String get generalLedger => _t('General ledger', 'دفتر الأستاذ العام');
+  String get chooseAccount => _t('Choose an account', 'اختر حساباً');
   String get totalDebit => _t('Total debit', 'إجمالي المدين');
   String get totalCredit => _t('Total credit', 'إجمالي الدائن');
   String get closingBalance => _t('Closing balance', 'الرصيد الختامي');
@@ -1068,6 +1070,11 @@ class AppStrings {
     'ACTIVE': 'نشط',
     'INACTIVE': 'غير نشط',
     'OVERDUE': 'متأخرة',
+    'INVOICE': 'فاتورة',
+    'PAYMENT': 'سداد',
+    'PURCHASE_ORDER': 'أمر شراء',
+    'RETURN': 'مرتجع',
+    'SETTLEMENT': 'تسوية',
     // Roles.
     'ADMIN': 'مدير النظام',
     'MANAGER': 'مدير',

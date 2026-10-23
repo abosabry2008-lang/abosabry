@@ -761,7 +761,7 @@ export async function buildSalespersonCustomerDebt(
   });
   const customerIds = customers.map((customer) => customer.id);
 
-  const [invoices, payments, walkInInvoices] = await Promise.all([
+  const [invoices, payments, returns, settlements, walkInInvoices] = await Promise.all([
     customerIds.length === 0
       ? Promise.resolve([])
       : prisma.invoice.findMany({
@@ -782,6 +782,28 @@ export async function buildSalespersonCustomerDebt(
             paidAt: { gte: from, lte: to },
           },
           select: { customerId: true, amount: true },
+        }),
+    customerIds.length === 0
+      ? Promise.resolve([])
+      : prisma.returnOrder.findMany({
+          where: {
+            customerId: { in: customerIds },
+            type: 'CUSTOMER_RETURN',
+            status: 'POSTED',
+            returnDate: { gte: from, lte: to },
+          },
+          select: { customerId: true, total: true },
+        }),
+    customerIds.length === 0
+      ? Promise.resolve([])
+      : prisma.accountSettlement.findMany({
+          where: {
+            customerId: { in: customerIds },
+            target: 'CUSTOMER',
+            cancelledAt: null,
+            settledAt: { gte: from, lte: to },
+          },
+          select: { customerId: true, direction: true, amount: true },
         }),
     prisma.invoice.findMany({
       where: {
@@ -830,6 +852,32 @@ export async function buildSalespersonCustomerDebt(
       payment.customerId,
       round2((creditByCustomer.get(payment.customerId) ?? 0) + Number(payment.amount)),
     );
+  }
+
+  // Returns and settlements move the balance too, so they must appear in the
+  // period columns instead of being folded into "previous".
+  for (const order of returns) {
+    if (!order.customerId) continue;
+    creditByCustomer.set(
+      order.customerId,
+      round2((creditByCustomer.get(order.customerId) ?? 0) + Number(order.total)),
+    );
+  }
+
+  for (const settlement of settlements) {
+    if (!settlement.customerId) continue;
+    const amount = Number(settlement.amount);
+    if (settlement.direction === 'INCREASE') {
+      debitByCustomer.set(
+        settlement.customerId,
+        round2((debitByCustomer.get(settlement.customerId) ?? 0) + amount),
+      );
+    } else {
+      creditByCustomer.set(
+        settlement.customerId,
+        round2((creditByCustomer.get(settlement.customerId) ?? 0) + amount),
+      );
+    }
   }
 
   const rows: SalespersonCustomerRow[] = [];

@@ -110,7 +110,7 @@ async function customerOpeningBalance(tx: Tx, customerId: string): Promise<numbe
  * settlement) silently wiped the opening balance.
  */
 export async function recalcCustomerBalance(tx: Tx, customerId: string): Promise<void> {
-  const [aggregate, settlements, openingBalance, unlinkedIn, unlinkedOut] =
+  const [aggregate, settlements, openingBalance, unlinkedIn, unlinkedOut, returns] =
     await Promise.all([
       tx.invoice.aggregate({
         where: {
@@ -145,6 +145,15 @@ export async function recalcCustomerBalance(tx: Tx, customerId: string): Promise
         },
         _sum: { amount: true },
       }),
+      // Posted customer returns reduce the receivable.
+      tx.returnOrder.aggregate({
+        where: {
+          customerId,
+          type: 'CUSTOMER_RETURN',
+          status: 'POSTED',
+        },
+        _sum: { total: true },
+      }),
     ]);
 
   const invoiceBalance = Number(aggregate._sum.balance ?? 0);
@@ -155,11 +164,14 @@ export async function recalcCustomerBalance(tx: Tx, customerId: string): Promise
   const onAccount = round2(
     Number(unlinkedIn._sum.amount ?? 0) - Number(unlinkedOut._sum.amount ?? 0),
   );
+  const returned = round2(Number(returns._sum.total ?? 0));
 
   await tx.customer.update({
     where: { id: customerId },
     data: {
-      balance: round2(openingBalance + invoiceBalance + adjustment - onAccount),
+      balance: round2(
+        openingBalance + invoiceBalance + adjustment - onAccount - returned,
+      ),
     },
   });
 }

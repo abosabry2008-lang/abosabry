@@ -1,4 +1,5 @@
 import { Router, type Request } from 'express';
+import { Prisma } from '@prisma/client';
 import { ApiError } from '../../lib/api-error';
 import { asyncHandler, ok } from '../../lib/http';
 import { round2 } from '../../lib/money';
@@ -675,6 +676,103 @@ router.get(
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
     ok(res, await buildPaymentsByMethod(from, to));
+  }),
+);
+
+// GET /reports/general-ledger?accountId=&from=&to=
+router.get(
+  '/general-ledger',
+  requirePermission('accounting.read'),
+  asyncHandler(async (req, res) => {
+    const accountId = asString(req.query.accountId);
+    if (!accountId) throw ApiError.badRequest('accountId is required');
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const account = await prisma.account.findUnique({
+      where: { id: accountId },
+      select: { id: true, code: true, name: true, type: true },
+    });
+    if (!account) throw ApiError.notFound('Account not found');
+
+    const [openingLines, lines] = await Promise.all([
+      from
+        ? prisma.journalLine.findMany({
+            where: { accountId, journalEntry: { entryDate: { lt: from } } },
+            select: { debit: true, credit: true },
+          })
+        : Promise.resolve([] as { debit: Prisma.Decimal; credit: Prisma.Decimal }[]),
+      prisma.journalLine.findMany({
+        where: {
+          accountId,
+          ...(from || to
+            ? {
+                journalEntry: {
+                  ...(from || to
+                    ? {
+                        entryDate: {
+                          ...(from ? { gte: from } : {}),
+                          ...(to ? { lte: to } : {}),
+                        },
+                      }
+                    : {}),
+                },
+              }
+            : {}),
+        },
+        orderBy: [{ journalEntry: { entryDate: 'asc' } }, { journalEntry: { createdAt: 'asc' } }],
+        include: {
+          journalEntry: {
+            select: {
+              id: true,
+              number: true,
+              memo: true,
+              reference: true,
+              entryDate: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    let running = round2(
+      openingLines.reduce(
+        (sum, line) => sum + Number(line.debit) - Number(line.credit),
+        0,
+      ),
+    );
+    const opening = running;
+    const rows = lines.map((line) => {
+      const debit = round2(Number(line.debit));
+      const credit = round2(Number(line.credit));
+      running = round2(running + debit - credit);
+      return {
+        id: line.id,
+        date: line.journalEntry.entryDate,
+        entryNumber: line.journalEntry.number,
+        memo: line.journalEntry.memo,
+        reference: line.journalEntry.reference,
+        description: line.description,
+        debit,
+        credit,
+        balance: running,
+      };
+    });
+    const totals = rows.reduce(
+      (acc, row) => ({
+        debit: round2(acc.debit + row.debit),
+        credit: round2(acc.credit + row.credit),
+      }),
+      { debit: 0, credit: 0 },
+    );
+
+    ok(res, {
+      account,
+      from: from ? dayKey(from) : null,
+      to: to ? dayKey(to) : null,
+      opening,
+      rows,
+      totals,
+    });
   }),
 );
 
