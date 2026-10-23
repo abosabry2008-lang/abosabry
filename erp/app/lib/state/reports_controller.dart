@@ -24,7 +24,12 @@ class DashboardController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      final data = await api.getObject('/reports/dashboard');
+      final data = await api.getObject(
+        '/reports/dashboard',
+        query: <String, dynamic>{
+          'tzOffset': DateTime.now().timeZoneOffset.inMinutes,
+        },
+      );
       summary = DashboardSummary.fromJson(data);
       recentMovements = asMapList(data['recentMovements'] ?? data['movements'])
           .map(StockMovement.fromJson)

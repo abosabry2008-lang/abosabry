@@ -11,7 +11,6 @@ import {
   customerAccessWhere,
   invoiceAccessWhere,
   isSalesperson,
-  salesOrderAccessWhere,
   scopedSalespersonId,
 } from '../../lib/salesperson-scope';
 import { authenticateToken } from '../../middleware/authenticate-token';
@@ -62,10 +61,6 @@ const router = Router();
 // browser (e.g. the Excel backup download).
 router.use(authenticateToken);
 
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
 // GET /reports/dashboard
 function requireProfitAccess(req: Request): void {
   if (!canViewProfit(currentUser(req))) {
@@ -104,11 +99,24 @@ router.get(
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
     const own = isSalesperson(user);
-    const orderScope = salesOrderAccessWhere(user) ?? {};
     const invoiceScope = invoiceAccessWhere(user) ?? {};
     const now = new Date();
-    const todayStart = startOfDay(now);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    // The browser sends its UTC offset so "today" matches the user's calendar,
+    // not the server's timezone.
+    const tzOffsetMinutes = Number(asString(req.query.tzOffset) ?? 0);
+    const tzOffsetMs = tzOffsetMinutes * 60 * 1000;
+    const localNow = new Date(now.getTime() + tzOffsetMs);
+    const todayStart = new Date(
+      Date.UTC(
+        localNow.getUTCFullYear(),
+        localNow.getUTCMonth(),
+        localNow.getUTCDate(),
+      ) - tzOffsetMs,
+    );
+    const monthStart = new Date(
+      Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), 1) -
+        tzOffsetMs,
+    );
     const last30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000);
 
@@ -132,13 +140,21 @@ router.get(
       // Supplier figures are not part of a representative's work.
       own ? 0 : prisma.supplier.count({ where: { active: true } }),
       prisma.warehouse.count({ where: { active: true } }),
-      prisma.salesOrder.aggregate({
-        where: { orderDate: { gte: todayStart }, status: { not: 'CANCELLED' }, ...orderScope },
+      prisma.invoice.aggregate({
+        where: {
+          status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+          issueDate: { gte: todayStart, lte: now },
+          ...invoiceScope,
+        },
         _sum: { total: true },
         _count: { _all: true },
       }),
-      prisma.salesOrder.aggregate({
-        where: { orderDate: { gte: monthStart }, status: { not: 'CANCELLED' }, ...orderScope },
+      prisma.invoice.aggregate({
+        where: {
+          status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+          issueDate: { gte: monthStart, lte: now },
+          ...invoiceScope,
+        },
         _sum: { total: true },
         _count: { _all: true },
       }),
@@ -159,15 +175,29 @@ router.get(
           location: { select: { id: true, code: true, name: true } },
         },
       }),
-      prisma.salesOrderLine.findMany({
+      prisma.invoiceLine.findMany({
         where: {
-          salesOrder: { orderDate: { gte: last30 }, status: { not: 'CANCELLED' }, ...orderScope },
+          invoice: {
+            status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+            issueDate: { gte: last30, lte: now },
+            ...invoiceScope,
+          },
         },
-        select: { productId: true, quantity: true, unitPrice: true },
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          discount: true,
+          invoiceId: true,
+        },
       }),
-      prisma.salesOrder.findMany({
-        where: { orderDate: { gte: weekStart }, status: { not: 'CANCELLED' }, ...orderScope },
-        select: { orderDate: true, total: true },
+      prisma.invoice.findMany({
+        where: {
+          status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+          issueDate: { gte: weekStart, lte: now },
+          ...invoiceScope,
+        },
+        select: { issueDate: true, total: true },
       }),
     ]);
 
@@ -197,9 +227,13 @@ router.get(
 
     const topMap = new Map<string, { quantity: number; revenue: number }>();
     for (const line of salesLines) {
+      if (!line.productId) continue;
       const entry = topMap.get(line.productId) ?? { quantity: 0, revenue: 0 };
       entry.quantity += line.quantity;
-      entry.revenue += line.quantity * Number(line.unitPrice);
+      entry.revenue += Math.max(
+        0,
+        line.quantity * Number(line.unitPrice) - Number(line.discount),
+      );
       topMap.set(line.productId, entry);
     }
     const topIds = [...topMap.entries()].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 5);
@@ -211,14 +245,16 @@ router.get(
       : [];
     const topNameById = new Map(topProducts.map((product) => [product.id, product]));
 
+    const localDayKey = (date: Date) =>
+      new Date(date.getTime() + tzOffsetMs).toISOString().slice(0, 10);
     const series: { date: string; total: number; orders: number }[] = [];
     for (let i = 6; i >= 0; i -= 1) {
       const day = new Date(todayStart.getTime() - i * 24 * 60 * 60 * 1000);
-      series.push({ date: dayKey(day), total: 0, orders: 0 });
+      series.push({ date: localDayKey(day), total: 0, orders: 0 });
     }
     const seriesByDate = new Map(series.map((point) => [point.date, point]));
     for (const order of recentOrders) {
-      const point = seriesByDate.get(dayKey(order.orderDate));
+      const point = seriesByDate.get(localDayKey(order.issueDate));
       if (point) {
         point.total = round2(point.total + Number(order.total));
         point.orders += 1;
