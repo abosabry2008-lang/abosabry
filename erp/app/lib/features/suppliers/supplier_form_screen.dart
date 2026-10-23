@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
+import '../../core/json_utils.dart';
 import '../../core/l10n.dart';
+import '../../core/session.dart';
 import '../../models/supplier.dart';
 import '../../state/suppliers_controller.dart';
 import '../../widgets/confirm_dialog.dart';
@@ -46,6 +48,40 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
   late bool _active = widget.supplier?.active ?? true;
   bool _saving = false;
 
+  /// Opening balance is an administrator-only figure.
+  bool _isAdmin = false;
+  /// False while an existing supplier's opening balance is still loading, so a
+  /// save cannot overwrite it with the placeholder zero.
+  bool _openingReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isAdmin = context.read<Session>().isAdmin;
+    if (!_isAdmin) return;
+    if (!widget.isEditing) {
+      _openingReady = true;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try {
+        final data = await context
+            .read<Session>()
+            .api
+            .getObject('/suppliers/${widget.supplier!.id}');
+        if (!mounted) return;
+        final opening = asDouble(data['openingBalance']);
+        _openingBalance.text = opening == opening.roundToDouble()
+            ? opening.round().toString()
+            : opening.toString();
+        setState(() => _openingReady = true);
+      } on ApiException {
+        // Not loaded: the field stays hidden and is not sent, so nothing is overwritten.
+      }
+    });
+  }
+
   @override
   void dispose() {
     _name.dispose();
@@ -70,7 +106,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
         'taxId': _taxId.text.trim().isEmpty ? null : _taxId.text.trim(),
         'paymentTermDays': int.tryParse(_paymentTermDays.text.trim()) ?? 30,
         'active': _active,
-        if (!widget.isEditing)
+        if (_isAdmin && _openingReady)
           'openingBalance': double.tryParse(_openingBalance.text.trim()) ?? 0,
       };
 
@@ -219,7 +255,7 @@ class _SupplierFormScreenState extends State<SupplierFormScreen> {
                     decimal: false,
                     prefixIcon: Icons.schedule_outlined,
                   ),
-                  if (!widget.isEditing) ...<Widget>[
+                  if (_isAdmin && _openingReady) ...<Widget>[
                     const SizedBox(height: 14),
                     AppNumberField(
                       label: 'الرصيد الافتتاحى (ما علينا للمورد)',

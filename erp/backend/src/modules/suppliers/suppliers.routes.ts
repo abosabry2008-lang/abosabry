@@ -11,6 +11,7 @@ import { asBool, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
+import { getSupplierOpeningBalance, setSupplierOpeningBalance } from './supplier-opening';
 
 const router = Router();
 router.use(authenticate);
@@ -84,7 +85,13 @@ router.get(
       include: { _count: { select: { purchaseOrders: true } } },
     });
     if (!supplier) throw ApiError.notFound('Supplier not found');
-    ok(res, supplier);
+    // The opening balance is an administrator-only figure.
+    const user = currentUser(req);
+    if ((user.role ?? '').toUpperCase() !== 'ADMIN') {
+      ok(res, supplier);
+      return;
+    }
+    ok(res, { ...supplier, openingBalance: await getSupplierOpeningBalance(supplier.id) });
   }),
 );
 
@@ -95,6 +102,9 @@ router.post(
   asyncHandler(async (req, res) => {
     const { openingBalance, code, ...data } = req.body as any;
     const amount = round2(Number(openingBalance ?? 0));
+    if (amount !== 0 && (currentUser(req).role ?? '').toUpperCase() !== 'ADMIN') {
+      throw ApiError.forbidden('Only an administrator can set an opening balance');
+    }
     const supplier = await prisma.$transaction(async (tx) => {
       const resolvedCode = hasCode(code) ? code.trim() : await generateSupplierCode();
       const created = await tx.supplier.create({ data: { ...data, code: resolvedCode } });
@@ -128,7 +138,18 @@ router.patch(
   requirePermission('purchasing.write'),
   validateBody(schema.partial()),
   asyncHandler(async (req, res) => {
-    const supplier = await prisma.supplier.update({ where: { id: req.params.id }, data: req.body });
+    const user = currentUser(req);
+    const { openingBalance, ...data } = req.body as { openingBalance?: number } & Record<string, unknown>;
+    if (openingBalance !== undefined && (user.role ?? '').toUpperCase() !== 'ADMIN') {
+      throw ApiError.forbidden('Only an administrator can change an opening balance');
+    }
+    const supplier = await prisma.$transaction(async (tx) => {
+      await tx.supplier.update({ where: { id: req.params.id }, data: data as Prisma.SupplierUncheckedUpdateInput });
+      if (openingBalance !== undefined) {
+        await setSupplierOpeningBalance(tx, req.params.id, Number(openingBalance), user.id);
+      }
+      return tx.supplier.findUniqueOrThrow({ where: { id: req.params.id } });
+    });
     ok(res, supplier);
   }),
 );

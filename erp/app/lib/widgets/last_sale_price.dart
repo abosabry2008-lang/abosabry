@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/api_client.dart';
+import '../core/api_exception.dart';
 import '../core/formatters.dart';
 import '../core/json_utils.dart';
 import '../core/l10n.dart';
+import '../core/session.dart';
+import '../models/product.dart';
 
 /// The price a customer was last invoiced for a product.
 class LastSalePrice {
@@ -41,6 +45,67 @@ Future<LastSalePrice?> fetchLastSalePrice(
   final data = asMap(json)['data'];
   if (data is! Map) return null;
   return LastSalePrice.fromJson(asMap(data));
+}
+
+/// Loads and shows the last sale price for [product] to [customerId]. Renders
+/// nothing when there is no product or no earlier sale.
+class LastSalePriceLoader extends StatefulWidget {
+  const LastSalePriceLoader({
+    super.key,
+    required this.customerId,
+    required this.product,
+  });
+
+  final String customerId;
+  final Product? product;
+
+  @override
+  State<LastSalePriceLoader> createState() => _LastSalePriceLoaderState();
+}
+
+class _LastSalePriceLoaderState extends State<LastSalePriceLoader> {
+  LastSalePrice? _price;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant LastSalePriceLoader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.product?.id != widget.product?.id ||
+        oldWidget.customerId != widget.customerId) {
+      setState(() => _price = null);
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final product = widget.product;
+    if (product == null) return;
+    final key = '${widget.customerId}|${product.id}';
+    try {
+      final last = await fetchLastSalePrice(
+        context.read<Session>().api,
+        customerId: widget.customerId,
+        productId: product.id,
+      );
+      if (!mounted || last == null) return;
+      if ('${widget.customerId}|${widget.product?.id}' != key) return;
+      setState(() => _price = last);
+    } on ApiException {
+      // The history hint is optional.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final price = _price;
+    if (price == null) return const SizedBox.shrink();
+    return LastSalePriceHint(price: price);
+  }
 }
 
 /// Screen-only hint: the price this customer paid last time for the product.

@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
+import '../core/api_exception.dart';
 import '../core/formatters.dart';
 import '../core/l10n.dart';
+import '../core/session.dart';
 import '../features/inventory/product_picker_field.dart';
 import '../models/product.dart';
 import 'form_fields.dart';
 import 'last_purchase_price_hint.dart';
+import 'last_sale_price.dart';
 
 /// Editable order line used by the purchase and sales order forms.
 class OrderLineDraft {
@@ -204,6 +209,7 @@ class OrderLinesEditor extends StatelessWidget {
     this.priceLabel,
     this.preferSalePrice = false,
     this.enforceSalePriceFloor = false,
+    this.customerId,
   });
 
   final List<OrderLineDraft> lines;
@@ -221,6 +227,10 @@ class OrderLinesEditor extends StatelessWidget {
   /// an error message (sales must not sell below cost).
   final bool enforceSalePriceFloor;
 
+  /// Customer of a sales document. When set, each item shows what this
+  /// customer last paid and the price starts at that amount.
+  final String? customerId;
+
   double get subtotal =>
       lines.fold<double>(0, (sum, line) => sum + line.gross);
 
@@ -232,10 +242,34 @@ class OrderLinesEditor extends StatelessWidget {
 
   double get total => lines.fold<double>(0, (sum, line) => sum + line.lineTotal);
 
-  void _addProduct(Product product) {
+  void _addProduct(BuildContext context, Product product) {
     final line = OrderLineDraft()..setProduct(product, preferSalePrice: preferSalePrice);
     lines.add(line);
     onChanged();
+    _prefillLastPrice(context, line, product);
+  }
+
+  /// Starts the line at the price this customer paid last time, when known.
+  Future<void> _prefillLastPrice(
+    BuildContext context,
+    OrderLineDraft line,
+    Product product,
+  ) async {
+    final customer = customerId;
+    if (customer == null) return;
+    try {
+      final last = await fetchLastSalePrice(
+        context.read<Session>().api,
+        customerId: customer,
+        productId: product.id,
+      );
+      if (!context.mounted || last == null) return;
+      if (!lines.contains(line) || line.product?.id != product.id) return;
+      line.priceController.text = OrderLineDraft._format(last.unitPrice);
+      onChanged();
+    } on ApiException {
+      // The history is optional; the list price stays in place.
+    }
   }
 
   @override
@@ -255,7 +289,7 @@ class OrderLinesEditor extends StatelessWidget {
             product: null,
             enabled: enabled,
             label: s.addLine,
-            onChanged: _addProduct,
+            onChanged: (product) => _addProduct(context, product),
           ),
         ),
         const SizedBox(height: 12),
@@ -283,6 +317,7 @@ class OrderLinesEditor extends StatelessWidget {
                 showDiscount: showDiscount,
                 showTax: showTax,
                 enforceSalePriceFloor: enforceSalePriceFloor,
+                customerId: customerId,
                 onChanged: onChanged,
                 onRemove: () {
                   lines.removeAt(index).dispose();
@@ -328,6 +363,7 @@ class _OrderLineRow extends StatefulWidget {
     required this.showDiscount,
     required this.showTax,
     required this.enforceSalePriceFloor,
+    this.customerId,
     required this.onChanged,
     required this.onRemove,
   });
@@ -339,6 +375,7 @@ class _OrderLineRow extends StatefulWidget {
   final bool showDiscount;
   final bool showTax;
   final bool enforceSalePriceFloor;
+  final String? customerId;
   final VoidCallback onChanged;
   final VoidCallback onRemove;
 
@@ -455,6 +492,8 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                 ),
               ],
             ),
+            if (widget.customerId != null && product != null)
+              LastSalePriceLoader(customerId: widget.customerId!, product: product),
             if (widget.enforceSalePriceFloor && line.priceBelowCost)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -491,7 +530,7 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                     ),
                 ],
               ),
-              LastPurchasePriceHint(product: product),
+              if (widget.customerId == null) LastPurchasePriceHint(product: product),
             ],
           ],
         ),

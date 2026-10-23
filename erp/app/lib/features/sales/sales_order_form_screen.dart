@@ -296,6 +296,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                 showDiscount: true,
                 preferSalePrice: true,
                 enforceSalePriceFloor: true,
+                customerId: _customerId,
                 onChanged: () => setState(() => _linesDirty = true),
               ),
             ),
