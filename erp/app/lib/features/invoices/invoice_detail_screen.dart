@@ -308,6 +308,20 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     currencyCode: invoice.currencyCode,
                     emphasise: true,
                   ),
+                  if (invoice.customerId != null) ...<Widget>[
+                    const Divider(),
+                    _TotalRow(
+                      label: s.previousBalanceLabel,
+                      amount: invoice.previousBalance,
+                      currencyCode: invoice.currencyCode,
+                    ),
+                    _TotalRow(
+                      label: s.totalDueLabel,
+                      amount: invoice.previousBalance + invoice.balance,
+                      currencyCode: invoice.currencyCode,
+                      emphasise: true,
+                    ),
+                  ],
                 ],
               ),
             ),

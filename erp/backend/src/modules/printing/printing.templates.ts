@@ -259,9 +259,6 @@ export function invoiceHtml(
 ): string {
   const ar = (options.lang ?? 'en') === 'ar';
   const t = (en: string, arabic: string) => (ar ? arabic : en);
-  const currency = invoice.currency
-    ? `${invoice.currency.code} (${invoice.currency.symbol})`
-    : settings.baseCurrencyCode;
 
   // What the customer already owed before this invoice (open balance on their
   // other documents plus any opening balance).
@@ -300,11 +297,8 @@ export function invoiceHtml(
 
   const body = `    <section class="meta">
       <div><span class="label">${escapeHtml(t('Invoice', 'فاتورة'))}</span><span class="value">${escapeHtml(invoice.number)}</span></div>
-      <div><span class="label">${escapeHtml(t('Status', 'الحالة'))}</span><span class="value">${escapeHtml(ar ? invoiceStatusAr(invoice.status) : invoice.status)}</span></div>
       <div><span class="label">${escapeHtml(t('Issue date', 'تاريخ الإصدار'))}</span><span class="value">${escapeHtml(formatDate(invoice.issueDate))}</span></div>
       <div><span class="label">${escapeHtml(t('Due date', 'تاريخ الاستحقاق'))}</span><span class="value">${escapeHtml(invoice.dueDate ? formatDate(invoice.dueDate) : '—')}</span></div>
-      <div><span class="label">${escapeHtml(t('Currency', 'العملة'))}</span><span class="value">${escapeHtml(currency)}</span></div>
-      <div><span class="label">${escapeHtml(t('Reference', 'المرجع'))}</span><span class="value">${escapeHtml(invoice.salesOrder?.number ?? '—')}</span></div>
     </section>
     <section class="panel">
       <h3>${escapeHtml(t('Bill to', 'العميل'))}</h3>
@@ -336,7 +330,7 @@ ${lineRows || `        <tr><td colspan="8" class="muted center">${escapeHtml(t('
           <tr class="grand"><th>${escapeHtml(t('Total', 'الإجمالي'))}</th><td class="num">${money(invoice.total)}</td></tr>
           <tr><th>${escapeHtml(t('Paid', 'المدفوع'))}</th><td class="num">${money(invoice.amountPaid)}</td></tr>
           <tr class="grand"><th>${escapeHtml(t('Balance due', 'المستحق'))}</th><td class="num">${money(invoice.balance)}</td></tr>${
-            customer && previousBalance !== 0
+            customer
               ? `
           <tr><th>${escapeHtml(t('Previous balance', 'الرصيد السابق'))}</th><td class="num">${money(previousBalance)}</td></tr>
           <tr class="grand"><th>${escapeHtml(t('Total due', 'إجمالي المديونية'))}</th><td class="num">${money(
@@ -364,24 +358,6 @@ ${lineRows || `        <tr><td colspan="8" class="muted center">${escapeHtml(t('
     dir: ar ? 'rtl' : 'ltr',
     lang: ar ? 'ar' : 'en',
   });
-}
-
-/** Arabic label for an invoice status. */
-function invoiceStatusAr(status: string): string {
-  switch (status) {
-    case 'DRAFT':
-      return 'مسودة';
-    case 'ISSUED':
-      return 'مُصدرة';
-    case 'PARTIALLY_PAID':
-      return 'مدفوعة جزئيًا';
-    case 'PAID':
-      return 'مدفوعة';
-    case 'VOID':
-      return 'ملغاة';
-    default:
-      return status;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -823,6 +799,17 @@ export function itemMovementHtml(
         <td>${escapeHtml(formatDate(row.date))}</td>
         <td>${escapeHtml(row.type)}</td>
         <td>${escapeHtml(row.reference ?? '—')}</td>
+        <td>${escapeHtml(
+          row.party
+            ? row.party.type === 'CASH'
+              ? ar
+                ? 'بيع نقدي'
+                : 'Cash sale'
+              : row.party.type === 'CUSTOMER'
+                ? `${ar ? (row.dir === 'IN' ? 'من العميل' : 'إلى العميل') : row.dir === 'IN' ? 'From customer' : 'To customer'}: ${row.party.name ?? '—'}`
+                : `${ar ? (row.dir === 'IN' ? 'من المورد' : 'إلى المورد') : row.dir === 'IN' ? 'From supplier' : 'To supplier'}: ${row.party.name ?? '—'}`
+            : '—',
+        )}</td>
         <td>${escapeHtml(row.warehouse ?? '—')}</td>
         <td>${escapeHtml(row.location ?? '—')}</td>
         <td class="num">${row.in ? escapeHtml(row.in) : ''}</td>
@@ -845,6 +832,7 @@ export function itemMovementHtml(
           <th>${ar ? 'التاريخ' : 'Date'}</th>
           <th>${ar ? 'النوع' : 'Type'}</th>
           <th>${ar ? 'المرجع' : 'Reference'}</th>
+          <th>${ar ? 'الجهة' : 'Party'}</th>
           <th>${ar ? 'المستودع' : 'Warehouse'}</th>
           <th>${ar ? 'الموقع' : 'Location'}</th>
           <th class="num">${ar ? 'وارد' : 'In'}</th>
@@ -855,8 +843,8 @@ export function itemMovementHtml(
         </tr>
       </thead>
       <tbody>
-${rows || `        <tr><td colspan="10" class="muted center">${empty}</td></tr>`}
-        <tr class="total"><td colspan="5">${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${escapeHtml(report.totals.inQty)}</td><td class="num">${escapeHtml(report.totals.outQty)}</td><td class="num">${escapeHtml(report.totals.closingQty)}</td><td></td><td class="num">${money(report.totals.closingValue)}</td></tr>
+${rows || `        <tr><td colspan="11" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td colspan="6">${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${escapeHtml(report.totals.inQty)}</td><td class="num">${escapeHtml(report.totals.outQty)}</td><td class="num">${escapeHtml(report.totals.closingQty)}</td><td></td><td class="num">${money(report.totals.closingValue)}</td></tr>
       </tbody>
     </table>`;
 

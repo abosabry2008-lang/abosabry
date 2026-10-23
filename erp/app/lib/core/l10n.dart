@@ -553,6 +553,11 @@ class AppStrings {
   String get addSupplierHint =>
       _t('Add a supplier to create purchase orders.', 'أضف موردًا لإنشاء أوامر الشراء.');
   String get supplier => _t('Supplier', 'مورد');
+  String get fromCustomer => _t('From customer', 'من العميل');
+  String get toCustomer => _t('To customer', 'إلى العميل');
+  String get fromSupplier => _t('From supplier', 'من المورد');
+  String get toSupplier => _t('To supplier', 'إلى المورد');
+  String get cashSale => _t('Cash sale', 'بيع نقدي');
   String get newSupplier => _t('New supplier', 'مورد جديد');
   String get deleteSupplierQ => _t('Delete supplier?', 'حذف المورد؟');
   String supplierWillBeRemoved(String name) =>

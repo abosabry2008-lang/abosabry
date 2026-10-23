@@ -14,6 +14,7 @@ import {
   createInvoiceTx,
   issueInvoiceTx,
 } from '../invoices/invoices.service';
+import { createPaymentTx, ensureDefaultCashBoxTx } from '../payments/payments.service';
 import {
   assertCustomerAccess,
   assertSalesOrderAccess,
@@ -252,6 +253,22 @@ router.post(
         userId: user.id,
       });
       const invoice = await issueInvoiceTx(tx, draft.id, user.id);
+      // A walk-in order has no customer account to owe the money, so it is a
+      // cash sale: collect the full amount into the default box immediately.
+      if (!order.customerId) {
+        const box = await ensureDefaultCashBoxTx(tx);
+        await createPaymentTx(tx, {
+          direction: 'INBOUND',
+          invoiceId: invoice.id,
+          customerId: null,
+          cashBoxId: box.id,
+          method: 'CASH',
+          amount: Number(invoice.total),
+          paidAt: new Date(),
+          note: `Cash sale ${order.number}`,
+          userId: user.id,
+        });
+      }
       return {
         order,
         invoice: { id: invoice.id, number: invoice.number, status: invoice.status },

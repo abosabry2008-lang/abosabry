@@ -236,6 +236,18 @@ class _MovementRow extends StatelessWidget {
     final theme = Theme.of(context);
     final isIn = asString(row['dir']).toUpperCase() == 'IN';
     final quantity = _num(row['quantity']);
+    final party = asMap(row['party']);
+    final partyType = asString(party['type']);
+    final partyName = asStringOrNull(party['name']);
+    final partyLabel = party.isEmpty
+        ? null
+        : partyType == 'CASH'
+            ? s.cashSale
+            : partyType == 'CUSTOMER'
+                ? '${isIn ? s.fromCustomer : s.toCustomer}: ${partyName ?? '—'}'
+                : partyType == 'SUPPLIER'
+                    ? '${isIn ? s.fromSupplier : s.toSupplier}: ${partyName ?? '—'}'
+                    : null;
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
@@ -244,9 +256,12 @@ class _MovementRow extends StatelessWidget {
         '${s.status(asStringOrNull(row['type']))}',
       ),
       subtitle: Text(
-        '${asString(row['reference'], fallback: '—')} · '
-        '${asString(row['location'], fallback: '—')} · '
-        '${s.runningBalance}: ${Formatters.integer(_num(row['balance']))}',
+        <String>[
+          if (partyLabel != null) partyLabel,
+          asString(row['reference'], fallback: '—'),
+          asString(row['location'], fallback: '—'),
+          '${s.runningBalance}: ${Formatters.integer(_num(row['balance']))}',
+        ].join(' · '),
       ),
       trailing: Column(
         mainAxisSize: MainAxisSize.min,

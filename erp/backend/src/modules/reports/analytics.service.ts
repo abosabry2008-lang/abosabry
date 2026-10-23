@@ -358,10 +358,18 @@ export async function buildStockBalance(
 // Item movement / stock card (تتبع حركة صنف)
 // ---------------------------------------------------------------------------
 
+export interface ItemMovementParty {
+  type: 'CUSTOMER' | 'SUPPLIER' | 'CASH';
+  name: string | null;
+}
+
 export interface ItemMovementRow {
   date: string;
   type: string;
   reference: string | null;
+  /** Who the goods went to / came from, when the movement says so. */
+  party: ItemMovementParty | null;
+  note: string | null;
   warehouse: string | null;
   location: string | null;
   quantity: number;
@@ -437,6 +445,43 @@ export async function buildItemMovement(
     prisma.warehouse.findMany({ select: { id: true, name: true } }),
   ]);
 
+  const references = [
+    ...new Set(
+      movements
+        .map((movement) => movement.reference)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const [salesOrders, purchaseOrders, returnOrders] = references.length
+    ? await Promise.all([
+        prisma.salesOrder.findMany({
+          where: { number: { in: references } },
+          select: {
+            number: true,
+            customer: { select: { name: true } },
+            user: { select: { name: true } },
+          },
+        }),
+        prisma.purchaseOrder.findMany({
+          where: { number: { in: references } },
+          select: { number: true, supplier: { select: { name: true } } },
+        }),
+        prisma.returnOrder.findMany({
+          where: { number: { in: references } },
+          select: {
+            number: true,
+            type: true,
+            customer: { select: { name: true } },
+            supplier: { select: { name: true } },
+          },
+        }),
+      ])
+    : [[], [], []];
+
+  const salesByNumber = new Map(salesOrders.map((order) => [order.number, order]));
+  const purchaseByNumber = new Map(purchaseOrders.map((order) => [order.number, order]));
+  const returnByNumber = new Map(returnOrders.map((order) => [order.number, order]));
+
   const warehouseById = new Map(warehouses.map((warehouse) => [warehouse.id, warehouse.name]));
 
   let openingQty = 0;
@@ -463,10 +508,40 @@ export async function buildItemMovement(
       outQty += -movement.quantity;
       outValue = round2(outValue - value);
     }
+    const reference = movement.reference;
+    let party: ItemMovementParty | null = null;
+    if (reference) {
+      if (movement.type === 'SALE') {
+        const order = salesByNumber.get(reference);
+        if (order) {
+          party = order.customer
+            ? { type: 'CUSTOMER', name: order.customer.name }
+            : { type: 'CASH', name: order.user?.name ?? null };
+        }
+      } else if (movement.type === 'SALE_RETURN') {
+        const order = returnByNumber.get(reference);
+        if (order?.customer) {
+          party = { type: 'CUSTOMER', name: order.customer.name };
+        }
+      } else if (movement.type === 'PURCHASE' || movement.type === 'RECEIVE') {
+        const order = purchaseByNumber.get(reference);
+        if (order?.supplier) {
+          party = { type: 'SUPPLIER', name: order.supplier.name };
+        }
+      } else if (movement.type === 'PURCHASE_RETURN') {
+        const order = returnByNumber.get(reference);
+        if (order?.supplier) {
+          party = { type: 'SUPPLIER', name: order.supplier.name };
+        }
+      }
+    }
+
     return {
       date: movement.createdAt.toISOString(),
       type: movement.type,
-      reference: movement.reference,
+      reference,
+      party,
+      note: movement.note,
       warehouse: warehouseById.get(movement.warehouseId) ?? null,
       location: movement.location.name ?? movement.location.code,
       quantity: movement.quantity,

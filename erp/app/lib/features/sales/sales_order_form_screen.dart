@@ -11,6 +11,7 @@ import '../../state/product_catalog.dart';
 import '../../state/sales_orders_controller.dart';
 import '../../state/salespeople_controller.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/money_text.dart';
 import '../../widgets/order_lines_editor.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/searchable_picker_field.dart';
@@ -198,6 +199,11 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
     final filteredCustomers = customers.catalog
         .where((c) => _salespersonId == null || c.salespersonId == _salespersonId)
         .toList();
+    final selectedCustomer = _customerId == null
+        ? null
+        : customers.catalog
+            .where((customer) => customer.id == _customerId)
+            .firstOrNull;
 
     return Scaffold(
       body: Form(
@@ -256,6 +262,31 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                         .toList(),
                     onChanged: (value) => setState(() => _customerId = value),
                   ),
+                  if (selectedCustomer != null) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              '${s.previousBalanceLabel}: ${selectedCustomer.name}',
+                            ),
+                          ),
+                          MoneyText(selectedCustomer.balance),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   AppSelectField<String>(
                     label: s.warehouseRequired,
