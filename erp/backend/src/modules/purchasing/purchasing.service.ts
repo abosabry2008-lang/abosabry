@@ -276,6 +276,70 @@ export interface ReceivePurchaseOrderInput {
   userId?: string;
 }
 
+/**
+ * Applies a new sale price to every line of this product whose sales order has
+ * not been invoiced yet, then rebuilds each affected order's totals.
+ */
+async function applyNewSalePriceToOpenOrders(
+  tx: Tx,
+  productId: string,
+  unitCost: number,
+  unitPrice: number,
+): Promise<void> {
+  const lines = await tx.salesOrderLine.findMany({
+    where: {
+      productId,
+      salesOrder: {
+        status: { not: 'CANCELLED' },
+        invoices: { none: { status: { not: 'VOID' } } },
+      },
+    },
+    select: { id: true, salesOrderId: true, unitPrice: true },
+  });
+  if (lines.length === 0) return;
+
+  for (const line of lines) {
+    await tx.salesOrderLine.update({
+      where: { id: line.id },
+      data: {
+        // Never lower a price the operator already set higher.
+        unitPrice: Math.max(Number(line.unitPrice), unitPrice),
+        unitCost,
+      },
+    });
+  }
+
+  const orderIds = [...new Set(lines.map((line) => line.salesOrderId))];
+  for (const orderId of orderIds) {
+    const orderLines = await tx.salesOrderLine.findMany({
+      where: { salesOrderId: orderId },
+      select: {
+        quantity: true,
+        unitPrice: true,
+        discount: true,
+        taxRate: true,
+      },
+    });
+    const totals = documentTotals(
+      orderLines.map((line) => ({
+        quantity: line.quantity,
+        unitPrice: Number(line.unitPrice),
+        discount: Number(line.discount),
+        taxRate: Number(line.taxRate),
+      })),
+    );
+    await tx.salesOrder.update({
+      where: { id: orderId },
+      data: {
+        subtotal: totals.subtotal,
+        discountTotal: totals.discountTotal,
+        taxTotal: totals.taxTotal,
+        total: totals.total,
+      },
+    });
+  }
+}
+
 export async function receivePurchaseOrder(id: string, input: ReceivePurchaseOrderInput) {
   return prisma.$transaction(async (tx) => {
     const order = await tx.purchaseOrder.findUnique({ where: { id }, include: { lines: true } });
@@ -307,18 +371,34 @@ export async function receivePurchaseOrder(id: string, input: ReceivePurchaseOrd
       });
 
       // سعر التكلفة يصبح آخر سعر شراء مستلم لهذا المنتج.
+      const product = await tx.product.findUnique({
+        where: { id: line.productId },
+        select: { costPrice: true },
+      });
+      const oldCost = Number(product?.costPrice ?? 0);
+      const newCost = Number(line.unitCost);
+      const newSalePrice = Math.max(
+        newCost,
+        Number((newCost * 1.03).toFixed(2)),
+      );
       await tx.product.update({
         where: { id: line.productId },
         data: {
-          costPrice: Number(line.unitCost),
-          salePrice: Math.max(
-            Number(line.unitCost),
-            Number(
-              (Number(line.unitCost) * 1.03).toFixed(2),
-            ),
-          ),
+          costPrice: newCost,
+          salePrice: newSalePrice,
         },
       });
+
+      // A price rise must reach orders that are still open (no invoice issued),
+      // otherwise they would keep selling at the old price.
+      if (newCost > oldCost) {
+        await applyNewSalePriceToOpenOrders(
+          tx,
+          line.productId,
+          newCost,
+          newSalePrice,
+        );
+      }
 
       await tx.purchaseOrderLine.update({
         where: { id: line.id },
