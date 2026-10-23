@@ -384,6 +384,11 @@ class _AppShellState extends State<AppShell> {
                 ),
               ),
             ),
+          Expanded(
+            child: ClipRect(
+              child: destination.builder(),
+            ),
+          ),
         ],
       ),
     );
