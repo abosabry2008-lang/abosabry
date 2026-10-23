@@ -24,6 +24,8 @@ import '../suppliers/suppliers_screen.dart';
 import '../warehouses/warehouses_screen.dart';
 import 'navigation.dart';
 
+enum _NavGroup { main, sales, purchasing, inventory, treasury, accounting, reports }
+
 /// A navigation entry guarded by a permission key.
 class _Destination {
   const _Destination({
@@ -42,6 +44,70 @@ class _Destination {
   /// Optional second permission that also grants access (e.g. Returns are
   /// reachable with either `sales` or `purchases`).
   final String? alternatePermission;
+}
+
+_NavGroup _groupFor(_Destination destination) {
+  switch (destination.permission) {
+    case 'dashboard':
+      return _NavGroup.main;
+    case 'customers':
+    case 'sales':
+    case 'invoices':
+      return _NavGroup.sales;
+    case 'suppliers':
+    case 'purchases':
+      return _NavGroup.purchasing;
+    case 'products':
+    case 'categories':
+    case 'inventory':
+    case 'warehouses':
+      return _NavGroup.inventory;
+    case 'treasury':
+      return _NavGroup.treasury;
+    case 'accounting':
+    case 'openingBalances':
+      return _NavGroup.accounting;
+    default:
+      return _NavGroup.reports;
+  }
+}
+
+int _groupRank(_NavGroup group) {
+  switch (group) {
+    case _NavGroup.main:
+      return 0;
+    case _NavGroup.sales:
+      return 1;
+    case _NavGroup.purchasing:
+      return 2;
+    case _NavGroup.inventory:
+      return 3;
+    case _NavGroup.treasury:
+      return 4;
+    case _NavGroup.accounting:
+      return 5;
+    case _NavGroup.reports:
+      return 6;
+  }
+}
+
+String _groupLabel(_NavGroup group, AppStrings s) {
+  switch (group) {
+    case _NavGroup.main:
+      return s.dashboard;
+    case _NavGroup.sales:
+      return s.sales;
+    case _NavGroup.purchasing:
+      return s.purchasing;
+    case _NavGroup.inventory:
+      return s.inventory;
+    case _NavGroup.treasury:
+      return s.treasury;
+    case _NavGroup.accounting:
+      return s.accounting;
+    case _NavGroup.reports:
+      return s.reports;
+  }
 }
 
 final List<_Destination> _destinations = <_Destination>[
@@ -227,7 +293,10 @@ class _AppShellState extends State<AppShell> {
               (destination.alternatePermission != null &&
                   session.can(destination.alternatePermission!)),
         )
-        .toList();
+        .toList()
+      ..sort(
+        (a, b) => _groupRank(_groupFor(a)).compareTo(_groupRank(_groupFor(b))),
+      );
 
     if (destinations.isEmpty) {
       return Scaffold(
@@ -256,6 +325,27 @@ class _AppShellState extends State<AppShell> {
     final width = MediaQuery.sizeOf(context).width;
     final isWide = width >= 900;
     final isExtraWide = width >= 1280;
+
+    final drawerTiles = <Widget>[_DrawerHeader(session: session)];
+    _NavGroup? lastGroup;
+    for (var i = 0; i < destinations.length; i++) {
+      final group = _groupFor(destinations[i]);
+      if (group != lastGroup) {
+        lastGroup = group;
+        drawerTiles.add(_DrawerGroupLabel(label: _groupLabel(group, s)));
+      }
+      drawerTiles.add(
+        _DrawerTile(
+          icon: destinations[i].icon,
+          label: destinations[i].label(s),
+          selected: i == index,
+          onTap: () {
+            Navigator.of(context).pop();
+            setState(() => _index = i);
+          },
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -294,17 +384,7 @@ class _AppShellState extends State<AppShell> {
                       controller: _drawerScrollController,
                       padding: EdgeInsets.zero,
                       children: <Widget>[
-                        _DrawerHeader(session: session),
-                        for (var i = 0; i < destinations.length; i++)
-                          _DrawerTile(
-                            icon: destinations[i].icon,
-                            label: destinations[i].label(s),
-                            selected: i == index,
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              setState(() => _index = i);
-                            },
-                          ),
+                        ...drawerTiles,
                         const SizedBox(height: 12),
                       ],
                     ),
@@ -423,6 +503,28 @@ class _LanguageButton extends StatelessWidget {
       icon: const Icon(Icons.translate),
       tooltip: context.s.switchLanguageTooltip,
       onPressed: () => context.read<LocaleController>().toggle(),
+    );
+  }
+}
+
+class _DrawerGroupLabel extends StatelessWidget {
+  const _DrawerGroupLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 16, 28, 6),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.outline,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.6,
+        ),
+      ),
     );
   }
 }
