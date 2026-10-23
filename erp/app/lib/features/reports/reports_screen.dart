@@ -19,25 +19,53 @@ import '../../widgets/section_card.dart';
 import '../customers/customer_statement_screen.dart';
 import '../shell/navigation.dart';
 import '../suppliers/supplier_statement_screen.dart';
+import 'extra_report_screen.dart';
 import 'financial_reports_screen.dart';
 import 'expense_report_screen.dart';
 import 'item_movement_screen.dart';
 import 'operations_reports_screen.dart';
+import 'order_fulfilment_report_screen.dart';
 import 'report_widgets.dart';
 import 'salespeople_reports_screen.dart';
-import 'shortages_report_screen.dart';
-import 'order_fulfilment_report_screen.dart';
 import 'salesperson_customer_debt_screen.dart';
+import 'shortages_report_screen.dart';
 import 'statement_hub_screen.dart';
 
-/// Every report, organised as a branch tree: pick a category, then a report.
-class ReportsScreen extends StatelessWidget {
+/// Report hub: a search box plus grouped, responsive report cards.
+class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
+
+  @override
+  State<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends State<ReportsScreen> {
+  String _query = '';
 
   @override
   Widget build(BuildContext context) {
     final s = context.s;
     final session = context.watch<Session>();
+    final groups = _groups(context, session);
+    final query = _query.trim().toLowerCase();
+
+    final visible = <_ReportGroup>[];
+    for (final group in groups) {
+      if (query.isNotEmpty &&
+          !group.title.toLowerCase().contains(query) &&
+          !group.description.toLowerCase().contains(query)) {
+        final matches = group.reports
+            .where((report) => report.title.toLowerCase().contains(query))
+            .toList();
+        if (matches.isEmpty) continue;
+        visible.add(group.copyWith(reports: matches));
+      } else {
+        visible.add(group);
+      }
+    }
+    final reportCount =
+        visible.fold<int>(0, (sum, group) => sum + group.reports.length);
+
     return ListView(
       padding: const EdgeInsets.all(12),
       children: <Widget>[
@@ -45,287 +73,541 @@ class ReportsScreen extends StatelessWidget {
           title: s.reports,
           subtitle: s.reportTreeHint,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              // --- Sales -------------------------------------------------
-              _ReportBranch(
-                icon: Icons.point_of_sale_outlined,
-                title: s.sales,
+              AppSearchField(
+                hintText: s.reportSearchHint,
+                initialValue: _query,
+                onChanged: (value) => setState(() => _query = value),
+              ),
+              const SizedBox(height: 8),
+              Row(
                 children: <Widget>[
-                  _ReportLeaf(
-                    icon: Icons.show_chart_outlined,
-                    title: s.sales,
-                    onOpen: (controller) => controller.loadSales(groupBy: 'day'),
-                    builder: (_) => const SalesReportScreen(),
+                  Icon(
+                    Icons.grid_view_rounded,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.outline,
                   ),
-                  _ReportLeaf(
-                    icon: Icons.leaderboard_outlined,
-                    title: s.topProducts,
-                    onOpen: (controller) => controller.loadTopProducts(),
-                    builder: (_) => const _TopProductsTab(),
-                  ),
-                  _ReportLeaf(
-                    icon: Icons.savings_outlined,
-                    title: s.salesProfit,
-                    onOpen: (controller) => controller.loadProfitReport(),
-                    builder: (_) => const ProfitReportScreen(),
-                  ),
-                  _ReportLeaf(
-                    icon: Icons.support_agent_outlined,
-                    title: s.receivablesBySalesperson,
-                    onOpen: (controller) => controller.loadReceivables(),
-                    builder: (_) => const _ReceivablesTab(),
-                  ),
-                  _ReportLeaf(
-                    icon: Icons.production_quantity_limits_outlined,
-                    title: s.shortages,
-                    onOpen: (controller) => controller.loadShortagesReport(),
-                    builder: (_) => const ShortagesReportScreen(),
-                  ),
-                  _ReportLeaf(
-                    icon: Icons.assignment_turned_in_outlined,
-                    title: s.orderFulfilmentTitle,
-                    onOpen: (controller) =>
-                        controller.loadOrderFulfilmentReport(),
-                    builder: (_) => const OrderFulfilmentReportScreen(),
+                  const SizedBox(width: 6),
+                  Text(
+                    s.reportCountLabel('$reportCount'),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
-              // --- Salespeople (تقارير المناديب) --------------------------
-              _ReportBranch(
-                icon: Icons.support_agent_outlined,
-                title: s.salespeopleReports,
-                children: <Widget>[
-                  _ReportLeaf(
-                    icon: Icons.receipt_long_outlined,
-                    title: s.consolidatedSalesNote,
-                    onOpen: (controller) =>
-                        controller.loadConsolidatedSalesNote(),
-                    builder: (_) => const ConsolidatedSalesNoteScreen(),
-                  ),
-                  _ReportLeaf(
-                    icon: Icons.savings_outlined,
-                    title: s.profitBySalesperson,
-                    onOpen: (controller) =>
-                        controller.loadProfitBySalesperson(),
-                    builder: (_) => const ProfitBySalespersonScreen(),
-                  ),
-                  _ReportLeaf(
-                    icon: Icons.payments_outlined,
-                    title: s.collectionsBySalesperson,
-                    onOpen: (controller) =>
-                        controller.loadCollectionsBySalesperson(),
-                    builder: (_) => const CollectionsBySalespersonScreen(),
-                  ),
-                  _ReportLeaf(
-                    icon: Icons.account_balance_wallet_outlined,
-                    title: s.salespersonStatement,
-                    builder: (_) => const SalespersonStatementScreen(),
-                  ),
-                  _ReportLeaf(
-                    icon: Icons.table_chart_outlined,
-                    title: s.salespersonCustomerDebt,
-                    builder: (_) => const SalespersonCustomerDebtScreen(),
-                  ),
-                ],
-              ),
-              // --- Purchases ---------------------------------------------
-              if (session.can('purchases'))
-                _ReportBranch(
-                  icon: Icons.shopping_cart_outlined,
-                  title: s.purchases,
-                  children: <Widget>[
-                    _ReportLeaf(
-                      icon: Icons.receipt_long_outlined,
-                      title: s.purchasesReport,
-                      onOpen: (controller) =>
-                          controller.loadPurchasesReport(groupBy: 'day'),
-                      builder: (_) => const PurchasesReportScreen(),
-                    ),
-                    _ReportLeaf(
-                      icon: Icons.local_shipping_outlined,
-                      title: s.supplierPayables,
-                      onOpen: (controller) => controller.loadSupplierPayables(),
-                      builder: (_) => const _SupplierPayablesTab(),
-                    ),
-                  ],
-                ),
-              // --- Customers ---------------------------------------------
-              if (session.can('customers'))
-                _ReportBranch(
-                  icon: Icons.people_outline,
-                  title: s.customers,
-                  children: <Widget>[
-                    _ReportLeaf(
-                      icon: Icons.account_balance_wallet_outlined,
-                      title: s.customerBalances,
-                      onOpen: (controller) =>
-                          controller.loadCustomerBalances(),
-                      builder: (_) => const _CustomerBalancesTab(),
-                    ),
-                    _ReportLeaf(
-                      icon: Icons.hourglass_bottom_outlined,
-                      title: s.receivablesAging,
-                      onOpen: (controller) =>
-                          controller.loadReceivablesAging(),
-                      builder: (_) =>
-                          const AgingReportScreen(side: 'receivable'),
-                    ),
-                    _ReportLeaf(
-                      icon: Icons.list_alt_outlined,
-                      title: s.customerStatement,
-                      builder: (_) => const StatementHubScreen(
-                        startWith: StatementKind.customer,
-                      ),
-                    ),
-                  ],
-                ),
-              // --- Suppliers ---------------------------------------------
-              if (session.can('suppliers'))
-                _ReportBranch(
-                  icon: Icons.handshake_outlined,
-                  title: s.suppliers,
-                  children: <Widget>[
-                    _ReportLeaf(
-                      icon: Icons.account_balance_wallet_outlined,
-                      title: s.supplierBalances,
-                      onOpen: (controller) =>
-                          controller.loadSupplierBalances(),
-                      builder: (_) => const _SupplierBalancesTab(),
-                    ),
-                    _ReportLeaf(
-                      icon: Icons.hourglass_top_outlined,
-                      title: s.payablesAging,
-                      onOpen: (controller) => controller.loadPayablesAging(),
-                      builder: (_) =>
-                          const AgingReportScreen(side: 'payable'),
-                    ),
-                    _ReportLeaf(
-                      icon: Icons.local_shipping_outlined,
-                      title: s.supplierStatement,
-                      builder: (_) => const StatementHubScreen(
-                        startWith: StatementKind.supplier,
-                      ),
-                    ),
-                  ],
-                ),
-              // --- Inventory ---------------------------------------------
-              if (session.can('inventory'))
-                _ReportBranch(
-                  icon: Icons.inventory_2_outlined,
-                  title: s.inventory,
-                  children: <Widget>[
-                    _ReportLeaf(
-                      icon: Icons.price_change_outlined,
-                      title: s.valuation,
-                      onOpen: (controller) => controller.loadValuation(),
-                      builder: (_) => const _ValuationTab(),
-                    ),
-                    _ReportLeaf(
-                      icon: Icons.warehouse_outlined,
-                      title: s.stockBalance,
-                      onOpen: (controller) => controller.loadStockBalance(),
-                      builder: (_) => const _StockBalanceTab(),
-                    ),
-                    _ReportLeaf(
-                      icon: Icons.timeline_outlined,
-                      title: s.itemMovement,
-                      builder: (_) => const ItemMovementScreen(),
-                    ),
-                    _ReportLeaf(
-                      icon: Icons.production_quantity_limits_outlined,
-                      title: s.lowStockItems,
-                      onOpen: (controller) => controller.loadLowStockReport(),
-                      builder: (_) => const LowStockReportScreen(),
-                    ),
-                  ],
-                ),
-              // --- Treasury ----------------------------------------------
-              if (session.can('treasury'))
-                _ReportBranch(
-                  icon: Icons.account_balance_wallet_outlined,
-                  title: s.treasury,
-                  children: <Widget>[
-                    _ReportLeaf(
-                      icon: Icons.account_balance_outlined,
-                      title: s.boxBalances,
-                      onOpen: (controller) => controller.loadBoxes(),
-                      builder: (_) => const BoxBalancesReportScreen(),
-                    ),
-                    if (session.can('expenses'))
-                      _ReportLeaf(
-                        icon: Icons.call_made,
-                        title: s.expenseReport,
-                        onOpen: (controller) =>
-                            controller.loadExpenseReport(),
-                        builder: (_) => const ExpenseReportScreen(),
-                      ),
-                  ],
-                ),
-              // --- Accounting --------------------------------------------
-              if (session.can('accounting'))
-                _ReportBranch(
-                  icon: Icons.calculate_outlined,
-                  title: s.accounting,
-                  children: <Widget>[
-                    _ReportLeaf(
-                      icon: Icons.balance_outlined,
-                      title: s.trialBalance,
-                      onOpen: (controller) => controller.loadTrialBalance(),
-                      builder: (_) => const TrialBalanceReportScreen(),
-                    ),
-                    _ReportLeaf(
-                      icon: Icons.trending_up_outlined,
-                      title: s.incomeStatement,
-                      onOpen: (controller) =>
-                          controller.loadIncomeStatement(),
-                      builder: (_) => const IncomeStatementReportScreen(),
-                    ),
-                    _ReportLeaf(
-                      icon: Icons.account_balance_outlined,
-                      title: s.balanceSheet,
-                      onOpen: (controller) => controller.loadBalanceSheet(),
-                      builder: (_) => const BalanceSheetReportScreen(),
-                    ),
-                  ],
-                ),
             ],
           ),
         ),
+        if (visible.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48),
+            child: Column(
+              children: <Widget>[
+                Icon(
+                  Icons.search_off,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+                const SizedBox(height: 12),
+                Text(s.noReportsMatch),
+              ],
+            ),
+          ),
+        for (final group in visible) ...<Widget>[
+          const SizedBox(height: 18),
+          _GroupHeading(group: group),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 980
+                  ? 3
+                  : constraints.maxWidth >= 620
+                      ? 2
+                      : 1;
+              const gap = 10.0;
+              final width =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: group.reports
+                    .map(
+                      (report) => SizedBox(
+                        width: width,
+                        child: _ReportCard(report: report),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
+          ),
+        ],
+        const SizedBox(height: 24),
       ],
     );
   }
+
+  List<_ReportGroup> _groups(BuildContext context, Session session) {
+    final s = context.s;
+    return <_ReportGroup>[
+      _ReportGroup(
+        icon: Icons.point_of_sale_outlined,
+        title: s.sales,
+        description: s.salesReportsDesc,
+        reports: <_ReportSpec>[
+          _ReportSpec(
+            icon: Icons.show_chart_outlined,
+            title: s.sales,
+            onOpen: (controller) => controller.loadSales(groupBy: 'day'),
+            builder: (_) => const SalesReportScreen(),
+          ),
+          _ReportSpec(
+            icon: Icons.people_alt_outlined,
+            title: s.salesByCustomer,
+            builder: (_) => ExtraReportScreen(
+              title: s.salesByCustomer,
+              path: '/reports/sales-by-customer',
+              columns: <ReportColumn>[
+                ReportColumn('customerName', s.customer),
+                ReportColumn('code', s.code),
+                ReportColumn('invoices', s.invoices,
+                    value: ReportValue.integer),
+                ReportColumn('total', s.total, value: ReportValue.money),
+                ReportColumn('paid', s.paid, value: ReportValue.money),
+                ReportColumn('balance', s.balance, value: ReportValue.money),
+              ],
+              totals: <ReportTotal>[
+                ReportTotal('customers', s.customers, money: false),
+                ReportTotal('invoices', s.invoices, money: false),
+                ReportTotal('total', s.total),
+                ReportTotal('paid', s.paid),
+                ReportTotal('balance', s.balance),
+              ],
+            ),
+          ),
+          _ReportSpec(
+            icon: Icons.category_outlined,
+            title: s.salesByCategory,
+            builder: (_) => ExtraReportScreen(
+              title: s.salesByCategory,
+              path: '/reports/sales-by-category',
+              columns: <ReportColumn>[
+                ReportColumn('categoryName', s.category),
+                ReportColumn('quantity', s.quantity, value: ReportValue.integer),
+                ReportColumn('revenue', s.revenue, value: ReportValue.money),
+                ReportColumn('cost', s.costOfSales, value: ReportValue.money),
+                ReportColumn('profit', s.netProfit, value: ReportValue.money),
+              ],
+              totals: <ReportTotal>[
+                ReportTotal('categories', s.categories, money: false),
+                ReportTotal('quantity', s.quantity, money: false),
+                ReportTotal('revenue', s.revenue),
+                ReportTotal('cost', s.costOfSales),
+                ReportTotal('profit', s.netProfit),
+              ],
+            ),
+          ),
+          _ReportSpec(
+            icon: Icons.leaderboard_outlined,
+            title: s.topProducts,
+            onOpen: (controller) => controller.loadTopProducts(),
+            builder: (_) => const _TopProductsTab(),
+          ),
+          _ReportSpec(
+            icon: Icons.savings_outlined,
+            title: s.salesProfit,
+            onOpen: (controller) => controller.loadProfitReport(),
+            builder: (_) => const ProfitReportScreen(),
+          ),
+          _ReportSpec(
+            icon: Icons.assignment_return_outlined,
+            title: s.returnsReport,
+            builder: (_) => ExtraReportScreen(
+              title: s.returnsReport,
+              path: '/reports/returns',
+              typeFilter: true,
+              columns: <ReportColumn>[
+                ReportColumn('number', s.numberLabel),
+                ReportColumn('date', s.date, value: ReportValue.date),
+                ReportColumn('type', s.returnType, value: ReportValue.status),
+                ReportColumn('partyName', s.partner),
+                ReportColumn('total', s.total, value: ReportValue.money),
+                ReportColumn('status', s.statusWord, value: ReportValue.status),
+              ],
+              totals: <ReportTotal>[
+                ReportTotal('count', s.countLabel, money: false),
+                ReportTotal('total', s.total),
+                ReportTotal('customerTotal', s.customerReturns),
+                ReportTotal('supplierTotal', s.supplierReturns),
+              ],
+            ),
+          ),
+          _ReportSpec(
+            icon: Icons.support_agent_outlined,
+            title: s.receivablesBySalesperson,
+            onOpen: (controller) => controller.loadReceivables(),
+            builder: (_) => const _ReceivablesTab(),
+          ),
+          _ReportSpec(
+            icon: Icons.production_quantity_limits_outlined,
+            title: s.shortages,
+            onOpen: (controller) => controller.loadShortagesReport(),
+            builder: (_) => const ShortagesReportScreen(),
+          ),
+          _ReportSpec(
+            icon: Icons.assignment_turned_in_outlined,
+            title: s.orderFulfilmentTitle,
+            onOpen: (controller) => controller.loadOrderFulfilmentReport(),
+            builder: (_) => const OrderFulfilmentReportScreen(),
+          ),
+        ],
+      ),
+      _ReportGroup(
+        icon: Icons.support_agent_outlined,
+        title: s.salespeopleReports,
+        description: s.salespeopleReportsDesc,
+        reports: <_ReportSpec>[
+          _ReportSpec(
+            icon: Icons.receipt_long_outlined,
+            title: s.consolidatedSalesNote,
+            onOpen: (controller) => controller.loadConsolidatedSalesNote(),
+            builder: (_) => const ConsolidatedSalesNoteScreen(),
+          ),
+          _ReportSpec(
+            icon: Icons.badge_outlined,
+            title: s.salesBySalesperson,
+            builder: (_) => ExtraReportScreen(
+              title: s.salesBySalesperson,
+              path: '/reports/sales-by-salesperson',
+              columns: <ReportColumn>[
+                ReportColumn('salespersonName', s.salesperson),
+                ReportColumn('invoices', s.invoices,
+                    value: ReportValue.integer),
+                ReportColumn('total', s.total, value: ReportValue.money),
+                ReportColumn('paid', s.paid, value: ReportValue.money),
+                ReportColumn('balance', s.balance, value: ReportValue.money),
+              ],
+              totals: <ReportTotal>[
+                ReportTotal('salespeople', s.salespeopleReports, money: false),
+                ReportTotal('invoices', s.invoices, money: false),
+                ReportTotal('total', s.total),
+                ReportTotal('paid', s.paid),
+                ReportTotal('balance', s.balance),
+              ],
+            ),
+          ),
+          _ReportSpec(
+            icon: Icons.savings_outlined,
+            title: s.profitBySalesperson,
+            onOpen: (controller) => controller.loadProfitBySalesperson(),
+            builder: (_) => const ProfitBySalespersonScreen(),
+          ),
+          _ReportSpec(
+            icon: Icons.payments_outlined,
+            title: s.collectionsBySalesperson,
+            onOpen: (controller) => controller.loadCollectionsBySalesperson(),
+            builder: (_) => const CollectionsBySalespersonScreen(),
+          ),
+          _ReportSpec(
+            icon: Icons.account_balance_wallet_outlined,
+            title: s.salespersonStatement,
+            builder: (_) => const SalespersonStatementScreen(),
+          ),
+          _ReportSpec(
+            icon: Icons.table_chart_outlined,
+            title: s.salespersonCustomerDebt,
+            builder: (_) => const SalespersonCustomerDebtScreen(),
+          ),
+        ],
+      ),
+      if (session.can('purchases'))
+        _ReportGroup(
+          icon: Icons.shopping_cart_outlined,
+          title: s.purchases,
+          description: s.purchasesReportsDesc,
+          reports: <_ReportSpec>[
+            _ReportSpec(
+              icon: Icons.receipt_long_outlined,
+              title: s.purchasesReport,
+              onOpen: (controller) =>
+                  controller.loadPurchasesReport(groupBy: 'day'),
+              builder: (_) => const PurchasesReportScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.local_shipping_outlined,
+              title: s.purchasesBySupplier,
+              builder: (_) => ExtraReportScreen(
+                title: s.purchasesBySupplier,
+                path: '/reports/purchases-by-supplier',
+                columns: <ReportColumn>[
+                  ReportColumn('supplierName', s.supplier),
+                  ReportColumn('orders', s.orders, value: ReportValue.integer),
+                  ReportColumn('total', s.total, value: ReportValue.money),
+                  ReportColumn('receivedValue', s.received,
+                      value: ReportValue.money),
+                  ReportColumn('balance', s.balance, value: ReportValue.money),
+                ],
+                totals: <ReportTotal>[
+                  ReportTotal('suppliers', s.suppliers, money: false),
+                  ReportTotal('orders', s.orders, money: false),
+                  ReportTotal('total', s.total),
+                  ReportTotal('receivedValue', s.received),
+                  ReportTotal('balance', s.balance),
+                ],
+              ),
+            ),
+            _ReportSpec(
+              icon: Icons.account_balance_wallet_outlined,
+              title: s.supplierPayables,
+              onOpen: (controller) => controller.loadSupplierPayables(),
+              builder: (_) => const _SupplierPayablesTab(),
+            ),
+          ],
+        ),
+      if (session.can('customers'))
+        _ReportGroup(
+          icon: Icons.people_outline,
+          title: s.customers,
+          description: s.customersReportsDesc,
+          reports: <_ReportSpec>[
+            _ReportSpec(
+              icon: Icons.account_balance_wallet_outlined,
+              title: s.customerBalances,
+              onOpen: (controller) => controller.loadCustomerBalances(),
+              builder: (_) => const _CustomerBalancesTab(),
+            ),
+            _ReportSpec(
+              icon: Icons.hourglass_bottom_outlined,
+              title: s.receivablesAging,
+              onOpen: (controller) => controller.loadReceivablesAging(),
+              builder: (_) => const AgingReportScreen(side: 'receivable'),
+            ),
+            _ReportSpec(
+              icon: Icons.list_alt_outlined,
+              title: s.customerStatement,
+              builder: (_) => const StatementHubScreen(
+                startWith: StatementKind.customer,
+              ),
+            ),
+          ],
+        ),
+      if (session.can('suppliers'))
+        _ReportGroup(
+          icon: Icons.handshake_outlined,
+          title: s.suppliers,
+          description: s.suppliersReportsDesc,
+          reports: <_ReportSpec>[
+            _ReportSpec(
+              icon: Icons.account_balance_wallet_outlined,
+              title: s.supplierBalances,
+              onOpen: (controller) => controller.loadSupplierBalances(),
+              builder: (_) => const _SupplierBalancesTab(),
+            ),
+            _ReportSpec(
+              icon: Icons.hourglass_top_outlined,
+              title: s.payablesAging,
+              onOpen: (controller) => controller.loadPayablesAging(),
+              builder: (_) => const AgingReportScreen(side: 'payable'),
+            ),
+            _ReportSpec(
+              icon: Icons.local_shipping_outlined,
+              title: s.supplierStatement,
+              builder: (_) => const StatementHubScreen(
+                startWith: StatementKind.supplier,
+              ),
+            ),
+          ],
+        ),
+      if (session.can('inventory'))
+        _ReportGroup(
+          icon: Icons.inventory_2_outlined,
+          title: s.inventory,
+          description: s.inventoryReportsDesc,
+          reports: <_ReportSpec>[
+            _ReportSpec(
+              icon: Icons.price_change_outlined,
+              title: s.valuation,
+              onOpen: (controller) => controller.loadValuation(),
+              builder: (_) => const _ValuationTab(),
+            ),
+            _ReportSpec(
+              icon: Icons.warehouse_outlined,
+              title: s.stockBalance,
+              onOpen: (controller) => controller.loadStockBalance(),
+              builder: (_) => const _StockBalanceTab(),
+            ),
+            _ReportSpec(
+              icon: Icons.timeline_outlined,
+              title: s.itemMovement,
+              builder: (_) => const ItemMovementScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.production_quantity_limits_outlined,
+              title: s.lowStockItems,
+              onOpen: (controller) => controller.loadLowStockReport(),
+              builder: (_) => const LowStockReportScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.hourglass_disabled_outlined,
+              title: s.deadStock,
+              builder: (_) => ExtraReportScreen(
+                title: s.deadStock,
+                path: '/reports/dead-stock',
+                dateRange: false,
+                daysSelector: true,
+                columns: <ReportColumn>[
+                  ReportColumn('sku', s.code),
+                  ReportColumn('name', s.product),
+                  ReportColumn('quantity', s.quantity,
+                      value: ReportValue.integer),
+                  ReportColumn('costValue', s.costValue,
+                      value: ReportValue.money),
+                  ReportColumn('lastSaleAt', s.lastSale,
+                      value: ReportValue.date),
+                  ReportColumn('daysSince', s.daysInStock,
+                      value: ReportValue.integer),
+                ],
+                totals: <ReportTotal>[
+                  ReportTotal('items', s.countLabel, money: false),
+                  ReportTotal('units', s.units, money: false),
+                  ReportTotal('costValue', s.costValue),
+                  ReportTotal('retailValue', s.retailValue),
+                ],
+              ),
+            ),
+          ],
+        ),
+      if (session.can('treasury'))
+        _ReportGroup(
+          icon: Icons.account_balance_wallet_outlined,
+          title: s.treasury,
+          description: s.treasuryReportsDesc,
+          reports: <_ReportSpec>[
+            _ReportSpec(
+              icon: Icons.account_balance_outlined,
+              title: s.boxBalances,
+              onOpen: (controller) => controller.loadBoxes(),
+              builder: (_) => const BoxBalancesReportScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.waterfall_chart_outlined,
+              title: s.cashFlow,
+              builder: (_) => ExtraReportScreen(
+                title: s.cashFlow,
+                path: '/reports/cash-flow',
+                columns: <ReportColumn>[
+                  ReportColumn('cashBoxName', s.cashBox),
+                  ReportColumn('opening', s.openingBalance,
+                      value: ReportValue.money),
+                  ReportColumn('inTotal', s.inTotal, value: ReportValue.money),
+                  ReportColumn('outTotal', s.outTotal,
+                      value: ReportValue.money),
+                  ReportColumn('net', s.netMovement, value: ReportValue.money),
+                  ReportColumn('closing', s.closingBalance,
+                      value: ReportValue.money),
+                ],
+                totals: <ReportTotal>[
+                  ReportTotal('boxes', s.cashBoxes, money: false),
+                  ReportTotal('opening', s.openingBalance),
+                  ReportTotal('inTotal', s.inTotal),
+                  ReportTotal('outTotal', s.outTotal),
+                  ReportTotal('net', s.netMovement),
+                  ReportTotal('closing', s.closingBalance),
+                ],
+              ),
+            ),
+            if (session.can('expenses'))
+              _ReportSpec(
+                icon: Icons.call_made,
+                title: s.expenseReport,
+                onOpen: (controller) => controller.loadExpenseReport(),
+                builder: (_) => const ExpenseReportScreen(),
+              ),
+            _ReportSpec(
+              icon: Icons.credit_card_outlined,
+              title: s.paymentsByMethod,
+              builder: (_) => ExtraReportScreen(
+                title: s.paymentsByMethod,
+                path: '/reports/payments-by-method',
+                columns: <ReportColumn>[
+                  ReportColumn('method', s.paymentMethod,
+                      value: ReportValue.status),
+                  ReportColumn('count', s.countLabel,
+                      value: ReportValue.integer),
+                  ReportColumn('inTotal', s.inTotal, value: ReportValue.money),
+                  ReportColumn('outTotal', s.outTotal,
+                      value: ReportValue.money),
+                  ReportColumn('net', s.netMovement, value: ReportValue.money),
+                ],
+                totals: <ReportTotal>[
+                  ReportTotal('count', s.countLabel, money: false),
+                  ReportTotal('inTotal', s.inTotal),
+                  ReportTotal('outTotal', s.outTotal),
+                  ReportTotal('net', s.netMovement),
+                ],
+              ),
+            ),
+          ],
+        ),
+      if (session.can('accounting'))
+        _ReportGroup(
+          icon: Icons.calculate_outlined,
+          title: s.accounting,
+          description: s.accountingReportsDesc,
+          reports: <_ReportSpec>[
+            _ReportSpec(
+              icon: Icons.balance_outlined,
+              title: s.trialBalance,
+              onOpen: (controller) => controller.loadTrialBalance(),
+              builder: (_) => const TrialBalanceReportScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.trending_up_outlined,
+              title: s.incomeStatement,
+              onOpen: (controller) => controller.loadIncomeStatement(),
+              builder: (_) => const IncomeStatementReportScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.account_balance_outlined,
+              title: s.balanceSheet,
+              onOpen: (controller) => controller.loadBalanceSheet(),
+              builder: (_) => const BalanceSheetReportScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.receipt_outlined,
+              title: s.taxReport,
+              onOpen: (controller) => controller.loadTaxReport(),
+              builder: (_) => const TaxReportScreen(),
+            ),
+          ],
+        ),
+    ];
+  }
 }
 
-/// One expandable category of reports.
-class _ReportBranch extends StatelessWidget {
-  const _ReportBranch({
+class _ReportGroup {
+  const _ReportGroup({
     required this.icon,
     required this.title,
-    required this.children,
+    required this.description,
+    required this.reports,
   });
 
   final IconData icon;
   final String title;
-  final List<Widget> children;
+  final String description;
+  final List<_ReportSpec> reports;
 
-  @override
-  Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        leading: Icon(icon),
-        title: Text(title),
-        tilePadding: const EdgeInsetsDirectional.only(start: 8, end: 8),
-        childrenPadding: EdgeInsets.zero,
-        children: children,
-      ),
-    );
-  }
+  _ReportGroup copyWith({List<_ReportSpec>? reports}) => _ReportGroup(
+        icon: icon,
+        title: title,
+        description: description,
+        reports: reports ?? this.reports,
+      );
 }
 
-/// One report inside a branch; opens full-screen and loads its data.
-class _ReportLeaf extends StatelessWidget {
-  const _ReportLeaf({
+class _ReportSpec {
+  const _ReportSpec({
     required this.icon,
     required this.title,
     required this.builder,
@@ -335,24 +617,113 @@ class _ReportLeaf extends StatelessWidget {
   final IconData icon;
   final String title;
   final WidgetBuilder builder;
-
-  /// Loads the report data; runs as the report opens.
   final Future<void> Function(ReportsController controller)? onOpen;
+}
+
+class _GroupHeading extends StatelessWidget {
+  const _GroupHeading({required this.group});
+
+  final _ReportGroup group;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsetsDirectional.only(start: 32, end: 8),
-      leading: Icon(icon, size: 20),
-      title: Text(title),
-      trailing: const Icon(Icons.chevron_right, size: 18),
-      onTap: () {
-        final controller = context.read<ReportsController>();
-        final onOpen = this.onOpen;
-        if (onOpen != null) unawaited(onOpen(controller));
-        pushScreen<void>(context, title, builder(context));
-      },
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(group.icon, size: 20, color: scheme.onPrimaryContainer),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                group.title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                group.description,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.outline,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReportCard extends StatelessWidget {
+  const _ReportCard({required this.report});
+
+  final _ReportSpec report;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          final controller = context.read<ReportsController>();
+          final onOpen = report.onOpen;
+          if (onOpen != null) unawaited(onOpen(controller));
+          pushScreen<void>(context, report.title, report.builder(context));
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: scheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  report.icon,
+                  size: 19,
+                  color: scheme.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  report.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.chevron_right, size: 18, color: scheme.outline),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

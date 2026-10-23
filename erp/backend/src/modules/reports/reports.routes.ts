@@ -28,6 +28,16 @@ import {
   buildSupplierPayables,
 } from './analytics.service';
 import {
+  buildCashFlowReport,
+  buildDeadStockReport,
+  buildPaymentsByMethod,
+  buildPurchasesBySupplier,
+  buildReturnsReport,
+  buildSalesByCategory,
+  buildSalesByCustomer,
+  buildSalesBySalesperson,
+} from './reports.extra.service';
+import {
   buildCollectionsBySalesperson,
   buildConsolidatedSalesNote,
   buildProfitBySalesperson,
@@ -518,6 +528,93 @@ router.get(
         shortage: row.shortage,
       })),
     );
+  }),
+);
+
+// GET /reports/sales-by-customer
+router.get(
+  '/sales-by-customer',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildSalesByCustomer(from, to));
+  }),
+);
+
+// GET /reports/sales-by-category
+router.get(
+  '/sales-by-category',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildSalesByCategory(from, to));
+  }),
+);
+
+// GET /reports/sales-by-salesperson
+router.get(
+  '/sales-by-salesperson',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildSalesBySalesperson(from, to));
+  }),
+);
+
+// GET /reports/purchases-by-supplier
+router.get(
+  '/purchases-by-supplier',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildPurchasesBySupplier(from, to));
+  }),
+);
+
+// GET /reports/returns?type=CUSTOMER_RETURN|SUPPLIER_RETURN
+router.get(
+  '/returns',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildReturnsReport(from, to, asString(req.query.type)));
+  }),
+);
+
+// GET /reports/cash-flow
+router.get(
+  '/cash-flow',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildCashFlowReport(from, to));
+  }),
+);
+
+// GET /reports/dead-stock?days=90
+router.get(
+  '/dead-stock',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const days = Number(asString(req.query.days) ?? 90);
+    ok(res, await buildDeadStockReport(days));
+  }),
+);
+
+// GET /reports/payments-by-method
+router.get(
+  '/payments-by-method',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    ok(res, await buildPaymentsByMethod(from, to));
   }),
 );
 

@@ -236,7 +236,13 @@ export async function createPaymentTx(tx: Tx, input: CreatePaymentInput) {
   const paidAt = input.paidAt ?? new Date();
   const amount = round2(input.amount);
   const settings = await getSettings(tx);
-  const number = await nextNumber(tx, 'payment', settings.paymentPrefix, paidAt);
+  const number = await nextNumber(
+    tx,
+    'payment',
+    settings.paymentPrefix,
+    paidAt,
+    async (candidate) => (await tx.payment.count({ where: { number: candidate } })) > 0,
+  );
   const box = await resolveCashBoxTx(tx, input.cashBoxId);
 
   if (input.invoiceId) {
@@ -636,7 +642,13 @@ export async function createCollectionTx(tx: Tx, input: CreateCollectionInput) {
     if (!salesperson) throw ApiError.badRequest('Salesperson not found', 'SALESPERSON_NOT_FOUND');
   }
 
-  const number = await nextNumber(tx, 'collection', 'COL', collectedAt);
+  const number = await nextNumber(
+    tx,
+    'collection',
+    'COL',
+    collectedAt,
+    async (candidate) => (await tx.collectionVoucher.count({ where: { number: candidate } })) > 0,
+  );
   const voucher = await tx.collectionVoucher.create({
     data: {
       number,

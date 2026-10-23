@@ -98,7 +98,13 @@ export async function postJournal(tx: Tx, input: JournalInput): Promise<void> {
 
   const settings = await getSettings(tx);
   const entryDate = input.entryDate ?? new Date();
-  const number = await nextNumber(tx, 'journal', settings.journalPrefix, entryDate);
+  const number = await nextNumber(
+    tx,
+    'journal',
+    settings.journalPrefix,
+    entryDate,
+    async (candidate) => (await tx.journalEntry.count({ where: { number: candidate } })) > 0,
+  );
 
   await tx.journalEntry.create({
     data: {

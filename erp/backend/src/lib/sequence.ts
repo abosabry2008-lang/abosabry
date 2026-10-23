@@ -1,22 +1,42 @@
+import { ApiError } from './api-error';
 import type { Tx } from './prisma';
+
+/**
+ * Checks whether a generated document number is already used by the target table.
+ * Callers pass a cheap `count`/`findUnique` lookup for their own model.
+ */
+export type NumberTaken = (candidate: string) => Promise<boolean>;
 
 /**
  * Allocates the next document number for a named sequence, e.g. SO-2026-00042.
  * The sequence row is locked/incremented inside the caller's transaction.
+ *
+ * A sequence can drift behind the rows that already exist (records imported or
+ * seeded before the sequence was created, a rollback that never advanced it,
+ * etc.). When `isTaken` is supplied we walk forward until a free number is
+ * found instead of failing with a unique-constraint error on every save.
  */
 export async function nextNumber(
   tx: Tx,
   name: string,
   prefix: string,
   now: Date = new Date(),
+  isTaken?: NumberTaken,
 ): Promise<string> {
-  const sequence = await tx.sequence.upsert({
-    where: { name },
-    create: { name, value: 1 },
-    update: { value: { increment: 1 } },
-  });
   const year = now.getFullYear();
-  return `${prefix}-${year}-${String(sequence.value).padStart(5, '0')}`;
+  for (let attempt = 0; attempt < 2000; attempt += 1) {
+    const sequence = await tx.sequence.upsert({
+      where: { name },
+      create: { name, value: 1 },
+      update: { value: { increment: 1 } },
+    });
+    const candidate = `${prefix}-${year}-${String(sequence.value).padStart(5, '0')}`;
+    if (!isTaken || !(await isTaken(candidate))) return candidate;
+  }
+  throw ApiError.conflict(
+    `Unable to allocate a unique ${name} number`,
+    'NUMBER_ALLOCATION_FAILED',
+  );
 }
 
 export async function sequenceValue(tx: Tx, name: string): Promise<number> {

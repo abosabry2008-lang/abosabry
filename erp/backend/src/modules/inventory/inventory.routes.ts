@@ -84,47 +84,99 @@ router.get(
     const warehouseId = asString(query.warehouseId);
     const locationId = asString(query.locationId);
     const productId = asString(query.productId);
+    const categoryId = asString(query.categoryId);
     const search = asString(query.search);
+    const lowStock = asString(query.lowStock) === 'true';
+    const stockStatus = asString(query.stockStatus);
+    const sort = asString(query.sort);
 
     const where: Prisma.StockLevelWhereInput = {};
     if (warehouseId) where.warehouseId = warehouseId;
     if (locationId) where.locationId = locationId;
     if (productId) where.productId = productId;
+
+    const productWhere: Prisma.ProductWhereInput = {};
+    if (categoryId) productWhere.categoryId = categoryId;
     if (search) {
-      where.product = {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { sku: { contains: search, mode: 'insensitive' } },
-          { barcode: { contains: search, mode: 'insensitive' } },
-        ],
-      };
+      productWhere.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+        { barcode: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    if (lowStock || stockStatus === 'low') productWhere.reorderLevel = { gt: 0 };
+    if (Object.keys(productWhere).length > 0) where.product = productWhere;
+
+    if (stockStatus === 'out') where.quantity = { lte: 0 };
+    if (stockStatus === 'in') where.quantity = { gt: 0 };
+
+    let orderBy: Prisma.StockLevelOrderByWithRelationInput[];
+    switch (sort) {
+      case 'name':
+        orderBy = [{ product: { name: 'asc' } }, { locationId: 'asc' }];
+        break;
+      case 'name_desc':
+        orderBy = [{ product: { name: 'desc' } }, { locationId: 'asc' }];
+        break;
+      case 'sku':
+        orderBy = [{ product: { sku: 'asc' } }, { locationId: 'asc' }];
+        break;
+      case 'quantity':
+        orderBy = [{ quantity: 'desc' }, { productId: 'asc' }];
+        break;
+      case 'quantity_asc':
+        orderBy = [{ quantity: 'asc' }, { productId: 'asc' }];
+        break;
+      case 'newest':
+        orderBy = [{ updatedAt: 'desc' }];
+        break;
+      default:
+        orderBy = [{ productId: 'asc' }, { locationId: 'asc' }];
     }
 
-    const [total, rows] = await Promise.all([
-      prisma.stockLevel.count({ where }),
-      prisma.stockLevel.findMany({
-        where,
-        orderBy: [{ productId: 'asc' }, { locationId: 'asc' }],
-        skip: paging.skip,
-        take: paging.take,
-        include: {
-          product: {
-            select: {
-              id: true,
-              sku: true,
-              barcode: true,
-              name: true,
-              unit: true,
-              reorderLevel: true,
-              costPrice: true,
-              salePrice: true,
-            },
-          },
-          location: { select: { id: true, code: true, name: true } },
-          warehouse: { select: { id: true, code: true, name: true } },
+    const include = {
+      product: {
+        select: {
+          id: true,
+          sku: true,
+          barcode: true,
+          name: true,
+          unit: true,
+          reorderLevel: true,
+          costPrice: true,
+          salePrice: true,
         },
-      }),
-    ]);
+      },
+      location: { select: { id: true, code: true, name: true } },
+      warehouse: { select: { id: true, code: true, name: true } },
+    } as const;
+
+    // "Low stock" compares two columns (quantity <= product.reorderLevel),
+    // which Prisma cannot express across relations, so filter it in memory.
+    const result = await (async () => {
+      if (lowStock || stockStatus === 'low') {
+        const all = await prisma.stockLevel.findMany({ where, orderBy, include });
+        const low = all.filter(
+          (row) => row.product.reorderLevel > 0 && row.quantity <= row.product.reorderLevel,
+        );
+        return {
+          total: low.length,
+          rows: low.slice(paging.skip, paging.skip + paging.take),
+        };
+      }
+      const [total, rows] = await Promise.all([
+        prisma.stockLevel.count({ where }),
+        prisma.stockLevel.findMany({
+          where,
+          orderBy,
+          skip: paging.skip,
+          take: paging.take,
+          include,
+        }),
+      ]);
+      return { total, rows };
+    })();
+    const { total, rows } = result;
 
     const data = rows.map((row) => ({
       ...row,

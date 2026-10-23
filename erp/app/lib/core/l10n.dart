@@ -1726,6 +1726,125 @@ class AppStrings {
         'No open sales orders right now.',
         'لا توجد أوامر بيع مفتوحة حالياً.',
       );
+
+  // ---------------------------------------------------------------------------
+  // Report hub (مركز التقارير) + extra reports
+  // ---------------------------------------------------------------------------
+  String get customerRequired => _t('Customer is required', 'العميل مطلوب');
+  String get reportSearchHint =>
+      _t('Search reports…', 'ابحث في التقارير…');
+  String get noReportsMatch => _t(
+        'No reports match your search.',
+        'لا توجد تقارير مطابقة للبحث.',
+      );
+  String get allReports => _t('All reports', 'كل التقارير');
+  String reportCountLabel(String count) =>
+      _t('$count reports', '$count تقرير');
+  String get salesReportsDesc => _t(
+        'Invoices, profit, best sellers and order fulfilment.',
+        'الفواتير والأرباح والأصناف الأكثر بيعاً وتغطية الأوامر.',
+      );
+  String get salespeopleReportsDesc => _t(
+        'Each salesperson’s sales, profit, collections and customer debts.',
+        'مبيعات وأرباح وتحصيلات ومديونيات عملاء كل مندوب.',
+      );
+  String get purchasesReportsDesc => _t(
+        'Purchase orders, supplier balances and what to reorder.',
+        'أوامر الشراء وأرصدة الموردين والأصناف المطلوب شراؤها.',
+      );
+  String get customersReportsDesc => _t(
+        'Balances, statements and aging for every customer.',
+        'الأرصدة وكشوف الحساب وأعمار الديون لكل عميل.',
+      );
+  String get suppliersReportsDesc => _t(
+        'Balances, statements and aging for every supplier.',
+        'الأرصدة وكشوف الحساب وأعمار الالتزامات لكل مورد.',
+      );
+  String get inventoryReportsDesc => _t(
+        'Valuation, stock balance, movement and slow-moving items.',
+        'التقييم وأرصدة المخزون والحركة والأصناف الراكدة.',
+      );
+  String get treasuryReportsDesc => _t(
+        'Cash box balances, cash flow, expenses and payment methods.',
+        'أرصدة الخزائن والحركة النقدية والمصروفات وطرق الدفع.',
+      );
+  String get accountingReportsDesc => _t(
+        'Trial balance, income statement and balance sheet.',
+        'ميزان المراجعة وقائمة الدخل والميزانية العمومية.',
+      );
+  String get salesByCustomer => _t('Sales by customer', 'المبيعات حسب العميل');
+  String get salesByCustomerHint => _t(
+        'Invoiced sales, collections and outstanding balance per customer.',
+        'مبيعات الفواتير والتحصيلات والرصيد المتبقي لكل عميل.',
+      );
+  String get salesByCategory => _t('Sales by category', 'المبيعات حسب القسم');
+  String get salesByCategoryHint => _t(
+        'Quantity, revenue, cost and profit for each product category.',
+        'الكمية والإيراد والتكلفة والربح لكل قسم أصناف.',
+      );
+  String get salesBySalesperson =>
+      _t('Sales by salesperson', 'المبيعات حسب المندوب');
+  String get salesBySalespersonHint => _t(
+        'Invoice totals and profit credited to each salesperson.',
+        'إجماليات الفواتير والأرباح المسجلة لكل مندوب.',
+      );
+  String get purchasesBySupplier =>
+      _t('Purchases by supplier', 'المشتريات حسب المورد');
+  String get purchasesBySupplierHint => _t(
+        'Ordered, received and outstanding amounts for each supplier.',
+        'المبالغ المطلوبة والمستلمة والمتبقية لكل مورد.',
+      );
+  String get returnsReport => _t('Returns report', 'تقرير المرتجعات');
+  String get returnsReportHint => _t(
+        'Every customer and supplier return with its value and status.',
+        'كل مرتجع عميل أو مورد بقيمته وحالته.',
+      );
+  String get cashFlow => _t('Cash flow', 'الحركة النقدية');
+  String get cashFlowHint => _t(
+        'Opening balance, money in, money out and closing balance per cash box.',
+        'الرصيد الافتتاحي والداخل والخارج والرصيد الختامي لكل خزنة.',
+      );
+  String get deadStock => _t('Dead / slow stock', 'المخزون الراكد');
+  String get deadStockHint => _t(
+        'Items with stock on hand that have not sold recently.',
+        'أصناف لديها رصيد ولم تُبع منذ فترة.',
+      );
+  String get paymentsByMethod =>
+      _t('Payments by method', 'المدفوعات حسب طريقة الدفع');
+  String get paymentsByMethodHint => _t(
+        'Cash, card, transfer and cheque totals in and out.',
+        'إجماليات النقد والبطاقة والتحويل والشيك داخل وخارج.',
+      );
+  String get lastSale => _t('Last sale', 'آخر بيع');
+  String get neverSold => _t('Never sold', 'لم يُبع');
+  String get daysInStock => _t('Days in stock', 'أيام في المخزون');
+  String get inTotal => _t('In', 'الداخل');
+  String get outTotal => _t('Out', 'الخارج');
+  String get netMovement => _t('Net', 'الصافي');
+  String get daysAgo => _t('Days ago', 'منذ (يوم)');
+  String get days => _t('days', 'يوم');
+  String get numberLabel => _t('Number', 'الرقم');
+  String get countLabel => _t('Count', 'العدد');
+  String get couldNotLoadReport =>
+      _t('Could not load the report.', 'تعذّر تحميل التقرير.');
+
+  // ---------------------------------------------------------------------------
+  // Inventory filters + sorting
+  // ---------------------------------------------------------------------------
+  String get filters => _t('Filters', 'تصفية');
+  String get sortBy => _t('Sort by', 'ترتيب حسب');
+  String get sortName => _t('Name (A–Z)', 'الاسم (أ–ي)');
+  String get sortNameDesc => _t('Name (Z–A)', 'الاسم (ي–أ)');
+  String get sortSku => _t('SKU', 'كود الصنف');
+  String get sortQuantityDesc =>
+      _t('Quantity (high–low)', 'الكمية (الأعلى أولاً)');
+  String get sortQuantityAsc =>
+      _t('Quantity (low–high)', 'الكمية (الأقل أولاً)');
+  String get sortNewest => _t('Recently updated', 'الأحدث تحديثاً');
+  String get stockStatus => _t('Stock status', 'حالة المخزون');
+  String get inStock => _t('In stock', 'متوفر');
+  String get outOfStock => _t('Out of stock', 'غير متوفر');
+  String get clearFilters => _t('Clear filters', 'مسح التصفية');
 }
 
 /// [LocalizationsDelegate] for [AppStrings] supporting English and Arabic.

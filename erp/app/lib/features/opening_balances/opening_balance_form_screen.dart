@@ -84,8 +84,8 @@ class _OpeningBalanceFormScreenState extends State<OpeningBalanceFormScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<CustomersController>().ensureLoaded();
-      context.read<SuppliersController>().ensureLoaded();
+      context.read<CustomersController>().ensureCatalogLoaded();
+      context.read<SuppliersController>().ensureCatalogLoaded();
       _loadWarehouses();
     });
   }
@@ -237,7 +237,7 @@ class _OpeningBalanceFormScreenState extends State<OpeningBalanceFormScreen> {
           const SizedBox(height: 16),
           _CustomerSection(
             lines: _customers,
-            customers: customers.items,
+            customers: customers.catalog,
             enabled: !_saving,
             onAdd: () => setState(() => _customers.add(_CustomerLine())),
             onRemove: (line) => setState(() {
@@ -251,7 +251,7 @@ class _OpeningBalanceFormScreenState extends State<OpeningBalanceFormScreen> {
           const SizedBox(height: 16),
           _SupplierSection(
             lines: _suppliers,
-            suppliers: suppliers.items,
+            suppliers: suppliers.catalog,
             enabled: !_saving,
             onAdd: () => setState(() => _suppliers.add(_SupplierLine())),
             onRemove: (line) => setState(() {

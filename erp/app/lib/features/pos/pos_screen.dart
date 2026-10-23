@@ -40,7 +40,7 @@ class _PosScreenState extends State<PosScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<ProductCatalog>().ensureLoaded();
-      context.read<CustomersController>().ensureLoaded();
+      context.read<CustomersController>().ensureCatalogLoaded();
       _loadWarehouses();
     });
   }
@@ -391,7 +391,7 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                           value: _customerId,
                           hint: s.walkInCustomer,
                           prefixIcon: Icons.person_outline,
-                          options: customers.items
+                          options: customers.catalog
                               .map(
                                 (customer) => SelectOption<String>(
                                   customer.id,

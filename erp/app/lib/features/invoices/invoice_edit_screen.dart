@@ -13,6 +13,7 @@ import '../../state/product_catalog.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/last_purchase_price_hint.dart';
 import '../../widgets/money_text.dart';
+import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/stock_on_hand_hint.dart';
 import '../inventory/product_picker_field.dart';
@@ -46,7 +47,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      context.read<CustomersController>().ensureLoaded();
+      context.read<CustomersController>().ensureCatalogLoaded();
       final catalog = context.read<ProductCatalog>();
       await catalog.ensureLoaded();
       if (!mounted) return;
@@ -148,20 +149,29 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
               subtitle: widget.invoice.number,
               child: Column(
                 children: <Widget>[
-                  AppSelectField<String>(
-                    label: s.customer,
+                  SearchablePickerField(
+                    label: '${s.customer} *',
                     value: _customerId,
                     enabled: !_saving,
-                    hint: s.walkInCustomer,
+                    hint: s.selectCustomer,
                     prefixIcon: Icons.person_outline,
-                    options: customers.items
+                    searchHint: s.searchCustomersHint,
+                    options: customers.catalog
                         .map(
-                          (customer) => SelectOption<String>(
-                            customer.id,
-                            customer.name,
+                          (customer) => customerPickerOption(
+                            id: customer.id,
+                            name: customer.name,
+                            code: customer.code,
+                            balance: customer.balance,
                           ),
                         )
                         .toList(),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return s.customerRequired;
+                      }
+                      return null;
+                    },
                     onChanged: (value) => setState(() => _customerId = value),
                   ),
                   const SizedBox(height: 14),

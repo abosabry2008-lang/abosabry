@@ -206,7 +206,13 @@ export async function createSettlement(input: CreateSettlementInput) {
       throw ApiError.badRequest('Unknown settlement target', 'BAD_TARGET');
     }
 
-    const number = await nextNumber(tx, 'settlement', settings.settlementPrefix, settledAt);
+    const number = await nextNumber(
+      tx,
+      'settlement',
+      settings.settlementPrefix,
+      settledAt,
+      async (candidate) => (await tx.accountSettlement.count({ where: { number: candidate } })) > 0,
+    );
 
     const settlement = await tx.accountSettlement.create({
       data: {

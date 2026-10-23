@@ -65,7 +65,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
     if (_lines.isEmpty) _lines.add(OrderLineDraft());
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      context.read<CustomersController>().ensureLoaded();
+      context.read<CustomersController>().ensureCatalogLoaded();
       context.read<SalespeopleController>().ensureLoaded();
       await _loadWarehouses();
       if (!mounted) return;
@@ -195,7 +195,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
     final customers = context.watch<CustomersController>();
     final salespeople = context.watch<SalespeopleController>();
 
-    final filteredCustomers = customers.items
+    final filteredCustomers = customers.catalog
         .where((c) => _salespersonId == null || c.salespersonId == _salespersonId)
         .toList();
 
@@ -225,7 +225,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                           (value == null || value.isEmpty) ? null : value;
                       // If current customer doesn't belong to selected salesperson, clear it
                       if (_salespersonId != null && _customerId != null) {
-                        final cust = customers.items
+                        final cust = customers.catalog
                             .where((c) => c.id == _customerId)
                             .firstOrNull;
                         if (cust == null || cust.salespersonId != _salespersonId) {
@@ -235,17 +235,21 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                     }),
                   ),
                   const SizedBox(height: 14),
-                  AppSelectField<String>(
+                  SearchablePickerField(
                     label: s.customer,
                     value: _customerId,
                     enabled: !_saving,
                     hint: s.walkInCustomer,
                     prefixIcon: Icons.person_outline,
+                    searchHint: s.searchCustomersHint,
+                    clearable: true,
                     options: filteredCustomers
                         .map(
-                          (customer) => SelectOption<String>(
-                            customer.id,
-                            customer.name,
+                          (customer) => customerPickerOption(
+                            id: customer.id,
+                            name: customer.name,
+                            code: customer.code,
+                            balance: customer.balance,
                           ),
                         )
                         .toList(),

@@ -57,7 +57,13 @@ export async function createPurchaseOrderTx(tx: Tx, input: CreatePurchaseOrderIn
   const lines = mapLines(input.lines, settings.taxEnabled);
   const totals = purchaseTotals(lines);
   const now = new Date();
-  const number = await nextNumber(tx, 'purchaseOrder', settings.purchaseOrderPrefix, now);
+  const number = await nextNumber(
+    tx,
+    'purchaseOrder',
+    settings.purchaseOrderPrefix,
+    now,
+    async (candidate) => (await tx.purchaseOrder.count({ where: { number: candidate } })) > 0,
+  );
 
   return tx.purchaseOrder.create({
     data: {

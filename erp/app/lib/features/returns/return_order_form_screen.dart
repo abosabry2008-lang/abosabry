@@ -72,7 +72,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<CustomersController>().ensureLoaded();
+      context.read<CustomersController>().ensureCatalogLoaded();
       context.read<SuppliersController>().ensureLoaded();
       context.read<SalespeopleController>().ensureLoaded();
       _loadWarehouses();
@@ -181,7 +181,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
     final suppliers = context.watch<SuppliersController>();
     final salespeople = context.watch<SalespeopleController>();
 
-    final filteredCustomers = customers.items
+    final filteredCustomers = customers.catalog
         .where((c) => _salespersonId == null || c.salespersonId == _salespersonId)
         .toList();
 
@@ -237,7 +237,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
                         _salespersonId = (value == null || value.isEmpty) ? null : value;
                         final cust = _customerId == null
                             ? null
-                            : customers.items
+                            : customers.catalog
                                 .where((c) => c.id == _customerId)
                                 .firstOrNull;
                         if (_salespersonId != null && cust != null && cust.salespersonId != _salespersonId) {

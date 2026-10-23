@@ -86,7 +86,13 @@ export async function createOpeningBalanceTx(
 
   const settings = await getSettings(tx);
   const asOfDate = input.asOfDate ?? new Date();
-  const number = await nextNumber(tx, 'openingBalance', settings.openingBalancePrefix, asOfDate);
+  const number = await nextNumber(
+    tx,
+    'openingBalance',
+    settings.openingBalancePrefix,
+    asOfDate,
+    async (candidate) => (await tx.openingBalance.count({ where: { number: candidate } })) > 0,
+  );
 
   // Apply partner balances.
   for (const row of customers) {

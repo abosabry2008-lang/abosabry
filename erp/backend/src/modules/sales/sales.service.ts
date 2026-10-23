@@ -134,7 +134,13 @@ export async function createSalesOrderTx(tx: Tx, input: CreateSalesOrderInput) {
   const lines = await resolveLines(tx, input.lines, settings.taxEnabled);
   const totals = totalsOf(lines);
   const now = new Date();
-  const number = await nextNumber(tx, 'salesOrder', settings.salesOrderPrefix, now);
+  const number = await nextNumber(
+    tx,
+    'salesOrder',
+    settings.salesOrderPrefix,
+    now,
+    async (candidate) => (await tx.salesOrder.count({ where: { number: candidate } })) > 0,
+  );
 
   return tx.salesOrder.create({
     data: {

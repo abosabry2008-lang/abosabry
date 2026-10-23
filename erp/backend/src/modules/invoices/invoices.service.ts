@@ -408,7 +408,13 @@ export async function createInvoiceTx(tx: Tx, input: CreateInvoiceInput) {
 
   const exchangeRate = input.salesOrderId ? built.exchangeRate : await exchangeRateFor(tx, built.currencyId);
   const settings = await getSettings(tx);
-  const number = await nextNumber(tx, 'invoice', settings.invoicePrefix ?? 'INV');
+  const number = await nextNumber(
+    tx,
+    'invoice',
+    settings.invoicePrefix ?? 'INV',
+    new Date(),
+    async (candidate) => (await tx.invoice.count({ where: { number: candidate } })) > 0,
+  );
 
   return tx.invoice.create({
     data: {

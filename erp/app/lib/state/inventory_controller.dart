@@ -9,11 +9,24 @@ class StockController extends PagedListController<StockLevel> {
   String? _warehouseId;
   String? _locationId;
   String? _productId;
-  bool _lowStockOnly = false;
+  String? _categoryId;
+  String _status = '';
+  String _sort = 'name';
 
   String? get warehouseId => _warehouseId;
   String? get locationId => _locationId;
-  bool get lowStockOnly => _lowStockOnly;
+  String? get categoryId => _categoryId;
+
+  /// '', 'in', 'low' or 'out'.
+  String get status => _status;
+  String get sort => _sort;
+
+  bool get lowStockOnly => _status == 'low';
+
+  bool get hasActiveFilters =>
+      (_warehouseId != null && _warehouseId!.isNotEmpty) ||
+      (_categoryId != null && _categoryId!.isNotEmpty) ||
+      _status.isNotEmpty;
 
   @override
   String get path => '/inventory/stock';
@@ -28,7 +41,10 @@ class StockController extends PagedListController<StockLevel> {
         if (_locationId != null && _locationId!.isNotEmpty)
           'locationId': _locationId,
         if (_productId != null && _productId!.isNotEmpty) 'productId': _productId,
-        if (_lowStockOnly) 'lowStock': true,
+        if (_categoryId != null && _categoryId!.isNotEmpty)
+          'categoryId': _categoryId,
+        if (_status.isNotEmpty) 'stockStatus': _status,
+        if (_sort.isNotEmpty) 'sort': _sort,
       };
 
   void filterByWarehouse(String? value) {
@@ -52,9 +68,51 @@ class StockController extends PagedListController<StockLevel> {
     refresh();
   }
 
+  void filterByCategory(String? value) {
+    if (value == _categoryId) return;
+    _categoryId = value;
+    markFilterChanged();
+    refresh();
+  }
+
+  /// Applies warehouse + category + status in one request.
+  void setFilters({
+    String? warehouseId,
+    String? categoryId,
+    String? status,
+  }) {
+    _warehouseId =
+        (warehouseId == null || warehouseId.isEmpty) ? null : warehouseId;
+    _categoryId =
+        (categoryId == null || categoryId.isEmpty) ? null : categoryId;
+    _status = status ?? '';
+    markFilterChanged();
+    refresh();
+  }
+
+  void setStatus(String value) {
+    if (value == _status) return;
+    _status = value;
+    markFilterChanged();
+    refresh();
+  }
+
   void setLowStockOnly(bool value) {
-    if (value == _lowStockOnly) return;
-    _lowStockOnly = value;
+    setStatus(value ? 'low' : '');
+  }
+
+  void setSort(String value) {
+    if (value == _sort) return;
+    _sort = value;
+    refresh();
+  }
+
+  void resetFilters() {
+    _warehouseId = null;
+    _locationId = null;
+    _categoryId = null;
+    _status = '';
+    _sort = 'name';
     markFilterChanged();
     refresh();
   }

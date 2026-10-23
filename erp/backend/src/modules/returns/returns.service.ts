@@ -77,7 +77,13 @@ export async function createReturnOrderTx(tx: Tx, input: CreateReturnOrderInput)
     })),
   );
 
-  const number = await nextNumber(tx, 'returnOrder', 'RET');
+  const number = await nextNumber(
+    tx,
+    'returnOrder',
+    'RET',
+    new Date(),
+    async (candidate) => (await tx.returnOrder.count({ where: { number: candidate } })) > 0,
+  );
 
   return tx.returnOrder.create({
     data: {

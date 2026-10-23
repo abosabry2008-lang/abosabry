@@ -201,7 +201,13 @@ export async function createExpense(input: CreateExpenseInput) {
     }
 
     const settings = await getSettings(tx);
-    const number = await nextNumber(tx, 'expense', settings.expensePrefix ?? 'EXP', spentAt);
+    const number = await nextNumber(
+      tx,
+      'expense',
+      settings.expensePrefix ?? 'EXP',
+      spentAt,
+      async (candidate) => (await tx.expense.count({ where: { number: candidate } })) > 0,
+    );
 
     const expense = await tx.expense.create({
       data: {

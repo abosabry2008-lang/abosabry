@@ -507,7 +507,9 @@ export async function createTransfer(input: CreateTransferInput) {
     }
 
     const transferDate = input.transferDate ?? new Date();
-    const number = await nextNumber(tx, 'transfer', 'TRF', transferDate);
+    const number = await nextNumber(tx, 'transfer', 'TRF', transferDate, async (candidate) =>
+      (await tx.cashTransfer.count({ where: { number: candidate } })) > 0,
+    );
 
     // Both boxes are cash, so the double entry nets to zero (Dr 1000 / Cr 1000)
     // and no general-ledger entry is needed; the box statement is the ledger.
