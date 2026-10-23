@@ -361,6 +361,100 @@ ${lineRows || `        <tr><td colspan="8" class="muted center">${escapeHtml(t('
   });
 }
 
+/** Daily hand-over pack: one A5 page per invoice for a salesperson. */
+export function salespersonInvoicesHtml(
+  invoices: InvoiceWithRelations[],
+  settings: AppSettings,
+  lang = 'en',
+  salespersonName?: string | null,
+): string {
+  const ar = isArabic(lang);
+  const t = (en: string, arabic: string) => (ar ? arabic : en);
+  const company = escapeHtml(settings.companyName || 'ERP');
+  const pages = invoices
+    .map((invoice) => {
+      const rows = invoice.lines
+        .map(
+          (line, index) => `      <tr>
+        <td class="num">${index + 1}</td>
+        <td>${escapeHtml(line.description)}</td>
+        <td class="num">${escapeHtml(line.quantity)}</td>
+        <td class="num">${money(line.unitPrice)}</td>
+        <td class="num">${money(line.total)}</td>
+      </tr>`,
+        )
+        .join('\n');
+      const customer = invoice.customer;
+      return `  <section class="a5">
+    <header class="a5-head">
+      <div>
+        <strong>${company}</strong>
+        ${settings.companyPhone ? `<div class="muted">${escapeHtml(settings.companyPhone)}</div>` : ''}
+      </div>
+      <div class="a5-title">
+        <h2>${escapeHtml(t('Sales invoice', 'فاتورة بيع'))}</h2>
+        <div>${escapeHtml(invoice.number)}</div>
+        <div class="muted">${escapeHtml(formatDate(invoice.issueDate))}</div>
+      </div>
+    </header>
+    <div class="a5-customer">
+      <span>${escapeHtml(t('Customer', 'العميل'))}:</span>
+      <strong>${escapeHtml(customer?.name ?? t('Walk-in customer', 'عميل نقدي'))}</strong>
+      ${customer?.phone ? `<span class="muted">${escapeHtml(customer.phone)}</span>` : ''}
+      ${salespersonName ? `<span class="muted">${escapeHtml(t('Salesperson', 'المندوب'))}: ${escapeHtml(salespersonName)}</span>` : ''}
+    </div>
+    <table class="data a5-table">
+      <thead><tr>
+        <th class="num">#</th>
+        <th>${escapeHtml(t('Item', 'الصنف'))}</th>
+        <th class="num">${escapeHtml(t('Qty', 'الكمية'))}</th>
+        <th class="num">${escapeHtml(t('Price', 'السعر'))}</th>
+        <th class="num">${escapeHtml(t('Total', 'الإجمالي'))}</th>
+      </tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted center">${escapeHtml(t('No lines', 'لا توجد أصناف'))}</td></tr>`}</tbody>
+    </table>
+    <table class="totals a5-totals">
+      <tbody>
+        <tr><th>${escapeHtml(t('Subtotal', 'الإجمالي الفرعي'))}</th><td class="num">${money(invoice.subtotal)}</td></tr>
+        <tr><th>${escapeHtml(t('Discount', 'الخصم'))}</th><td class="num">${money(invoice.discountTotal)}</td></tr>
+        <tr><th>${escapeHtml(t('Tax', 'الضريبة'))}</th><td class="num">${money(invoice.taxTotal)}</td></tr>
+        <tr class="grand"><th>${escapeHtml(t('Total', 'الإجمالي'))}</th><td class="num">${money(invoice.total)}</td></tr>
+        <tr><th>${escapeHtml(t('Paid', 'المدفوع'))}</th><td class="num">${money(invoice.amountPaid)}</td></tr>
+        <tr class="grand"><th>${escapeHtml(t('Balance', 'المستحق'))}</th><td class="num">${money(invoice.balance)}</td></tr>
+      </tbody>
+    </table>
+    <div class="a5-sign">
+      <span>${escapeHtml(t('Salesperson signature', 'توقيع المندوب'))}: ....................................</span>
+      <span>${escapeHtml(t('Customer signature', 'توقيع العميل'))}: ....................................</span>
+    </div>
+  </section>`;
+    })
+    .join('\n');
+
+  const extra = `
+  @page { size: A5; margin: 8mm; }
+  body { background: #fff; padding: 0; font-size: 11px; }
+  .a5 { page-break-after: always; break-after: page; padding: 0; margin: 0; }
+  .a5:last-child { page-break-after: auto; break-after: auto; }
+  .a5-head { display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 8px; }
+  .a5-head h2 { margin: 0; font-size: 15px; }
+  .a5-title { text-align: ${ar ? 'left' : 'right'}; }
+  .a5-customer { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; padding: 6px 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
+  .a5-table th, .a5-table td { padding: 4px 6px; font-size: 10.5px; }
+  .a5-table { margin-bottom: 8px; }
+  .a5-totals { margin-${ar ? 'right' : 'left'}: auto; margin-bottom: 8px; min-width: 240px; }
+  .a5-totals th, .a5-totals td { padding: 3px 8px; }
+  .a5-sign { display: flex; justify-content: space-between; gap: 16px; margin-top: 10px; font-size: 10px; color: #475569; }
+  @media print { body { padding: 0; } .a5 { padding: 0; } }
+  `;
+
+  return `<!doctype html>
+<html lang="${ar ? 'ar' : 'en'}" dir="${ar ? 'rtl' : 'ltr'}">
+<head><meta charset="utf-8"><title>${escapeHtml(t('Daily sales invoices', 'فواتير المبيعات اليومية'))}</title>
+<style>${STYLES}${extra}</style></head>
+<body>${pages}</body></html>`;
+}
+
 // ---------------------------------------------------------------------------
 // Account statements
 // ---------------------------------------------------------------------------

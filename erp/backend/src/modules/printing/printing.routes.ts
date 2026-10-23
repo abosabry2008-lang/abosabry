@@ -40,6 +40,7 @@ import {
   priceListHtml,
   cashBoxStatementHtml,
   investmentEquationHtml,
+  salespersonInvoicesHtml,
   supplierPayablesHtml,
   supplierStatementHtml,
   topProductsHtml,
@@ -219,6 +220,52 @@ router.get(
       getSettings(),
     ]);
     sendHtml(res, stockBalanceHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/salespeople/:id/invoices?from=&to=
+router.get(
+  '/salespeople/:id/invoices',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    if (String(user.role) === 'SALES' && user.id !== req.params.id) {
+      throw ApiError.forbidden('You can only print your own invoices');
+    }
+    const from = asDate(req.query.from);
+    const rawTo = asDate(req.query.to);
+    const to = rawTo
+      ? new Date(rawTo.getFullYear(), rawTo.getMonth(), rawTo.getDate(), 23, 59, 59, 999)
+      : undefined;
+    const lang = asString(req.query.lang) ?? 'en';
+    const salesperson = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: { name: true },
+    });
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+        ...(from || to
+          ? {
+              issueDate: {
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {}),
+              },
+            }
+          : {}),
+        OR: [
+          { customer: { salespersonId: req.params.id } },
+          { customerId: null, salesOrder: { userId: req.params.id } },
+        ],
+      },
+      include: invoiceInclude,
+      orderBy: [{ issueDate: 'asc' }, { number: 'asc' }],
+    });
+    const settings = await getSettings();
+    sendHtml(
+      res,
+      salespersonInvoicesHtml(invoices, settings, lang, salesperson?.name),
+    );
   }),
 );
 

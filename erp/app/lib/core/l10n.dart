@@ -910,6 +910,18 @@ class AppStrings {
   String get topProducts => _t('Top products', 'أفضل المنتجات');
   String get valuation => _t('Valuation', 'التقييم');
   String get customerBalances => _t('Customer balances', 'أرصدة العملاء');
+  String get dailyInvoicesPrint =>
+      _t('Daily salesperson invoices', 'فواتير المندوب اليومية');
+  String get dailyInvoicesPrintHint => _t(
+        'Every issued invoice for one salesperson on a chosen day.',
+        'كل الفواتير الصادرة لمندوب واحد في يوم محدد.',
+      );
+  String get dailyInvoicesA5Hint => _t(
+        'Each invoice is printed on a separate A5 page, ready to hand over.',
+        'كل فاتورة تُطبع في صفحة A5 منفصلة جاهزة للتسليم.',
+      );
+  String get printAllInvoices =>
+      _t('Print all invoices', 'طباعة كل الفواتير');
   String get customerRoute => _t('Sales route', 'خط السير');
   String get noRoute => _t('No route', 'بدون خط سير');
   String get customerRoutes => _t('Sales routes', 'خطوط السير');

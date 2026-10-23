@@ -31,6 +31,7 @@ import 'price_list_screen.dart';
 import 'order_fulfilment_report_screen.dart';
 import 'report_widgets.dart';
 import 'salespeople_reports_screen.dart';
+import 'salesperson_daily_invoices_screen.dart';
 import 'salesperson_customer_debt_screen.dart';
 import 'shortages_report_screen.dart';
 import 'statement_hub_screen.dart';
@@ -284,6 +285,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
         title: s.salespeopleReports,
         description: s.salespeopleReportsDesc,
         reports: <_ReportSpec>[
+          _ReportSpec(
+            icon: Icons.print_outlined,
+            title: s.dailyInvoicesPrint,
+            builder: (_) => const SalespersonDailyInvoicesScreen(),
+          ),
           _ReportSpec(
             icon: Icons.receipt_long_outlined,
             title: s.consolidatedSalesNote,

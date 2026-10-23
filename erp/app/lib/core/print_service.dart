@@ -138,6 +138,18 @@ class PrintService {
         if (to != null) 'to': Formatters.isoDate(to),
       });
 
+  static Uri salespersonDailyInvoicesUrl(
+    String salespersonId,
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      _uri('/print/salespeople/$salespersonId/invoices', <String, String?>{
+        'token': token,
+        if (from != null) 'from': from.toIso8601String(),
+        if (to != null) 'to': to.toIso8601String(),
+      });
+
   static Uri customerBalancesUrl(String? token, {String? salespersonId}) =>
       _uri('/print/reports/customer-balances', <String, String?>{
         'token': token,
@@ -282,6 +294,22 @@ class PrintService {
       open(
         context,
         cashBoxStatementUrl(boxId, token(context), from: from, to: to),
+      );
+
+  static Future<bool> printSalespersonDailyInvoices(
+    BuildContext context,
+    String salespersonId, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      open(
+        context,
+        salespersonDailyInvoicesUrl(
+          salespersonId,
+          token(context),
+          from: from,
+          to: to,
+        ),
       );
 
   static Future<bool> printCustomerBalances(

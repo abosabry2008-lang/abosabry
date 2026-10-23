@@ -10,6 +10,7 @@ import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
+import '../reports/salesperson_daily_invoices_screen.dart';
 import '../shell/navigation.dart';
 import '../../widgets/day_search_row.dart';
 import '../../widgets/page_header.dart';
@@ -36,6 +37,15 @@ class InvoicesScreen extends StatelessWidget {
         children: <Widget>[
           PageHeader(
             title: s.invoices,
+            trailing: IconButton.filledTonal(
+              tooltip: s.dailyInvoicesPrint,
+              onPressed: () => pushScreen<void>(
+                context,
+                s.dailyInvoicesPrint,
+                const SalespersonDailyInvoicesScreen(),
+              ),
+              icon: const Icon(Icons.print_outlined),
+            ),
             filters: <Widget>[
               Row(
                 children: <Widget>[
