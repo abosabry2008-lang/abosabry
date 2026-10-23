@@ -7,6 +7,7 @@ import '../../models/purchase_order.dart';
 import '../../state/purchase_orders_controller.dart';
 import '../../widgets/async_list_view.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
@@ -34,35 +35,32 @@ class PurchaseOrdersScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Column(
-              children: <Widget>[
-                AppSearchField(
-                  hintText: s.searchPurchaseOrdersHint,
-                  initialValue: controller.search,
-                  onChanged: controller.searchWith,
-                ),
-                const SizedBox(height: 8),
-                AppSelectField<String>(
-                  label: s.statusWord,
-                  value: controller.status,
-                  hint: s.allStatuses,
-                  options: <SelectOption<String>>[
-                    SelectOption<String>('', s.allStatuses),
-                    ...purchaseOrderStatuses.map(
-                      (status) => SelectOption<String>(
-                        status,
-                        s.status(status),
-                      ),
+          PageHeader(
+            title: s.purchasing,
+            filters: <Widget>[
+              AppSearchField(
+                hintText: s.searchPurchaseOrdersHint,
+                initialValue: controller.search,
+                onChanged: controller.searchWith,
+              ),
+              AppSelectField<String>(
+                label: s.statusWord,
+                value: controller.status,
+                hint: s.allStatuses,
+                options: <SelectOption<String>>[
+                  SelectOption<String>('', s.allStatuses),
+                  ...purchaseOrderStatuses.map(
+                    (status) => SelectOption<String>(
+                      status,
+                      s.status(status),
                     ),
-                  ],
-                  onChanged: (value) => controller.filterByStatus(
-                    value == null || value.isEmpty ? null : value,
                   ),
+                ],
+                onChanged: (value) => controller.filterByStatus(
+                  value == null || value.isEmpty ? null : value,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Expanded(

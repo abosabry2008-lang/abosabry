@@ -8,6 +8,7 @@ import '../../state/payments_controller.dart';
 import '../../widgets/async_list_view.dart';
 import '../../widgets/day_search_row.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
@@ -25,37 +26,33 @@ class PaymentsScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Column(
-              children: <Widget>[
-                AppSearchField(
-                  hintText: s.searchPaymentsHint,
-                  initialValue: controller.search,
-                  onChanged: controller.searchWith,
+          PageHeader(
+            title: s.payments,
+            filters: <Widget>[
+              AppSearchField(
+                hintText: s.searchPaymentsHint,
+                initialValue: controller.search,
+                onChanged: controller.searchWith,
+              ),
+              DaySearchRow(
+                day: controller.dayFilter.day,
+                onDayChanged: controller.filterByDay,
+                onSearch: () => controller.refresh(),
+              ),
+              AppSelectField<String>(
+                label: s.direction,
+                value: controller.direction,
+                hint: s.allPayments,
+                options: <SelectOption<String>>[
+                  SelectOption<String>('', s.allPayments),
+                  SelectOption<String>('INBOUND', s.inboundReceived),
+                  SelectOption<String>('OUTBOUND', s.outboundPaid),
+                ],
+                onChanged: (value) => controller.filterByDirection(
+                  value == null || value.isEmpty ? null : value,
                 ),
-                const SizedBox(height: 8),
-                DaySearchRow(
-                  day: controller.dayFilter.day,
-                  onDayChanged: controller.filterByDay,
-                  onSearch: () => controller.refresh(),
-                ),
-                const SizedBox(height: 8),
-                AppSelectField<String>(
-                  label: s.direction,
-                  value: controller.direction,
-                  hint: s.allPayments,
-                  options: <SelectOption<String>>[
-                    SelectOption<String>('', s.allPayments),
-                    SelectOption<String>('INBOUND', s.inboundReceived),
-                    SelectOption<String>('OUTBOUND', s.outboundPaid),
-                  ],
-                  onChanged: (value) => controller.filterByDirection(
-                    value == null || value.isEmpty ? null : value,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Expanded(

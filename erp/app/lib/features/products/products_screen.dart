@@ -9,6 +9,7 @@ import '../../state/categories_controller.dart';
 import '../../state/products_controller.dart';
 import '../../widgets/async_list_view.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../shell/navigation.dart';
@@ -93,85 +94,76 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return Scaffold(
       body: Column(
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Column(
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: AppSearchField(
-                        hintText: s.searchProductsByNameSku,
-                        initialValue: controller.search,
-                        onChanged: controller.searchWith,
-                      ),
+          PageHeader(
+            title: s.products,
+            subtitle: s.productCountLabel('${controller.total}'),
+            filters: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AppSearchField(
+                      hintText: s.searchProductsByNameSku,
+                      initialValue: controller.search,
+                      onChanged: controller.searchWith,
                     ),
-                    const SizedBox(width: 8),
-                    IconButton.filledTonal(
-                      tooltip: s.barcodeLookup,
-                      onPressed: _openBarcodeLookup,
-                      icon: const Icon(Icons.qr_code_scanner),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 44,
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: AppSelectField<String>(
-                          label: s.category,
-                          value: controller.categoryId,
-                          hint: s.allCategories,
-                          options: <SelectOption<String>>[
-                            SelectOption<String>('', s.allCategories),
-                            ...categories.items.map(
-                              (category) => SelectOption<String>(
-                                category.id,
-                                category.name,
-                              ),
-                            ),
-                          ],
-                          onChanged: (value) => controller
-                              .filterByCategory(value == null || value.isEmpty
-                                  ? null
-                                  : value),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    tooltip: s.barcodeLookup,
+                    onPressed: _openBarcodeLookup,
+                    icon: const Icon(Icons.qr_code_scanner),
+                  ),
+                ],
+              ),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AppSelectField<String>(
+                      label: s.category,
+                      value: controller.categoryId,
+                      hint: s.allCategories,
+                      options: <SelectOption<String>>[
+                        SelectOption<String>('', s.allCategories),
+                        ...categories.items.map(
+                          (category) => SelectOption<String>(
+                            category.id,
+                            category.name,
+                          ),
                         ),
+                      ],
+                      onChanged: (value) => controller.filterByCategory(
+                        value == null || value.isEmpty ? null : value,
                       ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        label: Text(s.lowStock),
-                        selected: controller.lowStockOnly,
-                        onSelected: (value) => controller.setLowStockOnly(value),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 40,
-                  child: Row(
-                    children: <Widget>[
-                      FilterChip(
-                        label: Text(s.showInactive),
-                        selected: controller.showInactive,
-                        onSelected: (value) {
-                          controller.setShowInactive(value);
-                          if (!value) controller.setShowDeleted(false);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        label: Text(s.showDeleted),
-                        selected: controller.showDeleted,
-                        onSelected: controller.setShowDeleted,
-                      ),
-                    ],
+                  const SizedBox(width: 8),
+                  FilterChip(
+                    label: Text(s.lowStock),
+                    selected: controller.lowStockOnly,
+                    onSelected: (value) => controller.setLowStockOnly(value),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: <Widget>[
+                  FilterChip(
+                    label: Text(s.showInactive),
+                    selected: controller.showInactive,
+                    onSelected: (value) {
+                      controller.setShowInactive(value);
+                      if (!value) controller.setShowDeleted(false);
+                    },
+                  ),
+                  FilterChip(
+                    label: Text(s.showDeleted),
+                    selected: controller.showDeleted,
+                    onSelected: controller.setShowDeleted,
+                  ),
+                ],
+              ),
+            ],
           ),
           if (controller.items.isNotEmpty)
             Padding(

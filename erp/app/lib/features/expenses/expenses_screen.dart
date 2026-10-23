@@ -12,6 +12,7 @@ import '../../widgets/async_list_view.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
 import '../shell/navigation.dart';
@@ -150,64 +151,61 @@ class _ExpensesScreenState extends State<ExpensesScreen>
     return Scaffold(
       body: Column(
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Column(
-              children: <Widget>[
-                AppSearchField(
-                  hintText: s.searchExpensesHint,
-                  initialValue: controller.search,
-                  onChanged: controller.searchWith,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: AppDateField(
-                        label: s.date,
-                        value: controller.date,
-                        clearable: false,
-                        onChanged: (value) {
-                          if (value != null) controller.filterByDate(value);
-                        },
+          PageHeader(
+            title: s.expensesTitle,
+            subtitle: s.expensesHint,
+            filters: <Widget>[
+              AppSearchField(
+                hintText: s.searchExpensesHint,
+                initialValue: controller.search,
+                onChanged: controller.searchWith,
+              ),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AppDateField(
+                      label: s.date,
+                      value: controller.date,
+                      clearable: false,
+                      onChanged: (value) {
+                        if (value != null) controller.filterByDate(value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: () => controller.refresh(),
+                    icon: const Icon(Icons.search),
+                    label: Text(s.search),
+                  ),
+                ],
+              ),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AppSelectField<String>(
+                      label: s.expenseCategory,
+                      value: controller.categoryId ?? '',
+                      options: categoryOptions,
+                      onChanged: (value) => controller.filterByCategory(
+                        value == null || value.isEmpty ? null : value,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton.tonalIcon(
-                      onPressed: () => controller.refresh(),
-                      icon: const Icon(Icons.search),
-                      label: Text(s.search),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: AppSelectField<String>(
-                        label: s.expenseCategory,
-                        value: controller.categoryId ?? '',
-                        options: categoryOptions,
-                        onChanged: (value) => controller.filterByCategory(
-                          value == null || value.isEmpty ? null : value,
-                        ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: AppSelectField<String>(
+                      label: s.cashBox,
+                      value: controller.cashBoxId ?? '',
+                      options: boxOptions,
+                      onChanged: (value) => controller.filterByCashBox(
+                        value == null || value.isEmpty ? null : value,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AppSelectField<String>(
-                        label: s.cashBox,
-                        value: controller.cashBoxId ?? '',
-                        options: boxOptions,
-                        onChanged: (value) => controller.filterByCashBox(
-                          value == null || value.isEmpty ? null : value,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Expanded(

@@ -10,6 +10,7 @@ import '../../widgets/async_list_view.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/section_card.dart';
 import '../shell/navigation.dart';
 import 'supplier_form_screen.dart';
@@ -53,25 +54,28 @@ class SuppliersScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: AppSearchField(
-                    hintText: s.searchSuppliersHint,
-                    initialValue: controller.search,
-                    onChanged: controller.searchWith,
+          PageHeader(
+            title: s.suppliers,
+            subtitle: s.supplierCountLabel('${controller.total}'),
+            filters: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AppSearchField(
+                      hintText: s.searchSuppliersHint,
+                      initialValue: controller.search,
+                      onChanged: controller.searchWith,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.tonalIcon(
-                  onPressed: () => controller.refresh(),
-                  icon: const Icon(Icons.search),
-                  label: Text(s.search),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: () => controller.refresh(),
+                    icon: const Icon(Icons.search),
+                    label: Text(s.search),
+                  ),
+                ],
+              ),
+            ],
           ),
           Expanded(
             child: AsyncListView<Supplier>(

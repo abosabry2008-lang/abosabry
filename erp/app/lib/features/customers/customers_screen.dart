@@ -11,6 +11,7 @@ import '../../widgets/async_list_view.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/section_card.dart';
 import '../shell/navigation.dart';
 import 'customer_form_screen.dart';
@@ -70,31 +71,28 @@ class _CustomersScreenState extends State<CustomersScreen> {
     return Scaffold(
       body: Column(
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Column(
-              children: <Widget>[
-                AppSearchField(
-                  hintText: s.searchCustomersHint,
-                  initialValue: controller.search,
-                  onChanged: controller.searchWith,
+          PageHeader(
+            title: s.customers,
+            subtitle: s.customerCountLabel('${controller.total}'),
+            filters: <Widget>[
+              AppSearchField(
+                hintText: s.searchCustomersHint,
+                initialValue: controller.search,
+                onChanged: controller.searchWith,
+              ),
+              if (!session.isSalesperson)
+                AppSelectField<String?>(
+                  label: s.salesperson,
+                  value: controller.salespersonId,
+                  prefixIcon: Icons.support_agent_outlined,
+                  options: <SelectOption<String?>>[
+                    SelectOption<String?>(null, s.allSalespeople),
+                    for (final person in salespeople)
+                      SelectOption<String?>(person.id, person.name),
+                  ],
+                  onChanged: controller.filterBySalesperson,
                 ),
-                if (!session.isSalesperson) ...<Widget>[
-                  const SizedBox(height: 10),
-                  AppSelectField<String?>(
-                    label: s.salesperson,
-                    value: controller.salespersonId,
-                    prefixIcon: Icons.support_agent_outlined,
-                    options: <SelectOption<String?>>[
-                      SelectOption<String?>(null, s.allSalespeople),
-                      for (final person in salespeople)
-                        SelectOption<String?>(person.id, person.name),
-                    ],
-                    onChanged: controller.filterBySalesperson,
-                  ),
-                ],
-              ],
-            ),
+            ],
           ),
           Expanded(
             child: AsyncListView<Customer>(

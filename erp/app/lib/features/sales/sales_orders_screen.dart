@@ -7,6 +7,7 @@ import '../../models/sales_order.dart';
 import '../../state/sales_orders_controller.dart';
 import '../../widgets/async_list_view.dart';
 import '../../widgets/day_search_row.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
@@ -34,41 +35,37 @@ class SalesOrdersScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Column(
-              children: <Widget>[
-                AppSearchField(
-                  hintText: s.searchSalesOrdersHint,
-                  initialValue: controller.search,
-                  onChanged: controller.searchWith,
-                ),
-                const SizedBox(height: 8),
-                DaySearchRow(
-                  day: controller.dayFilter.day,
-                  onDayChanged: controller.filterByDay,
-                  onSearch: () => controller.refresh(),
-                ),
-                const SizedBox(height: 8),
-                AppSelectField<String>(
-                  label: s.statusWord,
-                  value: controller.status,
-                  hint: s.allStatuses,
-                  options: <SelectOption<String>>[
-                    SelectOption<String>('', s.allStatuses),
-                    ...salesOrderStatuses.map(
-                      (status) => SelectOption<String>(
-                        status,
-                        s.status(status),
-                      ),
+          PageHeader(
+            title: s.salesOrders,
+            filters: <Widget>[
+              AppSearchField(
+                hintText: s.searchSalesOrdersHint,
+                initialValue: controller.search,
+                onChanged: controller.searchWith,
+              ),
+              DaySearchRow(
+                day: controller.dayFilter.day,
+                onDayChanged: controller.filterByDay,
+                onSearch: () => controller.refresh(),
+              ),
+              AppSelectField<String>(
+                label: s.statusWord,
+                value: controller.status,
+                hint: s.allStatuses,
+                options: <SelectOption<String>>[
+                  SelectOption<String>('', s.allStatuses),
+                  ...salesOrderStatuses.map(
+                    (status) => SelectOption<String>(
+                      status,
+                      s.status(status),
                     ),
-                  ],
-                  onChanged: (value) => controller.filterByStatus(
-                    value == null || value.isEmpty ? null : value,
                   ),
+                ],
+                onChanged: (value) => controller.filterByStatus(
+                  value == null || value.isEmpty ? null : value,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Expanded(

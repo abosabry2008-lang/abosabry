@@ -12,6 +12,7 @@ import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
 import '../shell/navigation.dart';
 import '../../widgets/day_search_row.dart';
+import '../../widgets/page_header.dart';
 import 'invoice_detail_screen.dart';
 
 const List<String> invoiceStatuses = <String>[
@@ -33,53 +34,49 @@ class InvoicesScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Column(
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: AppSearchField(
-                        hintText: s.searchInvoicesHint,
-                        initialValue: controller.search,
-                        onChanged: controller.searchWith,
-                      ),
+          PageHeader(
+            title: s.invoices,
+            filters: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AppSearchField(
+                      hintText: s.searchInvoicesHint,
+                      initialValue: controller.search,
+                      onChanged: controller.searchWith,
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton.tonalIcon(
-                      onPressed: () => controller.refresh(),
-                      icon: const Icon(Icons.search),
-                      label: Text(s.search),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                DaySearchRow(
-                  day: controller.dayFilter.day,
-                  onDayChanged: controller.filterByDay,
-                  onSearch: () => controller.refresh(),
-                ),
-                const SizedBox(height: 8),
-                AppSelectField<String>(
-                  label: s.statusWord,
-                  value: controller.status,
-                  hint: s.allStatuses,
-                  options: <SelectOption<String>>[
-                    SelectOption<String>('', s.allStatuses),
-                    ...invoiceStatuses.map(
-                      (status) => SelectOption<String>(
-                        status,
-                        s.status(status),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) => controller.filterByStatus(
-                    value == null || value.isEmpty ? null : value,
                   ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: () => controller.refresh(),
+                    icon: const Icon(Icons.search),
+                    label: Text(s.search),
+                  ),
+                ],
+              ),
+              DaySearchRow(
+                day: controller.dayFilter.day,
+                onDayChanged: controller.filterByDay,
+                onSearch: () => controller.refresh(),
+              ),
+              AppSelectField<String>(
+                label: s.statusWord,
+                value: controller.status,
+                hint: s.allStatuses,
+                options: <SelectOption<String>>[
+                  SelectOption<String>('', s.allStatuses),
+                  ...invoiceStatuses.map(
+                    (status) => SelectOption<String>(
+                      status,
+                      s.status(status),
+                    ),
+                  ),
+                ],
+                onChanged: (value) => controller.filterByStatus(
+                  value == null || value.isEmpty ? null : value,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Expanded(
