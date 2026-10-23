@@ -1,10 +1,16 @@
 import { CashBox, PaymentDirection, PaymentMethod, Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { ApiError } from '../../lib/api-error';
 import { round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
-import { nextNumber } from '../../lib/sequence';
+import { nextNumber, nextNumbers } from '../../lib/sequence';
 import { getSettings } from '../../lib/settings';
-import { ACCOUNT, postJournal, reverseJournalBySource } from '../accounting/accounting.service';
+import {
+  ACCOUNT,
+  postJournal,
+  postJournalBatch,
+  reverseJournalBySource,
+} from '../accounting/accounting.service';
 import { recalcCustomerBalance } from '../invoices/invoices.service';
 
 export const paymentInclude = {
@@ -649,6 +655,14 @@ export async function createCollectionTx(tx: Tx, input: CreateCollectionInput) {
     collectedAt,
     async (candidate) => (await tx.collectionVoucher.count({ where: { number: candidate } })) > 0,
   );
+
+  // Fast path for the bulk screen: one amount per customer and no invoice to
+  // apply. Everything is inserted in batches instead of paying the per-line
+  // settings/number/journal overhead 50 times inside the transaction.
+  if (input.lines.every((line) => !line.invoiceId)) {
+    return createBulkCollectionTx(tx, input, { box, collectedAt, number });
+  }
+
   const voucher = await tx.collectionVoucher.create({
     data: {
       number,
@@ -711,6 +725,154 @@ export async function createCollectionTx(tx: Tx, input: CreateCollectionInput) {
     total = round2(total + amount);
   }
 
+  return tx.collectionVoucher.update({
+    where: { id: voucher.id },
+    data: { total },
+    include: collectionInclude,
+  });
+}
+
+interface BulkCollectionContext {
+  box: CashBox;
+  collectedAt: Date;
+  number: string;
+}
+
+/**
+ * Inserts a collection receipt (customers only, no invoice allocations) with a
+ * constant number of queries regardless of the line count.
+ */
+async function createBulkCollectionTx(
+  tx: Tx,
+  input: CreateCollectionInput,
+  context: BulkCollectionContext,
+) {
+  const { box, collectedAt, number } = context;
+
+  if (input.lines.some((line) => !line.customerId)) {
+    throw ApiError.badRequest('Each collection line needs a customer', 'CUSTOMER_REQUIRED');
+  }
+
+  const customerIds = [...new Set(input.lines.map((line) => line.customerId!))];
+  const foundCustomers = await tx.customer.findMany({
+    where: { id: { in: customerIds } },
+    select: { id: true },
+  });
+  if (foundCustomers.length !== customerIds.length) {
+    throw ApiError.badRequest('A customer on this receipt no longer exists', 'CUSTOMER_NOT_FOUND');
+  }
+
+  // Resolve every referenced cash box exactly once; most receipts only use the
+  // header box, so the default branch stays a single read.
+  const boxIds = [
+    ...new Set(
+      input.lines
+        .map((line) => line.cashBoxId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const boxes = new Map<string, CashBox>([[box.id, box]]);
+  for (const boxId of boxIds) {
+    if (boxId !== box.id) boxes.set(boxId, await resolveCashBoxTx(tx, boxId));
+  }
+
+  const settings = await getSettings(tx);
+  const numbers = await nextNumbers(
+    tx,
+    'payment',
+    settings.paymentPrefix,
+    input.lines.length,
+    collectedAt,
+    async (candidates) => {
+      const rows = await tx.payment.findMany({
+        where: { number: { in: candidates } },
+        select: { number: true },
+      });
+      return new Set(rows.map((row) => row.number));
+    },
+    async (candidate) =>
+      (await tx.payment.count({ where: { number: candidate } })) > 0,
+  );
+
+  const voucher = await tx.collectionVoucher.create({
+    data: {
+      number,
+      cashBoxId: box.id,
+      salespersonId: input.salespersonId ?? null,
+      collectedAt,
+      reference: input.reference ?? null,
+      note: input.note ?? null,
+      userId: input.userId ?? null,
+      total: 0,
+    },
+  });
+
+  const payments = input.lines.map((line, index) => {
+    const amount = round2(line.amount);
+    return {
+      id: randomUUID(),
+      number: numbers[index],
+      customerId: line.customerId!,
+      cashBoxId: line.cashBoxId ? boxes.get(line.cashBoxId)!.id : box.id,
+      amount,
+      lineNote: line.note ?? null,
+      note: line.note ?? input.note ?? `Collection ${number}`,
+    };
+  });
+
+  await tx.payment.createMany({
+    data: payments.map((payment) => ({
+      id: payment.id,
+      number: payment.number,
+      direction: 'INBOUND',
+      customerId: payment.customerId,
+      cashBoxId: payment.cashBoxId,
+      collectionVoucherId: voucher.id,
+      method: 'CASH',
+      amount: payment.amount,
+      reference: input.reference ?? number,
+      note: payment.note,
+      paidAt: collectedAt,
+      userId: input.userId ?? null,
+    })),
+  });
+
+  await postJournalBatch(
+    tx,
+    payments.map((payment) => ({
+      memo: `Payment ${payment.number}`,
+      reference: payment.number,
+      sourceType: 'PAYMENT',
+      sourceId: payment.id,
+      userId: input.userId,
+      entryDate: collectedAt,
+      lines: [
+        {
+          accountCode: ACCOUNT.CASH,
+          debit: payment.amount,
+          description: `Funds received (${payment.number})`,
+        },
+        {
+          accountCode: ACCOUNT.RECEIVABLE,
+          credit: payment.amount,
+          description: `Receipt (${payment.number})`,
+        },
+      ],
+    })),
+  );
+
+  await tx.collectionLine.createMany({
+    data: payments.map((payment) => ({
+      id: randomUUID(),
+      collectionVoucherId: voucher.id,
+      customerId: payment.customerId,
+      cashBoxId: payment.cashBoxId,
+      amount: payment.amount,
+      note: payment.lineNote,
+    })),
+  });
+
+  const total = round2(payments.reduce((sum, payment) => sum + payment.amount, 0));
   return tx.collectionVoucher.update({
     where: { id: voucher.id },
     data: { total },

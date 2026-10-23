@@ -16,13 +16,22 @@ export interface ReceivablesBySalespersonRow {
   total: number;
   paid: number;
   balance: number;
+  openingBalance?: number;
+  periodBalance?: number;
 }
 
 export interface ReceivablesBySalespersonReport {
   from: string | null;
   to: string | null;
   rows: ReceivablesBySalespersonRow[];
-  totals: { invoices: number; total: number; paid: number; balance: number };
+  totals: {
+    invoices: number;
+    total: number;
+    paid: number;
+    balance: number;
+    openingBalance: number;
+    periodBalance: number;
+  };
 }
 
 /** Outstanding customer balances attributed to the salesperson on the order. */
@@ -31,13 +40,11 @@ export async function buildReceivablesBySalesperson(
   toInput?: Date,
   userId?: string,
 ): Promise<ReceivablesBySalespersonReport> {
+  // The report is an as-of statement: invoices carried from before `from` must
+  // stay visible (and are shown as the opening balance), so only the upper
+  // bound is applied to the query.
   const dateWhere: Prisma.InvoiceWhereInput = {};
-  if (fromInput || toInput) {
-    dateWhere.issueDate = {
-      ...(fromInput ? { gte: fromInput } : {}),
-      ...(toInput ? { lte: toInput } : {}),
-    };
-  }
+  if (toInput) dateWhere.issueDate = { lte: toInput };
 
   const invoices = await prisma.invoice.findMany({
     where: {
@@ -54,6 +61,7 @@ export async function buildReceivablesBySalesperson(
         : {}),
     },
     select: {
+      issueDate: true,
       total: true,
       amountPaid: true,
       balance: true,
@@ -70,6 +78,7 @@ export async function buildReceivablesBySalesperson(
     },
   });
 
+  const fromKey = fromInput ? startOfDayKey(fromInput) : null;
   const map = new Map<string, ReceivablesBySalespersonRow>();
   for (const invoice of invoices) {
     // The customer's assigned representative wins; otherwise the order's creator.
@@ -87,11 +96,19 @@ export async function buildReceivablesBySalesperson(
         total: 0,
         paid: 0,
         balance: 0,
+        openingBalance: 0,
+        periodBalance: 0,
       } satisfies ReceivablesBySalespersonRow);
+    const balance = Number(invoice.balance);
     row.invoices += 1;
     row.total = round2(row.total + Number(invoice.total));
     row.paid = round2(row.paid + Number(invoice.amountPaid));
-    row.balance = round2(row.balance + Number(invoice.balance));
+    row.balance = round2(row.balance + balance);
+    if (fromKey && startOfDayKey(invoice.issueDate) < fromKey) {
+      row.openingBalance = round2((row.openingBalance ?? 0) + balance);
+    } else {
+      row.periodBalance = round2((row.periodBalance ?? 0) + balance);
+    }
     map.set(key, row);
   }
 
@@ -105,8 +122,10 @@ export async function buildReceivablesBySalesperson(
       total: round2(acc.total + row.total),
       paid: round2(acc.paid + row.paid),
       balance: round2(acc.balance + row.balance),
+      openingBalance: round2(acc.openingBalance + (row.openingBalance ?? 0)),
+      periodBalance: round2(acc.periodBalance + (row.periodBalance ?? 0)),
     }),
-    { invoices: 0, total: 0, paid: 0, balance: 0 },
+    { invoices: 0, total: 0, paid: 0, balance: 0, openingBalance: 0, periodBalance: 0 },
   );
 
   return {
@@ -115,6 +134,13 @@ export async function buildReceivablesBySalesperson(
     rows,
     totals,
   };
+}
+
+/** Local (not UTC) calendar-day key so period boundaries match the date picker. */
+function startOfDayKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate(),
+  ).padStart(2, '0')}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -975,6 +975,14 @@ class _ReceivablesTabState extends State<_ReceivablesTab> {
           child: Column(
             children: <Widget>[
               ReportKeyValueRow(
+                label: s.previousBalanceLabel,
+                amount: asDouble(totals['openingBalance']),
+              ),
+              ReportKeyValueRow(
+                label: s.periodBalance,
+                amount: asDouble(totals['periodBalance']),
+              ),
+              ReportKeyValueRow(
                 label: s.total,
                 amount: asDouble(totals['total']),
               ),
@@ -1018,9 +1026,22 @@ class _ReceivableTile extends StatelessWidget {
       dense: true,
       contentPadding: EdgeInsets.zero,
       title: Text(asString(row['customer'], fallback: s.customer)),
-      subtitle: Text(
-        '$salesperson · '
-        '${s.invoiceCountLabel(Formatters.integer(asDouble(row['invoices'])))}',
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            '$salesperson · '
+            '${s.invoiceCountLabel(Formatters.integer(asDouble(row['invoices'])))}',
+          ),
+          Row(
+            children: <Widget>[
+              Text('${s.previousBalanceLabel}: '),
+              MoneyText(asDouble(row['openingBalance'])),
+              Text(' · ${s.periodBalance}: '),
+              MoneyText(asDouble(row['periodBalance'])),
+            ],
+          ),
+        ],
       ),
       trailing: MoneyText(asDouble(row['balance']), colorNegative: true),
     );

@@ -734,33 +734,59 @@ export async function buildSalespersonCustomerDebt(
   });
   if (!salesperson) throw new Error('SALESPERSON_NOT_FOUND');
 
-  const [invoices, voucherLines] = await Promise.all([
+  // Every account that belongs to this salesperson: assigned directly, invoiced
+  // under one of their orders, or collected by them. Seeding from the customer
+  // row is what makes carried opening balances show up even when the account
+  // has no invoice or collection inside the selected period.
+  const customers = await prisma.customer.findMany({
+    where: {
+      OR: [
+        { salespersonId },
+        {
+          invoices: {
+            some: {
+              status: { notIn: ['DRAFT', 'VOID'] },
+              salesOrder: { userId: salespersonId },
+            },
+          },
+        },
+        { collectionLines: { some: { collection: { salespersonId } } } },
+      ],
+    },
+    select: { id: true, name: true, phone: true, balance: true },
+  });
+  const customerIds = customers.map((customer) => customer.id);
+
+  const [invoices, payments, walkInInvoices] = await Promise.all([
+    customerIds.length === 0
+      ? Promise.resolve([])
+      : prisma.invoice.findMany({
+          where: {
+            customerId: { in: customerIds },
+            status: { notIn: ['DRAFT', 'VOID'] },
+            issueDate: { gte: from, lte: to },
+          },
+          select: { customerId: true, total: true },
+        }),
+    customerIds.length === 0
+      ? Promise.resolve([])
+      : prisma.payment.findMany({
+          where: {
+            customerId: { in: customerIds },
+            direction: 'INBOUND',
+            cancelledAt: null,
+            paidAt: { gte: from, lte: to },
+          },
+          select: { customerId: true, amount: true },
+        }),
     prisma.invoice.findMany({
       where: {
+        customerId: null,
         status: { notIn: ['DRAFT', 'VOID'] },
         issueDate: { lte: to },
-        OR: [
-          { customer: { salespersonId } },
-          { customer: { salespersonId: null }, salesOrder: { userId: salespersonId } },
-          { salesOrder: { userId: salespersonId } },
-        ],
+        salesOrder: { userId: salespersonId },
       },
-      select: {
-        issueDate: true,
-        total: true,
-        amountPaid: true,
-        customer: { select: { id: true, name: true, phone: true } },
-      },
-    }),
-    prisma.collectionLine.findMany({
-      where: {
-        collection: { salespersonId, cancelledAt: null, collectedAt: { lte: to } },
-      },
-      select: {
-        amount: true,
-        customer: { select: { id: true, name: true, phone: true } },
-        collection: { select: { collectedAt: true } },
-      },
+      select: { issueDate: true, total: true, balance: true },
     }),
   ]);
 
@@ -773,65 +799,80 @@ export async function buildSalespersonCustomerDebt(
     credit: number;
   }
   const map = new Map<string, Bucket>();
-  const bucketFor = (
-    id: string | null,
-    name: string | null,
-    phone: string | null,
-  ): Bucket => {
-    const key = id ?? 'walk-in';
-    const existing = map.get(key);
-    if (existing) return existing;
-    const created: Bucket = {
-      customerId: key,
-      customer: name ?? 'Walk-in',
-      phone,
+  for (const customer of customers) {
+    map.set(customer.id, {
+      customerId: customer.id,
+      customer: customer.name,
+      phone: customer.phone,
       previous: 0,
       debit: 0,
       credit: 0,
-    };
-    map.set(key, created);
-    return created;
-  };
+    });
+  }
 
+  const debitByCustomer = new Map<string, number>();
   for (const invoice of invoices) {
-    const bucket = bucketFor(
-      invoice.customer?.id ?? null,
-      invoice.customer?.name ?? null,
-      invoice.customer?.phone ?? null,
+    if (!invoice.customerId) continue;
+    debitByCustomer.set(
+      invoice.customerId,
+      round2((debitByCustomer.get(invoice.customerId) ?? 0) + Number(invoice.total)),
     );
+  }
+
+  const creditByCustomer = new Map<string, number>();
+  for (const payment of payments) {
+    if (!payment.customerId) continue;
+    creditByCustomer.set(
+      payment.customerId,
+      round2((creditByCustomer.get(payment.customerId) ?? 0) + Number(payment.amount)),
+    );
+  }
+
+  const rows: SalespersonCustomerRow[] = [];
+  for (const customer of customers) {
+    const debit = debitByCustomer.get(customer.id) ?? 0;
+    const credit = creditByCustomer.get(customer.id) ?? 0;
+    // The stored balance is authoritative. Walking it backwards through this
+    // period's movements gives the balance the customer carried in, including
+    // any migration/opening balance that has no invoice behind it.
+    const closing = round2(Number(customer.balance));
+    const previous = round2(closing - debit + credit);
+    if (previous === 0 && debit === 0 && credit === 0) continue;
+    rows.push({
+      customerId: customer.id,
+      customer: customer.name,
+      phone: customer.phone,
+      previous,
+      debit,
+      credit,
+      balance: closing,
+    });
+  }
+
+  // Walk-in invoices have no customer row to carry a balance; their outstanding
+  // invoice balances are the closest equivalent.
+  let walkInPrevious = 0;
+  let walkInDebit = 0;
+  let walkInClosing = 0;
+  for (const invoice of walkInInvoices) {
     const key = dayKey(invoice.issueDate);
-    const amount = Number(invoice.total);
-    // Anything issued before the period (and unpaid) rolls into "previous".
-    const settled = Number(invoice.amountPaid);
-    if (key < fromKey) {
-      bucket.previous = round2(bucket.previous + (amount - settled));
-    } else {
-      bucket.debit = round2(bucket.debit + amount);
-    }
+    walkInClosing = round2(walkInClosing + Number(invoice.balance));
+    if (key >= fromKey) walkInDebit = round2(walkInDebit + Number(invoice.total));
+  }
+  walkInPrevious = round2(walkInClosing - walkInDebit);
+  if (walkInPrevious !== 0 || walkInDebit !== 0) {
+    rows.push({
+      customerId: 'walk-in',
+      customer: 'Walk-in',
+      phone: null,
+      previous: walkInPrevious,
+      debit: walkInDebit,
+      credit: 0,
+      balance: walkInClosing,
+    });
   }
 
-  for (const line of voucherLines) {
-    const bucket = bucketFor(
-      line.customer?.id ?? null,
-      line.customer?.name ?? null,
-      line.customer?.phone ?? null,
-    );
-    const key = dayKey(line.collection.collectedAt);
-    const amount = Number(line.amount);
-    if (key < fromKey) {
-      bucket.previous = round2(bucket.previous - amount);
-    } else {
-      bucket.credit = round2(bucket.credit + amount);
-    }
-  }
-
-  const rows: SalespersonCustomerRow[] = [...map.values()]
-    .map((bucket) => ({
-      ...bucket,
-      balance: round2(bucket.previous + bucket.debit - bucket.credit),
-    }))
-    .filter((row) => row.previous !== 0 || row.debit !== 0 || row.credit !== 0)
-    .sort((a, b) => b.balance - a.balance || a.customer.localeCompare(b.customer));
+  rows.sort((a, b) => b.balance - a.balance || a.customer.localeCompare(b.customer));
 
   const totals = rows.reduce(
     (acc, row) => ({

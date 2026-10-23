@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
@@ -7,31 +8,17 @@ import '../../core/l10n.dart';
 import '../../core/session.dart';
 import '../../models/cash_box.dart';
 import '../../models/customer.dart';
-import '../../models/invoice.dart';
 import '../../models/user.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
-import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
 
-/// One editable line of the collection receipt.
-class _LineDraft {
-  _LineDraft();
-
-  final TextEditingController amount = TextEditingController();
-  final TextEditingController note = TextEditingController();
-  String? customerId;
-  String? invoiceId;
-
-  double get parsedAmount => double.tryParse(amount.text.trim()) ?? 0;
-
-  void dispose() {
-    amount.dispose();
-    note.dispose();
-  }
-}
-
-/// Records one receipt for an agent covering several customers/invoices.
+/// Bulk collection receipt: enter one amount per customer in a single list.
+///
+/// This is the screen agents use for around 50 customers at a time, so it
+/// deliberately avoids per-line pickers. The customers are filtered by the
+/// selected salesperson, searched by name/code/phone, and every row keeps its
+/// own amount. "Collect all balances" fills the whole sheet in one tap.
 class CollectionFormScreen extends StatefulWidget {
   const CollectionFormScreen({super.key});
 
@@ -43,25 +30,24 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _reference = TextEditingController();
   final TextEditingController _note = TextEditingController();
-  final List<_LineDraft> _lines = <_LineDraft>[_LineDraft()];
+  final Map<String, TextEditingController> _amounts =
+      <String, TextEditingController>{};
 
   List<CashBox> _boxes = <CashBox>[];
   List<Customer> _customers = <Customer>[];
-  List<Invoice> _invoices = <Invoice>[];
   List<AppUser> _salespeople = <AppUser>[];
 
   String? _boxId;
   String? _salespersonId;
+  String _search = '';
   DateTime _collectedAt = DateTime.now();
+  bool _showAll = false;
   bool _loading = true;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    for (final line in _lines) {
-      line.amount.addListener(_recalculate);
-    }
     _load();
   }
 
@@ -69,36 +55,37 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
   void dispose() {
     _reference.dispose();
     _note.dispose();
-    for (final line in _lines) {
-      line.dispose();
+    for (final controller in _amounts.values) {
+      controller.dispose();
     }
     super.dispose();
-  }
-
-  void _recalculate() {
-    if (mounted) setState(() {});
   }
 
   Future<void> _load() async {
     final api = context.read<Session>().api;
     try {
       final boxRows = await api.getList('/treasury/boxes');
-      final customerPage = await api.getPage<Customer>(
-        '/customers',
-        query: <String, dynamic>{'page': 1, 'pageSize': 300},
-        parse: Customer.fromJson,
-      );
-      final invoicePage = await api.getPage<Invoice>(
-        '/invoices',
-        query: <String, dynamic>{'page': 1, 'pageSize': 300, 'unpaid': 'true'},
-        parse: Invoice.fromJson,
-      );
       final people = await api.getList('/users/salespersons');
+
+      // `/customers` caps a page at 100 rows, so walk the pages instead of
+      // silently missing customers past the first hundred.
+      final customers = <Customer>[];
+      var page = 1;
+      while (true) {
+        final result = await api.getPage<Customer>(
+          '/customers',
+          query: <String, dynamic>{'page': page, 'pageSize': 100},
+          parse: Customer.fromJson,
+        );
+        customers.addAll(result.items);
+        if (!result.hasMore || result.items.isEmpty) break;
+        page += 1;
+      }
+
       if (!mounted) return;
       setState(() {
         _boxes = boxRows.map(CashBox.fromJson).toList();
-        _customers = customerPage.items;
-        _invoices = invoicePage.items;
+        _customers = customers;
         _salespeople = people.map(AppUser.fromJson).toList();
         _boxId ??= _boxes.isEmpty
             ? null
@@ -116,34 +103,93 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
     }
   }
 
-  Invoice? _invoiceById(String? id) {
-    if (id == null) return null;
-    for (final invoice in _invoices) {
-      if (invoice.id == id) return invoice;
-    }
-    return null;
+  TextEditingController _controllerFor(String customerId) {
+    return _amounts.putIfAbsent(
+      customerId,
+      () => TextEditingController()..addListener(_recalculate),
+    );
   }
 
-  void _addLine() {
-    final line = _LineDraft()
-      ..amount.addListener(_recalculate);
-    setState(() {
-      // Inherit salesperson/customer context from previous line
-      if (_salespersonId != null) {
-        // Will be filtered in UI
+  void _recalculate() {
+    if (mounted) setState(() {});
+  }
+
+  double _amountFor(String customerId) =>
+      double.tryParse(_amounts[customerId]?.text.trim() ?? '') ?? 0;
+
+  Iterable<Customer> get _receiptCustomers sync* {
+    for (final customer in _customers) {
+      if (!customer.active) continue;
+      if (_salespersonId != null && customer.salespersonId != _salespersonId) {
+        continue;
       }
-      _lines.add(line);
+      yield customer;
+    }
+  }
+
+  List<Customer> get _visibleCustomers {
+    final query = _search.trim().toLowerCase();
+    final rows = <Customer>[];
+    for (final customer in _receiptCustomers) {
+      final amount = _amountFor(customer.id);
+      if (!_showAll && customer.balance == 0 && amount <= 0) continue;
+      if (query.isNotEmpty) {
+        final haystack =
+            '${customer.name} ${customer.code ?? ''} ${customer.phone ?? ''}'
+                .toLowerCase();
+        if (!haystack.contains(query)) continue;
+      }
+      rows.add(customer);
+    }
+    rows.sort((a, b) => a.name.compareTo(b.name));
+    return rows;
+  }
+
+  int get _enteredCount =>
+      _receiptCustomers.where((customer) => _amountFor(customer.id) > 0).length;
+
+  double get _total => _receiptCustomers.fold<double>(
+        0,
+        (sum, customer) => sum + _amountFor(customer.id),
+      );
+
+  void _setAmount(Customer customer, double amount) {
+    final text = amount == amount.roundToDouble()
+        ? amount.toStringAsFixed(0)
+        : amount.toStringAsFixed(2);
+    _controllerFor(customer.id).text = text;
+  }
+
+  void _collectAll() {
+    for (final customer in _visibleCustomers) {
+      if (customer.balance > 0) _setAmount(customer, customer.balance);
+    }
+    setState(() {});
+  }
+
+  void _clearAmounts() {
+    for (final customer in _visibleCustomers) {
+      _amounts[customer.id]?.clear();
+    }
+    setState(() {});
+  }
+
+  void _changeSalesperson(String? value) {
+    final next = (value == null || value.isEmpty) ? null : value;
+    if (next == _salespersonId) return;
+    setState(() {
+      _salespersonId = next;
+      // Amounts belong to the previous salesperson's sheet; drop the ones that
+      // are no longer on this receipt so nothing is saved by accident.
+      if (next != null) {
+        for (final customer in _customers) {
+          if (customer.salespersonId != next) {
+            _amounts[customer.id]?.clear();
+          }
+        }
+      }
     });
   }
-
-  void _removeLine(_LineDraft line) {
-    if (_lines.length == 1) return;
-    setState(() => _lines.remove(line));
-    line.dispose();
-  }
-
-  double get _total =>
-      _lines.fold<double>(0, (sum, line) => sum + line.parsedAmount);
 
   Future<void> _submit() async {
     final s = context.s;
@@ -153,19 +199,21 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
           .showSnackBar(SnackBar(content: Text(s.chooseBox)));
       return;
     }
-    for (final line in _lines) {
-      final invoice = _invoiceById(line.invoiceId);
-      final customerId = line.customerId ?? invoice?.customerId;
-      if (customerId == null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(s.lineNeedsCustomer)));
-        return;
-      }
-      if (line.parsedAmount <= 0) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(s.lineNeedsAmount)));
-        return;
-      }
+
+    final lines = <Map<String, dynamic>>[];
+    for (final customer in _receiptCustomers) {
+      final amount = _amountFor(customer.id);
+      if (amount <= 0) continue;
+      lines.add(<String, dynamic>{
+        'customerId': customer.id,
+        'amount': amount,
+        'note': null,
+      });
+    }
+    if (lines.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(s.noAmountsEntered)));
+      return;
     }
 
     setState(() => _saving = true);
@@ -183,18 +231,7 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
               ? null
               : _reference.text.trim(),
           'note': _note.text.trim().isEmpty ? null : _note.text.trim(),
-          'lines': _lines
-              .map(
-                (line) => <String, dynamic>{
-                  'customerId': line.customerId,
-                  'invoiceId': line.invoiceId,
-                  'amount': line.parsedAmount,
-                  'note': line.note.text.trim().isEmpty
-                      ? null
-                      : line.note.text.trim(),
-                },
-              )
-              .toList(),
+          'lines': lines,
         },
       );
       messenger.showSnackBar(SnackBar(content: Text(s.collectionSaved)));
@@ -222,184 +259,201 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
           ),
         )
         .toList();
+    final visible = _visibleCustomers;
+    final theme = Theme.of(context);
 
     return Form(
       key: _formKey,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      child: Column(
         children: <Widget>[
-          SectionCard(
-            title: s.newCollection,
-            child: Column(
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
               children: <Widget>[
-                AppSelectField<String>(
-                  label: s.cashBox,
-                  value: _boxId,
-                  hint: s.chooseBox,
-                  enabled: !_saving,
-                  prefixIcon: Icons.account_balance_wallet_outlined,
-                  options: boxOptions,
-                  onChanged: (value) => setState(() => _boxId = value),
-                ),
-                const SizedBox(height: 14),
-                SearchablePickerField(
-                  label: s.salesperson,
-                  value: _salespersonId,
-                  hint: s.chooseSalesperson,
-                  enabled: !_saving,
-                  prefixIcon: Icons.badge_outlined,
-                  searchHint: s.searchHint,
-                  clearable: true,
-                  options: _salespeople
-                      .map(
-                        (user) => PickerOption(value: user.id, label: user.name),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() {
-                    _salespersonId =
-                        (value == null || value.isEmpty) ? null : value;
-                    // When salesperson changes, clear lines' customers that don't belong to them
-                    if (_salespersonId != null) {
-                      for (final line in _lines) {
-                        if (line.customerId != null) {
-                          final cust = _customers
-                              .where((c) => c.id == line.customerId)
-                              .firstOrNull;
-                          if (cust == null || cust.salespersonId != _salespersonId) {
-                            line.customerId = null;
-                            line.invoiceId = null;
+                SectionCard(
+                  title: s.newCollection,
+                  child: Column(
+                    children: <Widget>[
+                      AppSelectField<String>(
+                        label: s.cashBox,
+                        value: _boxId,
+                        hint: s.chooseBox,
+                        enabled: !_saving,
+                        prefixIcon: Icons.account_balance_wallet_outlined,
+                        options: boxOptions,
+                        onChanged: (value) => setState(() => _boxId = value),
+                      ),
+                      const SizedBox(height: 14),
+                      AppSelectField<String?>(
+                        label: s.salesperson,
+                        value: _salespersonId,
+                        hint: s.chooseSalesperson,
+                        enabled: !_saving,
+                        prefixIcon: Icons.badge_outlined,
+                        options: <SelectOption<String?>>[
+                          SelectOption<String?>(null, s.allSalespeople),
+                          for (final person in _salespeople)
+                            SelectOption<String?>(person.id, person.name),
+                        ],
+                        onChanged: _changeSalesperson,
+                      ),
+                      const SizedBox(height: 14),
+                      AppDateField(
+                        label: s.date,
+                        value: _collectedAt,
+                        enabled: !_saving,
+                        clearable: false,
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _collectedAt = value);
                           }
-                        }
-                      }
-                    }
-                  }),
-                ),
-                const SizedBox(height: 14),
-                AppDateField(
-                  label: s.date,
-                  value: _collectedAt,
-                  enabled: !_saving,
-                  clearable: false,
-                  onChanged: (value) {
-                    if (value != null) setState(() => _collectedAt = value);
-                  },
-                ),
-                const SizedBox(height: 14),
-                AppTextField(
-                  label: s.reference,
-                  controller: _reference,
-                  enabled: !_saving,
-                  prefixIcon: Icons.tag_outlined,
-                ),
-                const SizedBox(height: 14),
-                AppTextField(
-                  label: s.note,
-                  controller: _note,
-                  enabled: !_saving,
-                  maxLines: 2,
-                  prefixIcon: Icons.notes_outlined,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          SectionCard(
-            title: s.collectionLines,
-            child: Column(
-              children: <Widget>[
-                for (var index = 0; index < _lines.length; index++)
-                  _LineEditor(
-                    key: ObjectKey(_lines[index]),
-                    index: index,
-                    line: _lines[index],
-                    enabled: !_saving,
-                    customers: _customers,
-                    invoices: _invoices
-                        .where(
-                          (invoice) =>
-                              _lines[index].customerId == null ||
-                              invoice.customerId == _lines[index].customerId,
-                        )
-                        .toList(),
-                    invoice: _invoiceById(_lines[index].invoiceId),
-                    salespersonId: _salespersonId,
-                    onCustomerChanged: (value) {
-                      setState(() {
-                        _lines[index].customerId = value;
-                        final invoice = _invoiceById(_lines[index].invoiceId);
-                        if (invoice != null && invoice.customerId != value) {
-                          _lines[index].invoiceId = null;
-                        }
-                      });
-                    },
-                    onInvoiceChanged: (value) {
-                      setState(() {
-                        final line = _lines[index];
-                        line.invoiceId =
-                            (value == null || value.isEmpty) ? null : value;
-                        final invoice = _invoiceById(line.invoiceId);
-                        if (invoice != null) {
-                          line.customerId ??= invoice.customerId;
-                          if ((double.tryParse(line.amount.text.trim()) ?? 0) <=
-                              0) {
-                            final amount =
-                                invoice.balance > 0 ? invoice.balance : invoice.total;
-                            line.amount.text = Formatters.number(amount);
-                          }
-                        }
-                      });
-                    },
-                    onRemove: _lines.length > 1
-                        ? () => _removeLine(_lines[index])
-                        : null,
-                  ),
-                const SizedBox(height: 2),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _saving ? null : _addLine,
-                    icon: const Icon(Icons.add),
-                    label: Text(s.addLine),
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        label: s.reference,
+                        controller: _reference,
+                        enabled: !_saving,
+                        prefixIcon: Icons.tag_outlined,
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        label: s.note,
+                        controller: _note,
+                        enabled: !_saving,
+                        maxLines: 2,
+                        prefixIcon: Icons.notes_outlined,
+                      ),
+                    ],
                   ),
                 ),
-                const Divider(height: 28),
-                Row(
-                  children: <Widget>[
-                    Text(
-                      s.voucherTotal,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const Spacer(),
-                    MoneyText(
-                      _total,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+                const SizedBox(height: 16),
+                SectionCard(
+                  title: s.customersToCollect,
+                  subtitle: s.collectionsHint,
+                  child: Column(
+                    children: <Widget>[
+                      AppSearchField(
+                        hintText: s.searchCustomersHint,
+                        onChanged: (value) => setState(() => _search = value),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: <Widget>[
+                          FilledButton.tonalIcon(
+                            onPressed: _saving ? null : _collectAll,
+                            icon: const Icon(Icons.done_all, size: 18),
+                            label: Text(s.collectAll),
                           ),
-                    ),
-                  ],
+                          TextButton.icon(
+                            onPressed: _saving ? null : _clearAmounts,
+                            icon: const Icon(Icons.clear_all, size: 18),
+                            label: Text(s.clearAmounts),
+                          ),
+                          TextButton.icon(
+                            onPressed: _saving
+                                ? null
+                                : () =>
+                                    setState(() => _showAll = !_showAll),
+                            icon: Icon(
+                              _showAll
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              size: 18,
+                            ),
+                            label: Text(s.showAllCustomers),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 20),
+                      if (visible.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Text(s.noMatches),
+                        )
+                      else
+                        for (var index = 0; index < visible.length; index++)
+                          _CustomerAmountRow(
+                            key: ValueKey<String>(visible[index].id),
+                            index: index,
+                            customer: visible[index],
+                            controller: _controllerFor(visible[index].id),
+                            amount: _amountFor(visible[index].id),
+                            enabled: !_saving,
+                            onFullBalance: visible[index].balance > 0
+                                ? () => _setAmount(
+                                      visible[index],
+                                      visible[index].balance,
+                                    )
+                                : null,
+                          ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: OutlinedButton(
-                  onPressed:
-                      _saving ? null : () => Navigator.of(context).pop(false),
-                  child: Text(s.cancel),
-                ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              border: Border(
+                top: BorderSide(color: theme.colorScheme.outlineVariant),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _saving ? null : _submit,
-                  icon: const Icon(Icons.check),
-                  label: Text(_saving ? s.saving : s.save),
-                ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          '${s.customersToCollect}: $_enteredCount',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      Text(
+                        s.voucherTotal,
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      const SizedBox(width: 8),
+                      MoneyText(
+                        _total,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _saving
+                              ? null
+                              : () => Navigator.of(context).pop(false),
+                          child: Text(s.cancel),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _saving ? null : _submit,
+                          icon: const Icon(Icons.check),
+                          label: Text(_saving ? s.saving : s.save),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ],
       ),
@@ -407,131 +461,122 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
   }
 }
 
-class _LineEditor extends StatelessWidget {
-  const _LineEditor({
+class _CustomerAmountRow extends StatelessWidget {
+  const _CustomerAmountRow({
     super.key,
     required this.index,
-    required this.line,
+    required this.customer,
+    required this.controller,
+    required this.amount,
     required this.enabled,
-    required this.customers,
-    required this.invoices,
-    required this.invoice,
-    required this.onCustomerChanged,
-    required this.onInvoiceChanged,
-    required this.onRemove,
-    this.salespersonId,
+    this.onFullBalance,
   });
 
   final int index;
-  final _LineDraft line;
+  final Customer customer;
+  final TextEditingController controller;
+  final double amount;
   final bool enabled;
-  final List<Customer> customers;
-  final List<Invoice> invoices;
-  final Invoice? invoice;
-  final ValueChanged<String?> onCustomerChanged;
-  final ValueChanged<String?> onInvoiceChanged;
-  final VoidCallback? onRemove;
-  final String? salespersonId;
+  final VoidCallback? onFullBalance;
 
   @override
   Widget build(BuildContext context) {
     final s = context.s;
     final theme = Theme.of(context);
+    final remaining = customer.balance - amount;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
       ),
-      child: Column(
+      child: Row(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              CircleAvatar(
-                radius: 12,
-                backgroundColor: theme.colorScheme.secondaryContainer,
-                child: Text(
-                  '${index + 1}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSecondaryContainer,
-                  ),
-                ),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '${index + 1}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.outline,
               ),
-              const Spacer(),
-              if (onRemove != null)
-                IconButton(
-                  tooltip: s.delete,
-                  onPressed: enabled ? onRemove : null,
-                  icon: Icon(
-                    Icons.delete_outline,
-                    color: theme.colorScheme.error,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  customer.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-            ],
+                const SizedBox(height: 2),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 4,
+                  children: <Widget>[
+                    if (customer.code != null)
+                      Text(
+                        customer.code!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    Text(
+                      '${s.balance}: ',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    MoneyText(
+                      customer.balance,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    if (amount > 0) ...<Widget>[
+                      Text(
+                        ' · ${s.remainingBalance}: ',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      MoneyText(
+                        remaining,
+                        colorNegative: true,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
           ),
-          SearchablePickerField(
-            label: s.customer,
-            value: line.customerId,
-            hint: s.selectCustomer,
-            enabled: enabled,
-            prefixIcon: Icons.person_outline,
-            searchHint: s.searchCustomersHint,
-            options: customers
-                .where((c) => salespersonId == null || c.salespersonId == salespersonId)
-                .map(
-                  (customer) => customerPickerOption(
-                    id: customer.id,
-                    name: customer.name,
-                    code: customer.code,
-                    balance: customer.balance,
-                  ),
-                )
-                .toList(),
-            onChanged: onCustomerChanged,
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 104,
+            child: TextField(
+              controller: controller,
+              enabled: enabled,
+              textAlign: TextAlign.end,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              ],
+              decoration: const InputDecoration(
+                hintText: '0.00',
+                isDense: true,
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                border: OutlineInputBorder(),
+              ),
+            ),
           ),
-          const SizedBox(height: 14),
-          SearchablePickerField(
-            label: s.invoice,
-            value: line.invoiceId,
-            hint: s.noInvoice,
-            enabled: enabled,
-            prefixIcon: Icons.receipt_long_outlined,
-            searchHint: s.searchInvoicesHint,
-            clearable: line.invoiceId != null,
-            options: invoices
-                .map(
-                  (item) => PickerOption(
-                    value: item.id,
-                    label: item.number,
-                    trailing: Formatters.money(item.balance),
-                    keywords: <String>[if (item.customerName != null) item.customerName!],
-                  ),
-                )
-                .toList(),
-            onChanged: onInvoiceChanged,
-          ),
-          const SizedBox(height: 14),
-          AppNumberField(
-            label: s.amount,
-            controller: line.amount,
-            enabled: enabled,
-            prefixIcon: Icons.payments_outlined,
-            helperText: invoice == null
-                ? null
-                : '${s.balance}: ${Formatters.money(invoice!.balance)}',
-            validator: (value) {
-              final parsed = double.tryParse((value ?? '').trim());
-              if (parsed == null || parsed <= 0) return s.lineNeedsAmount;
-              return null;
-            },
-          ),
-          const SizedBox(height: 14),
-          AppTextField(
-            label: s.note,
-            controller: line.note,
-            enabled: enabled,
-            prefixIcon: Icons.notes_outlined,
+          IconButton(
+            tooltip: s.fullBalance,
+            visualDensity: VisualDensity.compact,
+            onPressed: enabled ? onFullBalance : null,
+            icon: const Icon(Icons.price_check_outlined),
           ),
         ],
       ),

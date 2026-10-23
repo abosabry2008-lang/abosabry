@@ -1,8 +1,9 @@
 import { AccountType } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { ApiError } from '../../lib/api-error';
 import { round2 } from '../../lib/money';
 import type { Tx } from '../../lib/prisma';
-import { nextNumber } from '../../lib/sequence';
+import { nextNumber, nextNumbers } from '../../lib/sequence';
 import { getSettings } from '../../lib/settings';
 
 /** Chart of accounts created automatically so the ledger always balances. */
@@ -37,13 +38,9 @@ export const ACCOUNT = {
 } as const;
 
 export async function ensureDefaultAccounts(tx: Tx): Promise<void> {
-  for (const account of DEFAULT_ACCOUNTS) {
-    await tx.account.upsert({
-      where: { code: account.code },
-      create: account,
-      update: {},
-    });
-  }
+  // One round-trip instead of one upsert per account. This runs on every
+  // journal post, so keeping it cheap matters for bulk receipts.
+  await tx.account.createMany({ data: DEFAULT_ACCOUNTS, skipDuplicates: true });
 }
 
 export interface JournalLineInput {
@@ -131,6 +128,119 @@ export async function postJournal(tx: Tx, input: JournalInput): Promise<void> {
       },
     },
   });
+}
+
+/**
+ * Posts many balanced journals in a handful of round-trips. Used by the bulk
+ * collection receipt, where posting one journal per customer line used to cost
+ * several hundred queries inside a single transaction.
+ *
+ * Each entry keeps its own number and `sourceType`/`sourceId`, so cancellation
+ * and reporting work exactly like [postJournal].
+ */
+export async function postJournalBatch(tx: Tx, inputs: JournalInput[]): Promise<void> {
+  const prepared = inputs
+    .map((input) => ({
+      input,
+      entryDate: input.entryDate ?? new Date(),
+      lines: input.lines
+        .map((line) => ({
+          accountCode: line.accountCode,
+          debit: round2(line.debit ?? 0),
+          credit: round2(line.credit ?? 0),
+          description: line.description ?? null,
+        }))
+        .filter((line) => line.debit !== 0 || line.credit !== 0),
+    }))
+    .filter((entry) => entry.lines.length > 0);
+
+  if (prepared.length === 0) return;
+
+  for (const entry of prepared) {
+    const debitTotal = round2(entry.lines.reduce((sum, line) => sum + line.debit, 0));
+    const creditTotal = round2(entry.lines.reduce((sum, line) => sum + line.credit, 0));
+    if (Math.abs(debitTotal - creditTotal) > 0.01) {
+      throw ApiError.badRequest(
+        `Journal entry is not balanced (debits ${debitTotal} vs credits ${creditTotal})`,
+        'UNBALANCED_JOURNAL',
+      );
+    }
+  }
+
+  await ensureDefaultAccounts(tx);
+
+  const codes = [...new Set(prepared.flatMap((entry) => entry.lines.map((line) => line.accountCode)))];
+  const accounts = await tx.account.findMany({
+    where: { code: { in: codes } },
+    select: { id: true, code: true },
+  });
+  const accountIdByCode = new Map(accounts.map((account) => [account.code, account.id]));
+  for (const code of codes) {
+    if (!accountIdByCode.has(code)) {
+      throw ApiError.badRequest(`Unknown account code "${code}"`, 'ACCOUNT_NOT_FOUND');
+    }
+  }
+
+  const settings = await getSettings(tx);
+  const numbers = new Array<string>(prepared.length);
+
+  // Allocate per calendar year so the `PREFIX-YYYY-00001` shape stays intact.
+  const byYear = new Map<number, number[]>();
+  prepared.forEach((entry, index) => {
+    const indexes = byYear.get(entry.entryDate.getFullYear()) ?? [];
+    indexes.push(index);
+    byYear.set(entry.entryDate.getFullYear(), indexes);
+  });
+
+  for (const [year, indexes] of byYear) {
+    const allocated = await nextNumbers(
+      tx,
+      'journal',
+      settings.journalPrefix,
+      indexes.length,
+      new Date(year, 0, 1),
+      async (candidates) => {
+        const rows = await tx.journalEntry.findMany({
+          where: { number: { in: candidates } },
+          select: { number: true },
+        });
+        return new Set(rows.map((row) => row.number));
+      },
+      async (candidate) =>
+        (await tx.journalEntry.count({ where: { number: candidate } })) > 0,
+    );
+    indexes.forEach((index, offset) => {
+      numbers[index] = allocated[offset];
+    });
+  }
+
+  const entryData = prepared.map((entry, index) => ({
+    id: randomUUID(),
+    number: numbers[index],
+    entryDate: entry.entryDate,
+    memo: entry.input.memo ?? null,
+    reference: entry.input.reference ?? null,
+    sourceType: entry.input.sourceType ?? null,
+    sourceId: entry.input.sourceId ?? null,
+    userId: entry.input.userId ?? null,
+  }));
+
+  await tx.journalEntry.createMany({ data: entryData });
+
+  const lineData = prepared.flatMap((entry, index) =>
+    entry.lines.map((line) => ({
+      id: randomUUID(),
+      journalEntryId: entryData[index].id,
+      accountId: accountIdByCode.get(line.accountCode)!,
+      debit: line.debit,
+      credit: line.credit,
+      description: line.description,
+    })),
+  );
+
+  if (lineData.length > 0) {
+    await tx.journalLine.createMany({ data: lineData });
+  }
 }
 
 export interface ReverseJournalInput {

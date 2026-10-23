@@ -7,6 +7,7 @@ import '../../core/json_utils.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
 import '../../widgets/date_range_button.dart';
+import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import 'report_widgets.dart';
 
@@ -252,13 +253,7 @@ class _ReportTable extends StatelessWidget {
                   cells: columns
                       .map(
                         (column) => DataCell(
-                          Text(
-                            _cell(context, column, row[column.key]),
-                            textAlign: column.value == ReportValue.money ||
-                                    column.value == ReportValue.integer
-                                ? TextAlign.end
-                                : TextAlign.start,
-                          ),
+                          _cell(context, column, row[column.key]),
                         ),
                       )
                       .toList(),
@@ -270,19 +265,34 @@ class _ReportTable extends StatelessWidget {
     );
   }
 
-  String _cell(BuildContext context, ReportColumn column, dynamic value) {
+  Widget _cell(BuildContext context, ReportColumn column, dynamic value) {
+    final numeric = column.value == ReportValue.money ||
+        column.value == ReportValue.integer;
+    final align = numeric ? TextAlign.end : TextAlign.start;
     switch (column.value) {
       case ReportValue.money:
-        return Formatters.money(asDouble(value));
+        return Align(
+          alignment: Alignment.centerRight,
+          child: MoneyText(asDouble(value)),
+        );
       case ReportValue.integer:
-        return Formatters.integer(asDouble(value));
+        return Text(
+          Formatters.integer(asDouble(value)),
+          textAlign: align,
+        );
       case ReportValue.date:
-        return Formatters.date(DateTime.tryParse('$value')?.toLocal());
+        return Text(
+          Formatters.date(DateTime.tryParse('$value')?.toLocal()),
+          textAlign: align,
+        );
       case ReportValue.status:
-        return context.s.status('$value');
+        return Text(context.s.status('$value'), textAlign: align);
       case ReportValue.text:
         final text = '$value';
-        return text.trim().isEmpty ? '—' : text;
+        return Text(
+          text.trim().isEmpty ? '—' : text,
+          textAlign: align,
+        );
     }
   }
 }

@@ -863,6 +863,18 @@ class AppStrings {
         'Enter an amount greater than zero for every line',
         'أدخل مبلغًا أكبر من صفر لكل سطر',
       );
+  String get collectAll => _t('Collect all balances', 'تحصيل كل الأرصدة');
+  String get fullBalance => _t('Full balance', 'كامل الرصيد');
+  String get outstandingBalance => _t('Outstanding', 'المستحق');
+  String get remainingBalance => _t('Remaining', 'المتبقي');
+  String get showAllCustomers => _t('Show all customers', 'إظهار كل العملاء');
+  String get customersToCollect => _t('Customers to collect', 'عملاء التحصيل');
+  String get noAmountsEntered => _t(
+        'Enter an amount for at least one customer',
+        'أدخل مبلغًا لعميل واحد على الأقل',
+      );
+  String get clearAmounts => _t('Clear amounts', 'مسح المبالغ');
+  String get periodBalance => _t('Period balance', 'رصيد الفترة');
   String get cancelPaymentQ => _t('Cancel this payment?', 'إلغاء هذه الدفعة؟');
   String get cancelPaymentMessage => _t(
         'The journal entry is reversed and the cash box, invoice and customer balances are restored.',
