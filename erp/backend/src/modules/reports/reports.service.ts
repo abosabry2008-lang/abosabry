@@ -339,6 +339,7 @@ export async function buildProfitReport(
           productId: true,
           quantity: true,
           unitPrice: true,
+          unitCost: true,
           discount: true,
           product: { select: { sku: true, name: true, costPrice: true } },
         },
@@ -353,7 +354,8 @@ export async function buildProfitReport(
   for (const invoice of invoices) {
     for (const line of invoice.lines) {
       const net = Math.max(0, round2(line.quantity * Number(line.unitPrice) - Number(line.discount)));
-      const unitCost = line.product ? Number(line.product.costPrice) : 0;
+      const unitCost =
+        Number(line.unitCost) || (line.product ? Number(line.product.costPrice) : 0);
       const lineCost = round2(line.quantity * unitCost);
       revenue += net;
       cost += lineCost;

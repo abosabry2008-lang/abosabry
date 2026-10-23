@@ -34,7 +34,25 @@ class DateRangeButton extends StatelessWidget {
               ? DateTimeRange(start: from!, end: to!)
               : null,
         );
-        if (picked != null) onChanged(picked.start, picked.end);
+        if (picked != null) {
+          // Include the whole end day: a range ending today at 00:00 would
+          // exclude every movement recorded later that day.
+          final start = DateTime(
+            picked.start.year,
+            picked.start.month,
+            picked.start.day,
+          );
+          final end = DateTime(
+            picked.end.year,
+            picked.end.month,
+            picked.end.day,
+            23,
+            59,
+            59,
+            999,
+          );
+          onChanged(start, end);
+        }
       },
       icon: const Icon(Icons.event_outlined),
       label: Text(

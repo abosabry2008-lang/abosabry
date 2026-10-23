@@ -467,6 +467,8 @@ model SalesOrderLine {
   productId    String
   quantity     Int
   unitPrice    Decimal @db.Decimal(14, 2)
+  /// Product cost per base unit when the order was written (profit snapshot).
+  unitCost     Decimal @default(0) @db.Decimal(14, 2)
   discount     Decimal @default(0) @db.Decimal(14, 2)
   taxRate      Decimal @default(0) @db.Decimal(6, 3)
   fulfilledQty Int     @default(0)
@@ -581,6 +583,8 @@ model InvoiceLine {
   description String
   quantity    Int
   unitPrice   Decimal @db.Decimal(14, 2)
+  /// Product cost per base unit at the time of sale (profit snapshot).
+  unitCost    Decimal @default(0) @db.Decimal(14, 2)
   discount    Decimal @default(0) @db.Decimal(14, 2)
   taxRate     Decimal @default(0) @db.Decimal(6, 3)
   total       Decimal @db.Decimal(14, 2)

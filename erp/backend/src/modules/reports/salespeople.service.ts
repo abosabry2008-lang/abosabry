@@ -324,6 +324,7 @@ export async function buildProfitBySalesperson(
           productId: true,
           quantity: true,
           unitPrice: true,
+          unitCost: true,
           discount: true,
           product: { select: { sku: true, name: true, costPrice: true } },
         },
@@ -357,7 +358,9 @@ export async function buildProfitBySalesperson(
         0,
         round2(line.quantity * Number(line.unitPrice) - Number(line.discount)),
       );
-      const unitCost = line.product ? Number(line.product.costPrice) : 0;
+      const unitCost =
+        Number(line.unitCost) ||
+        (line.product ? Number(line.product.costPrice) : 0);
       const lineCost = round2(line.quantity * unitCost);
       row.quantity += line.quantity;
       row.revenue = round2(row.revenue + net);

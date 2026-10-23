@@ -38,6 +38,8 @@ export interface InvoiceLineInput {
   description?: string;
   quantity: number;
   unitPrice: number;
+  /** Cost snapshot; when omitted the product's current cost is used. */
+  unitCost?: number;
   discount?: number;
   taxRate?: number;
   sellUnit?: 'unit' | 'box' | 'carton';
@@ -312,6 +314,9 @@ async function buildFromSalesOrder(
       description: line.product?.name ?? 'Item',
       quantity: line.quantity,
       unitPrice: Number(line.unitPrice),
+      unitCost: Number(
+        (line as any).unitCost || Number(line.product?.costPrice ?? 0),
+      ),
       discount: Number(line.discount),
       taxRate,
       total,
@@ -344,11 +349,27 @@ async function buildFromSalesOrder(
   };
 }
 
-async function buildFromLines(input: CreateInvoiceInput, taxEnabled = true): Promise<BuiltInvoice> {
+async function buildFromLines(
+  tx: Tx,
+  input: CreateInvoiceInput,
+  taxEnabled = true,
+): Promise<BuiltInvoice> {
   const provided = input.lines ?? [];
   if (provided.length === 0) {
     throw ApiError.badRequest('An invoice needs either a salesOrderId or at least one line');
   }
+  const productIds = provided
+    .map((line) => line.productId)
+    .filter((value): value is string => Boolean(value));
+  const products = productIds.length
+    ? await tx.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, costPrice: true },
+      })
+    : [];
+  const costById = new Map(
+    products.map((product) => [product.id, Number(product.costPrice)]),
+  );
   const lines = provided.map((line) => {
     const taxRate = taxEnabled ? line.taxRate ?? 0 : 0;
     const totals = lineTotals({
@@ -362,6 +383,9 @@ async function buildFromLines(input: CreateInvoiceInput, taxEnabled = true): Pro
       description: line.description ?? 'Item',
       quantity: line.quantity,
       unitPrice: line.unitPrice,
+      unitCost:
+        line.unitCost ??
+        (line.productId ? costById.get(line.productId) ?? 0 : 0),
       discount: line.discount ?? 0,
       taxRate,
       total: totals.total,
@@ -401,7 +425,7 @@ async function postInvoiceJournalTx(
     subtotal: unknown;
     taxTotal: unknown;
     total: unknown;
-    lines: { productId: string | null; quantity: number }[];
+    lines: { productId: string | null; quantity: number; unitCost?: unknown }[];
   },
   userId?: string,
   entryDate?: Date,
@@ -410,16 +434,22 @@ async function postInvoiceJournalTx(
   const subtotal = round2(Number(invoice.subtotal));
   const taxTotal = round2(Number(invoice.taxTotal));
 
-  // Cost of goods sold from the products on the invoice.
-  const productIds = invoice.lines.map((line) => line.productId).filter((v): v is string => Boolean(v));
-  const products = productIds.length
-    ? await tx.product.findMany({ where: { id: { in: productIds } }, select: { id: true, costPrice: true } })
+  // Cost of goods sold from the cost snapshot stored on each invoice line.
+  // Older lines without a snapshot fall back to the product's current cost.
+  const missing = invoice.lines
+    .filter((line) => line.productId && !Number(line.unitCost))
+    .map((line) => line.productId!)
+    .filter((value, index, all) => all.indexOf(value) === index);
+  const products = missing.length
+    ? await tx.product.findMany({ where: { id: { in: missing } }, select: { id: true, costPrice: true } })
     : [];
   const costById = new Map(products.map((product) => [product.id, Number(product.costPrice)]));
   const cogs = round2(
     invoice.lines.reduce((sum, line) => {
       if (!line.productId) return sum;
-      return sum + line.quantity * (costById.get(line.productId) ?? 0);
+      const unitCost =
+        Number(line.unitCost) || costById.get(line.productId) || 0;
+      return sum + line.quantity * unitCost;
     }, 0),
   );
 
@@ -450,7 +480,7 @@ export async function createInvoiceTx(tx: Tx, input: CreateInvoiceInput) {
   const taxEnabled = await isTaxEnabled();
   const built = input.salesOrderId
     ? await buildFromSalesOrder(tx, input.salesOrderId, taxEnabled, input.skipUnavailable === true)
-    : await buildFromLines(input, taxEnabled);
+    : await buildFromLines(tx, input, taxEnabled);
 
   const exchangeRate = input.salesOrderId ? built.exchangeRate : await exchangeRateFor(tx, built.currencyId);
   const settings = await getSettings(tx);
@@ -484,6 +514,7 @@ export async function createInvoiceTx(tx: Tx, input: CreateInvoiceInput) {
           description: line.description,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
+          unitCost: (line as any).unitCost ?? 0,
           discount: line.discount,
           taxRate: line.taxRate,
           total: line.total,
@@ -598,6 +629,56 @@ export async function issueInvoice(id: string, userId?: string) {
 }
 
 /**
+ * Stores the current product cost on historical invoice/order lines that have
+ * no cost snapshot, so profit reports stop drifting when purchase prices move.
+ */
+export async function backfillCostSnapshots() {
+  return prisma.$transaction(async (tx) => {
+    const [invoiceLines, orderLines] = await Promise.all([
+      tx.invoiceLine.findMany({
+        where: { unitCost: 0, productId: { not: null } },
+        select: { id: true, productId: true },
+      }),
+      tx.salesOrderLine.findMany({
+        where: { unitCost: 0 },
+        select: { id: true, productId: true },
+      }),
+    ]);
+    const productIds = [
+      ...new Set(
+        [...invoiceLines, ...orderLines]
+          .map((line) => line.productId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const products = productIds.length
+      ? await tx.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, costPrice: true },
+        })
+      : [];
+    const costById = new Map(
+      products.map((product) => [product.id, Number(product.costPrice)]),
+    );
+
+    for (const line of invoiceLines) {
+      if (!line.productId) continue;
+      await tx.invoiceLine.update({
+        where: { id: line.id },
+        data: { unitCost: costById.get(line.productId) ?? 0 },
+      });
+    }
+    for (const line of orderLines) {
+      await tx.salesOrderLine.update({
+        where: { id: line.id },
+        data: { unitCost: costById.get(line.productId) ?? 0 },
+      });
+    }
+    return { invoices: invoiceLines.length, orders: orderLines.length };
+  });
+}
+
+/**
  * Repairs orders that were fulfilled under the old two-step flow, where the
  * invoice had to be created separately and was sometimes skipped. Every fully
  * fulfilled order without a live invoice gets one, issued at the fulfilment
@@ -686,6 +767,7 @@ export async function updateInvoiceTx(
 
   const built = input.lines && input.lines.length > 0
     ? await buildFromLines(
+        tx,
         {
           ...input,
           lines: input.lines,

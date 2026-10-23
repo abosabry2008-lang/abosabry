@@ -13,6 +13,7 @@ import '../../state/customers_controller.dart';
 import '../../state/opening_balances_controller.dart';
 import '../../state/suppliers_controller.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
 import '../inventory/product_picker_field.dart';
 
@@ -360,13 +361,24 @@ class _CustomerSection extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     flex: 3,
-                    child: AppSelectField<String>(
+                    child: SearchablePickerField(
                       label: s.customer,
                       value: line.customerId,
+                      hint: s.selectCustomer,
                       enabled: enabled,
-                      options: <SelectOption<String>>[
+                      prefixIcon: Icons.person_outline,
+                      searchHint: s.searchCustomersHint,
+                      options: <PickerOption>[
                         for (final customer in customers)
-                          SelectOption<String>(customer.id, customer.name),
+                          PickerOption(
+                            value: customer.id,
+                            label: customer.name,
+                            subtitle: customer.code,
+                            keywords: <String>[
+                              if (customer.code != null) customer.code!,
+                              if (customer.phone != null) customer.phone!,
+                            ],
+                          ),
                       ],
                       onChanged: (value) {
                         line.customerId = value;
@@ -446,13 +458,24 @@ class _SupplierSection extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     flex: 3,
-                    child: AppSelectField<String>(
+                    child: SearchablePickerField(
                       label: s.supplier,
                       value: line.supplierId,
+                      hint: s.selectSupplier,
                       enabled: enabled,
-                      options: <SelectOption<String>>[
+                      prefixIcon: Icons.local_shipping_outlined,
+                      searchHint: s.searchSuppliersHint,
+                      options: <PickerOption>[
                         for (final supplier in suppliers)
-                          SelectOption<String>(supplier.id, supplier.name),
+                          PickerOption(
+                            value: supplier.id,
+                            label: supplier.name,
+                            subtitle: supplier.code,
+                            keywords: <String>[
+                              if (supplier.code != null) supplier.code!,
+                              if (supplier.phone != null) supplier.phone!,
+                            ],
+                          ),
                       ],
                       onChanged: (value) {
                         line.supplierId = value;

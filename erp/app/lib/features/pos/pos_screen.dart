@@ -12,6 +12,7 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
+import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
 
 const List<String> _paymentMethods = <String>[
@@ -386,16 +387,27 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                               setState(() => _warehouseId = value),
                         ),
                         const SizedBox(height: 14),
-                        AppSelectField<String>(
+                        SearchablePickerField(
                           label: s.customer,
                           value: _customerId,
                           hint: s.walkInCustomer,
+                          enabled: !_submitting,
                           prefixIcon: Icons.person_outline,
+                          searchHint: s.searchCustomersHint,
+                          clearable: true,
                           options: customers.catalog
                               .map(
-                                (customer) => SelectOption<String>(
-                                  customer.id,
-                                  customer.name,
+                                (customer) => PickerOption(
+                                  value: customer.id,
+                                  label: customer.name,
+                                  subtitle: customer.code,
+                                  trailing: customer.balance != 0
+                                      ? Formatters.money(customer.balance)
+                                      : null,
+                                  keywords: <String>[
+                                    if (customer.code != null) customer.code!,
+                                    if (customer.phone != null) customer.phone!,
+                                  ],
                                 ),
                               )
                               .toList(),

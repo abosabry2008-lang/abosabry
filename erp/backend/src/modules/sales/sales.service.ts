@@ -45,6 +45,8 @@ interface ResolvedLine {
   productId: string;
   quantity: number;
   unitPrice: number;
+  /// Cost snapshot so later purchase-price changes do not rewrite profit.
+  unitCost: number;
   discount: number;
   taxRate: number;
   sellUnit: string;
@@ -101,6 +103,7 @@ async function resolveLines(
       productId: line.productId,
       quantity: baseQuantity,
       unitPrice,
+      unitCost: costPrice,
       discount: line.discount ?? 0,
       taxRate: taxEnabled ? line.taxRate ?? Number(product.taxRate) : 0,
       sellUnit,
@@ -161,6 +164,7 @@ export async function createSalesOrderTx(tx: Tx, input: CreateSalesOrderInput) {
           productId: line.productId,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
+          unitCost: line.unitCost,
           discount: line.discount,
           taxRate: line.taxRate,
           sellUnit: line.sellUnit,
@@ -292,7 +296,13 @@ export async function checkSalesOrderAvailability(id: string): Promise<OrderAvai
 export async function fulfillSalesOrderTx(tx: Tx, id: string, input: FulfillInput) {
   const order = await tx.salesOrder.findUnique({
     where: { id },
-    include: { lines: { include: { product: { select: { name: true } } } } },
+    include: {
+      lines: {
+        include: {
+          product: { select: { name: true, costPrice: true } },
+        },
+      },
+    },
   });
   if (!order) throw ApiError.notFound('Sales order not found');
   if (order.status === 'CANCELLED') throw ApiError.badRequest('A cancelled order cannot be fulfilled');
@@ -320,7 +330,11 @@ export async function fulfillSalesOrderTx(tx: Tx, id: string, input: FulfillInpu
       productId: line.productId,
       quantity,
       type: 'SALE',
-      unitCost: Number(line.unitPrice),
+      // The cost snapshot on the line; fall back to the product cost for older
+      // orders written before costs were stored.
+      unitCost: Number(
+        Number(line.unitCost) || Number(line.product.costPrice),
+      ),
       reference: order.number,
       userId: input.userId,
     });
@@ -485,6 +499,7 @@ export async function updateSalesOrder(
           productId: line.productId,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
+          unitCost: line.unitCost,
           discount: line.discount,
           taxRate: line.taxRate,
           sellUnit: line.sellUnit,

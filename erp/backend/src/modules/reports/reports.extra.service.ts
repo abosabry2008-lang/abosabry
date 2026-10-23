@@ -62,6 +62,7 @@ export async function buildSalesByCustomer(fromInput?: Date, toInput?: Date, use
         select: {
           quantity: true,
           unitPrice: true,
+          unitCost: true,
           discount: true,
           product: { select: { costPrice: true } },
         },
@@ -89,7 +90,8 @@ export async function buildSalesByCustomer(fromInput?: Date, toInput?: Date, use
       invoice.lines.reduce(
         (sum, line) =>
           sum +
-          line.quantity * num(line.product?.costPrice),
+          line.quantity *
+            (num(line.unitCost) || num(line.product?.costPrice)),
         0,
       ),
     );
@@ -147,6 +149,7 @@ export async function buildSalesByCategory(fromInput?: Date, toInput?: Date, use
     select: {
       quantity: true,
       total: true,
+      unitCost: true,
       product: {
         select: {
           costPrice: true,
@@ -182,7 +185,9 @@ export async function buildSalesByCategory(fromInput?: Date, toInput?: Date, use
         profit: 0,
       };
     const revenue = num(line.total);
-    const cost = round2(line.quantity * num(line.product?.costPrice));
+    const cost = round2(
+      line.quantity * (num(line.unitCost) || num(line.product?.costPrice)),
+    );
     row.quantity += line.quantity;
     row.revenue = round2(row.revenue + revenue);
     row.cost = round2(row.cost + cost);

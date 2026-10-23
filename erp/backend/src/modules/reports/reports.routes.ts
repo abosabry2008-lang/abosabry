@@ -383,7 +383,11 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const rawTo = asDate(req.query.to);
+    // A date-only `to` means the whole day, not midnight.
+    const to = rawTo
+      ? new Date(rawTo.getFullYear(), rawTo.getMonth(), rawTo.getDate(), 23, 59, 59, 999)
+      : undefined;
     const salespersonId = scopedSalespersonId(currentUser(req), asString(req.query.salespersonId));
     ok(res, await buildConsolidatedSalesNote(from, to, salespersonId));
   }),

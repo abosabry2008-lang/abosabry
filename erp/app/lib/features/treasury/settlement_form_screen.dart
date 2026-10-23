@@ -10,6 +10,7 @@ import '../../models/customer.dart';
 import '../../models/expense.dart';
 import '../../models/supplier.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
 
 /// Creates or edits an account settlement (تسوية) — an adjustment to a
@@ -75,21 +76,37 @@ class _SettlementFormScreenState extends State<SettlementFormScreen> {
   Future<void> _load() async {
     final api = context.read<Session>().api;
     try {
-      final customerPage = await api.getPage<Customer>(
-        '/customers',
-        query: <String, dynamic>{'page': 1, 'pageSize': 200},
-        parse: Customer.fromJson,
-      );
-      final supplierPage = await api.getPage<Supplier>(
-        '/suppliers',
-        query: <String, dynamic>{'page': 1, 'pageSize': 200},
-        parse: Supplier.fromJson,
-      );
+      final customers = <Customer>[];
+      var customerPage = 1;
+      while (customerPage <= 100) {
+        final result = await api.getPage<Customer>(
+          '/customers',
+          query: <String, dynamic>{'page': customerPage, 'pageSize': 100},
+          parse: Customer.fromJson,
+        );
+        customers.addAll(result.items);
+        if (result.items.isEmpty || customerPage >= result.totalPages) break;
+        customerPage += 1;
+      }
+
+      final suppliers = <Supplier>[];
+      var supplierPage = 1;
+      while (supplierPage <= 100) {
+        final result = await api.getPage<Supplier>(
+          '/suppliers',
+          query: <String, dynamic>{'page': supplierPage, 'pageSize': 100},
+          parse: Supplier.fromJson,
+        );
+        suppliers.addAll(result.items);
+        if (result.items.isEmpty || supplierPage >= result.totalPages) break;
+        supplierPage += 1;
+      }
+
       final categoryRows = await api.getList('/expenses/categories');
       if (!mounted) return;
       setState(() {
-        _customers = customerPage.items;
-        _suppliers = supplierPage.items;
+        _customers = customers;
+        _suppliers = suppliers;
         _categories = categoryRows.map(ExpenseCategory.fromJson).toList();
       });
     } on ApiException {
@@ -319,17 +336,28 @@ class _SettlementFormScreenState extends State<SettlementFormScreen> {
     final options = _customers
         .where((customer) => customer.active)
         .map(
-          (customer) => SelectOption<String>(
-            customer.id,
-            '${customer.name}${customer.balance != 0 ? ' · ${Formatters.money(customer.balance)}' : ''}',
+          (customer) => PickerOption(
+            value: customer.id,
+            label: customer.name,
+            subtitle: customer.code,
+            trailing: customer.balance != 0
+                ? Formatters.money(customer.balance)
+                : null,
+            keywords: <String>[
+              if (customer.code != null) customer.code!,
+              if (customer.phone != null) customer.phone!,
+            ],
           ),
         )
         .toList();
-    return AppSelectField<String>(
+    return SearchablePickerField(
       label: s.settlementAccount,
       value: _customerId,
+      hint: s.selectCustomer,
       enabled: !_saving,
       prefixIcon: Icons.person_outline,
+      searchHint: s.searchCustomersHint,
+      clearable: true,
       options: options,
       onChanged: (value) => setState(() => _customerId = value),
     );
@@ -339,17 +367,28 @@ class _SettlementFormScreenState extends State<SettlementFormScreen> {
     final options = _suppliers
         .where((supplier) => supplier.active)
         .map(
-          (supplier) => SelectOption<String>(
-            supplier.id,
-            '${supplier.name}${supplier.balance != 0 ? ' · ${Formatters.money(supplier.balance)}' : ''}',
+          (supplier) => PickerOption(
+            value: supplier.id,
+            label: supplier.name,
+            subtitle: supplier.code,
+            trailing: supplier.balance != 0
+                ? Formatters.money(supplier.balance)
+                : null,
+            keywords: <String>[
+              if (supplier.code != null) supplier.code!,
+              if (supplier.phone != null) supplier.phone!,
+            ],
           ),
         )
         .toList();
-    return AppSelectField<String>(
+    return SearchablePickerField(
       label: s.settlementAccount,
       value: _supplierId,
+      hint: s.selectSupplier,
       enabled: !_saving,
       prefixIcon: Icons.local_shipping_outlined,
+      searchHint: s.searchSuppliersHint,
+      clearable: true,
       options: options,
       onChanged: (value) => setState(() => _supplierId = value),
     );
@@ -359,14 +398,21 @@ class _SettlementFormScreenState extends State<SettlementFormScreen> {
     final options = _categories
         .where((category) => category.active)
         .map(
-          (category) => SelectOption<String>(category.id, category.name),
+          (category) => PickerOption(
+            value: category.id,
+            label: category.name,
+            subtitle: category.accountCode,
+          ),
         )
         .toList();
-    return AppSelectField<String>(
+    return SearchablePickerField(
       label: s.settlementAccount,
       value: _categoryId,
+      hint: s.selectExpenseCategory,
       enabled: !_saving,
       prefixIcon: Icons.category_outlined,
+      searchHint: s.searchEllipsis,
+      clearable: true,
       options: options,
       onChanged: (value) => setState(() => _categoryId = value),
     );

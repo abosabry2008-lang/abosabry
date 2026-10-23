@@ -49,7 +49,8 @@ class InvoiceLine {
       taxRate: asDouble(json['taxRate']),
       total: asDouble(json['total']),
       sellUnit: asString(json['sellUnit'], fallback: 'unit'),
-      unitCost: asDouble(product['costPrice']),
+      unitCost: asDoubleOrNull(json['unitCost']) ??
+          asDouble(product['costPrice']),
     );
   }
 

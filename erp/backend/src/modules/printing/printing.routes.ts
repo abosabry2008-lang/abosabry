@@ -239,7 +239,10 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const rawTo = asDate(req.query.to);
+    const to = rawTo
+      ? new Date(rawTo.getFullYear(), rawTo.getMonth(), rawTo.getDate(), 23, 59, 59, 999)
+      : undefined;
     const salespersonId = asString(req.query.salespersonId);
     const lang = asString(req.query.lang) ?? 'en';
     const [report, settings] = await Promise.all([

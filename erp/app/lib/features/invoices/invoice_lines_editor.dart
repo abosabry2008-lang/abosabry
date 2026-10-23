@@ -21,6 +21,7 @@ class InvoiceLineDraft {
     double price = 0,
     double discount = 0,
     double taxRate = 0,
+    this.costSnapshot,
   })  : descriptionController = TextEditingController(text: description),
         quantityController = TextEditingController(text: format(quantity)),
         priceController = TextEditingController(text: format(price)),
@@ -29,6 +30,8 @@ class InvoiceLineDraft {
 
   Product? product;
   String? productId;
+  /// Cost at the time the invoice was written.
+  double? costSnapshot;
   final TextEditingController descriptionController;
   final TextEditingController quantityController;
   final TextEditingController priceController;
@@ -47,6 +50,7 @@ class InvoiceLineDraft {
         price: line.unitPrice,
         discount: line.discount,
         taxRate: line.taxRate,
+        costSnapshot: line.unitCost,
       );
 
   int get quantity =>
@@ -68,7 +72,7 @@ class InvoiceLineDraft {
 
   double get revenue => net;
 
-  double get cost => quantity * (product?.costPrice ?? 0);
+  double get cost => quantity * (costSnapshot ?? product?.costPrice ?? 0);
 
   double get profit => revenue - cost;
 
@@ -79,6 +83,7 @@ class InvoiceLineDraft {
   void setProduct(Product value) {
     product = value;
     productId = value.id;
+    costSnapshot = value.costPrice;
     if (descriptionController.text.trim().isEmpty) {
       descriptionController.text = value.name;
     }

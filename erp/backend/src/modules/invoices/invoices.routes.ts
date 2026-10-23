@@ -16,7 +16,15 @@ import {
   assertSalesOrderAccess,
   invoiceAccessWhere,
 } from '../../lib/salesperson-scope';
-import { createInvoice, invoiceInclude, issueInvoice, previewInvoiceFromOrder, updateInvoice, voidInvoice } from './invoices.service';
+import {
+  backfillCostSnapshots,
+  createInvoice,
+  invoiceInclude,
+  issueInvoice,
+  previewInvoiceFromOrder,
+  updateInvoice,
+  voidInvoice,
+} from './invoices.service';
 
 const router = Router();
 router.use(authenticate);
@@ -134,6 +142,15 @@ router.get(
   asyncHandler(async (req, res) => {
     await assertSalesOrderAccess(currentUser(req), req.params.orderId);
     ok(res, await previewInvoiceFromOrder(req.params.orderId));
+  }),
+);
+
+// Stores cost snapshots on older invoice/order lines (admin repair, idempotent).
+router.post(
+  '/backfill-costs',
+  requireAdmin(),
+  asyncHandler(async (_req, res) => {
+    ok(res, await backfillCostSnapshots());
   }),
 );
 
