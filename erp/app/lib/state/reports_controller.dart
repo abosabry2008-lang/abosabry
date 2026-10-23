@@ -279,12 +279,18 @@ class ReportsController extends ChangeNotifier {
     }
   }
 
-  Future<void> loadCustomerBalances() async {
+  Future<void> loadCustomerBalances({String? salespersonId}) async {
     loadingCustomerBalances = true;
     customerBalancesError = null;
     notifyListeners();
     try {
-      customerBalances = await _fetchRows('/reports/customer-balances', null);
+      customerBalances = await _fetchRows(
+        '/reports/customer-balances',
+        <String, dynamic>{
+          if (salespersonId != null && salespersonId.isNotEmpty)
+            'salespersonId': salespersonId,
+        },
+      );
     } on ApiException catch (exception) {
       customerBalancesError = exception.message;
     } catch (exception) {

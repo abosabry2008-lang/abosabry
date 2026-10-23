@@ -132,6 +132,9 @@ model User {
   /// Customers this user is the assigned sales representative for.
   salespersonForCustomers Customer[] @relation("CustomerSalesperson")
 
+  /// Sales routes assigned to this representative (خطوط السير).
+  routes CustomerRoute[] @relation("RouteSalesperson")
+
   /// Cash transfers created/recorded by this user.
   cashTransfers            CashTransfer[]
   /// Collection vouchers created by this user.
@@ -414,11 +417,14 @@ model Customer {
 
   /// The sales representative (مندوب) responsible for this customer.
   salespersonId String?
+  /// Optional sales route (خط سير) this customer belongs to.
+  routeId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   salesperson     User?            @relation("CustomerSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
+  route           CustomerRoute?   @relation(fields: [routeId], references: [id], onDelete: SetNull)
   salesOrders     SalesOrder[]
   invoices        Invoice[]
   payments        Payment[]
@@ -427,6 +433,25 @@ model Customer {
   settlements     AccountSettlement[]
 
   @@index([name])
+  @@index([salespersonId])
+  @@index([routeId])
+}
+
+/// A sales route (خط سير) groups customers; assigning it to a salesperson also
+/// assigns every customer on it to that salesperson.
+model CustomerRoute {
+  id            String   @id @default(cuid())
+  code          String?  @unique
+  name          String
+  salespersonId String?
+  active        Boolean  @default(true)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  salesperson User?      @relation("RouteSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
+  customers   Customer[]
+
   @@index([salespersonId])
 }
 

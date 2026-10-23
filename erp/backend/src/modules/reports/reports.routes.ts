@@ -310,10 +310,19 @@ router.get(
   '/customer-balances',
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const salespersonId = scopedSalespersonId(user, asString(req.query.salespersonId));
     const customers = await prisma.customer.findMany({
-      where: { balance: { not: 0 }, ...(customerAccessWhere(currentUser(req)) ?? {}) },
+      where: {
+        balance: { not: 0 },
+        ...(customerAccessWhere(user) ?? {}),
+        ...(salespersonId ? { salespersonId } : {}),
+      },
       orderBy: { balance: 'desc' },
-      include: { _count: { select: { invoices: true } } },
+      include: {
+        salesperson: { select: { name: true } },
+        _count: { select: { invoices: true } },
+      },
     });
     ok(
       res,
@@ -325,8 +334,116 @@ router.get(
         creditLimit: Number(customer.creditLimit),
         balance: Number(customer.balance),
         invoices: customer._count.invoices,
+        salesperson: customer.salesperson?.name ?? null,
       })),
     );
+  }),
+);
+
+// GET /reports/dormant-customers?days=90&salespersonId=
+router.get(
+  '/dormant-customers',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    const salespersonId = scopedSalespersonId(user, asString(req.query.salespersonId));
+    const days = Math.max(1, Number(asString(req.query.days) ?? 90));
+    const customers = await prisma.customer.findMany({
+      where: {
+        active: true,
+        ...(customerAccessWhere(user) ?? {}),
+        ...(salespersonId ? { salespersonId } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        balance: true,
+        salesperson: { select: { name: true } },
+      },
+    });
+    const lastInvoices = await prisma.invoice.groupBy({
+      by: ['customerId'],
+      where: {
+        customerId: { in: customers.map((customer) => customer.id) },
+        status: { not: 'VOID' },
+      },
+      _max: { issueDate: true },
+    });
+    const lastByCustomer = new Map(
+      lastInvoices.map((row) => [row.customerId, row._max.issueDate]),
+    );
+    const rows = customers
+      .map((customer) => {
+        const last = lastByCustomer.get(customer.id) ?? null;
+        const daysSince = last
+          ? Math.floor((Date.now() - last.getTime()) / (24 * 60 * 60 * 1000))
+          : null;
+        return {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          salesperson: customer.salesperson?.name ?? null,
+          lastInvoiceAt: last ? last.toISOString() : null,
+          daysSince,
+          balance: Number(customer.balance),
+        };
+      })
+      .filter((row) => row.lastInvoiceAt === null || (row.daysSince ?? 0) >= days)
+      .sort((a, b) => (b.daysSince ?? 99999) - (a.daysSince ?? 99999));
+    ok(res, { days, rows, totals: { customers: rows.length } });
+  }),
+);
+
+// GET /reports/price-list?availableOnly=true&categoryId=
+router.get(
+  '/price-list',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const availableOnly = asString(req.query.availableOnly) === 'true';
+    const categoryId = asString(req.query.categoryId);
+    const products = await prisma.product.findMany({
+      where: {
+        active: true,
+        deletedAt: null,
+        ...(categoryId ? { categoryId } : {}),
+      },
+      orderBy: [{ name: 'asc' }],
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        unit: true,
+        salePrice: true,
+        boxPrice: true,
+        cartonPrice: true,
+        boxesPerCarton: true,
+        category: { select: { name: true } },
+      },
+    });
+    const stock = await prisma.stockLevel.groupBy({
+      by: ['productId'],
+      _sum: { quantity: true },
+    });
+    const stockById = new Map(
+      stock.map((row) => [row.productId, Number(row._sum.quantity ?? 0)]),
+    );
+    const rows = products
+      .map((product) => ({
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        unit: product.unit,
+        category: product.category?.name ?? null,
+        salePrice: Number(product.salePrice),
+        boxPrice: product.boxPrice == null ? null : Number(product.boxPrice),
+        cartonPrice:
+          product.cartonPrice == null ? null : Number(product.cartonPrice),
+        boxesPerCarton: product.boxesPerCarton,
+        quantity: stockById.get(product.id) ?? 0,
+      }))
+      .filter((row) => !availableOnly || row.quantity > 0);
+    ok(res, { rows, totals: { products: rows.length } });
   }),
 );
 

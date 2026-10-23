@@ -32,11 +32,13 @@ const schema = z.object({
   creditLimit: z.number().min(0).default(0),
   active: z.boolean().default(true),
   salespersonId: z.string().nullable().optional(),
+  routeId: z.string().nullable().optional(),
   openingBalance: z.number().optional(),
 });
 
 const include = {
   salesperson: { select: { id: true, name: true } },
+  route: { select: { id: true, name: true } },
   _count: { select: { salesOrders: true, invoices: true } },
 } satisfies Prisma.CustomerInclude;
 
@@ -153,6 +155,14 @@ router.post(
     }
     const customer = await prisma.$transaction(async (tx) => {
       const resolvedCode = hasCode(code) ? code.trim() : await generateCustomerCode();
+      // A route carries its representative to the customer automatically.
+      if (data.routeId) {
+        const route = await tx.customerRoute.findUnique({
+          where: { id: data.routeId },
+          select: { salespersonId: true },
+        });
+        if (route?.salespersonId) data.salespersonId = route.salespersonId;
+      }
       const created = await tx.customer.create({
         data: { ...data, code: resolvedCode },
         include,
@@ -196,6 +206,13 @@ router.patch(
       throw ApiError.forbidden('Only an administrator can change an opening balance');
     }
     const data = { ...rest } as Prisma.CustomerUncheckedUpdateInput;
+    if (rest.routeId) {
+      const route = await prisma.customerRoute.findUnique({
+        where: { id: String(rest.routeId) },
+        select: { salespersonId: true },
+      });
+      if (route?.salespersonId) data.salespersonId = route.salespersonId;
+    }
     // Representatives may edit their customers but cannot reassign them.
     if (isSalesperson(user)) data.salespersonId = user.id;
     const customer = await prisma.$transaction(async (tx) => {

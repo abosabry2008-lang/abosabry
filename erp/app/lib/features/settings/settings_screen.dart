@@ -16,6 +16,8 @@ import '../../widgets/error_view.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
+import '../customers/customer_routes_screen.dart';
+import '../shell/navigation.dart';
 import 'role_permissions_screen.dart';
 import 'users_screen.dart';
 
@@ -708,6 +710,22 @@ class _CompanySettingsTabState extends State<_CompanySettingsTab> {
                       _toggleDashboardWidget('recentMovements', value),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SectionCard(
+            title: s.customerRoutes,
+            subtitle: s.customerRoutesHint,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.route_outlined),
+              title: Text(s.customerRoutes),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => pushScreen<void>(
+                context,
+                s.customerRoutes,
+                const CustomerRoutesScreen(),
+              ),
             ),
           ),
           const SizedBox(height: 16),

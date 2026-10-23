@@ -109,6 +109,37 @@ class PrintService {
         if (to != null) 'to': Formatters.isoDate(to),
       });
 
+  static Uri priceListUrl(
+    String? token, {
+    bool availableOnly = false,
+    String? categoryId,
+  }) =>
+      _uri('/print/reports/price-list', <String, String?>{
+        'token': token,
+        if (availableOnly) 'availableOnly': 'true',
+        if (categoryId != null && categoryId.isNotEmpty)
+          'categoryId': categoryId,
+      });
+
+  static Uri cashBoxStatementUrl(
+    String boxId,
+    String? token, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      _uri('/print/treasury/boxes/$boxId/statement', <String, String?>{
+        'token': token,
+        if (from != null) 'from': Formatters.isoDate(from),
+        if (to != null) 'to': Formatters.isoDate(to),
+      });
+
+  static Uri customerBalancesUrl(String? token, {String? salespersonId}) =>
+      _uri('/print/reports/customer-balances', <String, String?>{
+        'token': token,
+        if (salespersonId != null && salespersonId.isNotEmpty)
+          'salespersonId': salespersonId,
+      });
+
   static Uri stockBalanceUrl(
     String? token, {
     String? warehouseId,
@@ -219,6 +250,40 @@ class PrintService {
         if (to != null) 'to': Formatters.isoDate(to),
         'filter': filter,
       });
+
+  static Future<bool> printPriceList(
+    BuildContext context, {
+    bool availableOnly = false,
+    String? categoryId,
+  }) =>
+      open(
+        context,
+        priceListUrl(
+          token(context),
+          availableOnly: availableOnly,
+          categoryId: categoryId,
+        ),
+      );
+
+  static Future<bool> printCashBoxStatement(
+    BuildContext context,
+    String boxId, {
+    DateTime? from,
+    DateTime? to,
+  }) =>
+      open(
+        context,
+        cashBoxStatementUrl(boxId, token(context), from: from, to: to),
+      );
+
+  static Future<bool> printCustomerBalances(
+    BuildContext context, {
+    String? salespersonId,
+  }) =>
+      open(
+        context,
+        customerBalancesUrl(token(context), salespersonId: salespersonId),
+      );
 
   static Future<bool> printShortages(
     BuildContext context, {

@@ -15,6 +15,8 @@ class Customer {
     this.active = true,
     this.salespersonId,
     this.salespersonName,
+    this.routeId,
+    this.routeName,
   });
 
   final String id;
@@ -31,6 +33,8 @@ class Customer {
   /// Assigned sales representative (مندوب), if any.
   final String? salespersonId;
   final String? salespersonName;
+  final String? routeId;
+  final String? routeName;
 
   factory Customer.fromJson(Map<String, dynamic> json) => Customer(
         id: asString(json['id']),
@@ -46,6 +50,8 @@ class Customer {
         salespersonId: asStringOrNull(json['salespersonId']),
         salespersonName:
             asStringOrNull(asMap(json['salesperson'])['name']),
+        routeId: asStringOrNull(json['routeId']),
+        routeName: asStringOrNull(asMap(json['route'])['name']),
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -59,5 +65,6 @@ class Customer {
         'creditLimit': creditLimit,
         'active': active,
         'salespersonId': salespersonId,
+        'routeId': routeId,
       };
 }

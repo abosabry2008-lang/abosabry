@@ -902,6 +902,21 @@ class AppStrings {
   String get topProducts => _t('Top products', 'أفضل المنتجات');
   String get valuation => _t('Valuation', 'التقييم');
   String get customerBalances => _t('Customer balances', 'أرصدة العملاء');
+  String get customerRoute => _t('Sales route', 'خط السير');
+  String get noRoute => _t('No route', 'بدون خط سير');
+  String get customerRoutes => _t('Sales routes', 'خطوط السير');
+  String get customerRoutesHint => _t(
+        'Assigning a route to a salesperson moves all its customers to them automatically.',
+        'عند ربط خط السير بمندوب يتم نقل كل عملاء الخط إليه تلقائياً.',
+      );
+  String get dormantCustomers =>
+      _t('Dormant customers', 'العملاء الراكدون');
+  String get dormantCustomersHint => _t(
+        'Active customers with no invoice in the selected period.',
+        'العملاء النشطون بدون أي فاتورة خلال المدة المحددة.',
+      );
+  String get neverInvoiced => _t('Never invoiced', 'لم تُصدر له فاتورة');
+  String get lastInvoice => _t('Last invoice', 'آخر فاتورة');
   String get supplierBalances => _t('Supplier balances', 'أرصدة الموردين');
   String get noSalesInPeriod => _t('No sales in this period', 'لا توجد مبيعات في هذه الفترة');
   String get salesByDay => _t('Sales by day', 'المبيعات حسب اليوم');
@@ -1169,6 +1184,11 @@ class AppStrings {
   String get purchases => _t('Purchases', 'المشتريات');
   String get quantity => _t('Quantity', 'الكمية');
   String get available => _t('Available', 'المتاح');
+  String get allProducts => _t('All products', 'كل الأصناف');
+  String get availableOnly => _t('Available only', 'المتوفر فقط');
+  String get priceList => _t('Price list', 'قائمة الأسعار');
+  String productCountLabel(String count) =>
+      _t('$count product(s)', '$count صنف');
   String get reservedQty => _t('Reserved', 'المحجوز');
   String get date => _t('Date', 'التاريخ');
   String get openingShort => _t('Opening', 'الافتتاحي');

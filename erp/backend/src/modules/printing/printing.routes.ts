@@ -6,7 +6,10 @@ import { prisma } from '../../lib/prisma';
 import { asDate, asString } from '../../lib/query';
 import { round2 } from '../../lib/money';
 import { getSettings } from '../../lib/settings';
+import { buildCashBoxStatement } from '../treasury/treasury.service';
 import { authenticateToken } from '../../middleware/authenticate-token';
+import { currentUser } from '../../middleware/authenticate';
+import { scopedSalespersonId } from '../../lib/salesperson-scope';
 import { requirePermission } from '../../middleware/authorize';
 import { invoiceInclude } from '../invoices/invoices.service';
 import {
@@ -32,6 +35,9 @@ import {
   receivablesBySalespersonHtml,
   salesReportHtml,
   stockBalanceHtml,
+  customerBalancesHtml,
+  priceListHtml,
+  cashBoxStatementHtml,
   supplierPayablesHtml,
   supplierStatementHtml,
   topProductsHtml,
@@ -211,6 +217,121 @@ router.get(
       getSettings(),
     ]);
     sendHtml(res, stockBalanceHtml(report, settings, lang));
+  }),
+);
+
+// GET /print/treasury/boxes/:id/statement
+router.get(
+  '/treasury/boxes/:id/statement',
+  requirePermission('treasury.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDate(req.query.to);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [statement, settings] = await Promise.all([
+      buildCashBoxStatement(req.params.id, from, to),
+      getSettings(),
+    ]);
+    sendHtml(res, cashBoxStatementHtml(statement, settings, lang));
+  }),
+);
+
+// GET /print/reports/price-list
+router.get(
+  '/reports/price-list',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const availableOnly = asString(req.query.availableOnly) === 'true';
+    const categoryId = asString(req.query.categoryId);
+    const lang = asString(req.query.lang) ?? 'en';
+    const [products, stock, settings] = await Promise.all([
+      prisma.product.findMany({
+        where: {
+          active: true,
+          deletedAt: null,
+          ...(categoryId ? { categoryId } : {}),
+        },
+        orderBy: [{ name: 'asc' }],
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          unit: true,
+          salePrice: true,
+          boxPrice: true,
+          cartonPrice: true,
+          boxesPerCarton: true,
+          category: { select: { name: true } },
+        },
+      }),
+      prisma.stockLevel.groupBy({
+        by: ['productId'],
+        _sum: { quantity: true },
+      }),
+      getSettings(),
+    ]);
+    const stockById = new Map(
+      stock.map((row) => [row.productId, Number(row._sum.quantity ?? 0)]),
+    );
+    const rows = products
+      .map((product) => ({
+        sku: product.sku,
+        name: product.name,
+        unit: product.unit,
+        category: product.category?.name ?? null,
+        salePrice: Number(product.salePrice),
+        boxPrice: product.boxPrice == null ? null : Number(product.boxPrice),
+        cartonPrice:
+          product.cartonPrice == null ? null : Number(product.cartonPrice),
+        boxesPerCarton: product.boxesPerCarton,
+        quantity: stockById.get(product.id) ?? 0,
+      }))
+      .filter((row) => !availableOnly || row.quantity > 0);
+    sendHtml(
+      res,
+      priceListHtml({ rows, availableOnly }, settings, lang),
+    );
+  }),
+);
+
+// GET /print/reports/customer-balances
+router.get(
+  '/reports/customer-balances',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const salespersonId = scopedSalespersonId(
+      currentUser(req),
+      asString(req.query.salespersonId),
+    );
+    const lang = asString(req.query.lang) ?? 'en';
+    const [customers, settings] = await Promise.all([
+      prisma.customer.findMany({
+        where: {
+          balance: { not: 0 },
+          ...(salespersonId ? { salespersonId } : {}),
+        },
+        orderBy: { balance: 'desc' },
+        include: {
+          salesperson: { select: { name: true } },
+          _count: { select: { invoices: true } },
+        },
+      }),
+      getSettings(),
+    ]);
+    sendHtml(
+      res,
+      customerBalancesHtml(
+        customers.map((customer) => ({
+          name: customer.name,
+          phone: customer.phone,
+          salesperson: customer.salesperson?.name ?? null,
+          balance: Number(customer.balance),
+          invoices: customer._count.invoices,
+        })),
+        settings,
+        lang,
+      ),
+    );
   }),
 );
 

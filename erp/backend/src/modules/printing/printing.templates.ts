@@ -30,6 +30,7 @@ import type {
 import type { ShortagesReport } from '../reports/analytics.service';
 import type { OrderFulfilmentReport } from '../reports/analytics.service';
 import type { CollectionsByBoxReport } from '../reports/collections.service';
+import type { BoxStatement } from '../treasury/treasury.service';
 import type { buildExpenseReport } from '../expenses/expenses.service';
 
 type ExpenseReport = Awaited<ReturnType<typeof buildExpenseReport>>;
@@ -1262,6 +1263,176 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,
+  });
+}
+
+export function cashBoxStatementHtml(
+  statement: BoxStatement,
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const rows = statement.rows
+    .map(
+      (row) => `      <tr>
+        <td>${escapeHtml(formatDate(row.date))}</td>
+        <td>${escapeHtml(row.type)}</td>
+        <td>${escapeHtml(row.number)}</td>
+        <td>${escapeHtml(row.description)}</td>
+        <td class="num">${row.direction === 'IN' ? money(row.amount) : ''}</td>
+        <td class="num">${row.direction === 'OUT' ? money(row.amount) : ''}</td>
+        <td class="num">${money(row.balance)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const empty = ar ? 'لا توجد حركات' : 'No movements';
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'الخزنة' : 'Cash box'}</span><span class="value">${escapeHtml(statement.box.name)}</span></div>
+      <div><span class="label">${ar ? 'من' : 'From'}</span><span class="value">${statement.from ? escapeHtml(formatDate(statement.from)) : '—'}</span></div>
+      <div><span class="label">${ar ? 'إلى' : 'To'}</span><span class="value">${statement.to ? escapeHtml(formatDate(statement.to)) : '—'}</span></div>
+      <div><span class="label">${ar ? 'الرصيد الافتتاحي' : 'Opening'}</span><span class="value">${money(statement.openingBalance)}</span></div>
+    </section>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>${ar ? 'التاريخ' : 'Date'}</th>
+          <th>${ar ? 'النوع' : 'Type'}</th>
+          <th>${ar ? 'الرقم' : 'Number'}</th>
+          <th>${ar ? 'البيان' : 'Description'}</th>
+          <th class="num">${ar ? 'وارد' : 'In'}</th>
+          <th class="num">${ar ? 'صادر' : 'Out'}</th>
+          <th class="num">${ar ? 'الرصيد' : 'Balance'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows || `        <tr><td colspan="7" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td colspan="4">${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${money(statement.inTotal)}</td><td class="num">${money(statement.outTotal)}</td><td class="num">${money(statement.closingBalance)}</td></tr>
+      </tbody>
+    </table>`;
+  return renderPage({
+    title: ar ? 'كشف حساب الخزنة' : 'Cash box statement',
+    company: settings,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang: ar ? 'ar' : 'en',
+  });
+}
+
+export function priceListHtml(
+  payload: {
+    rows: {
+      sku: string;
+      name: string;
+      unit: string;
+      category: string | null;
+      salePrice: number;
+      boxPrice: number | null;
+      cartonPrice: number | null;
+      boxesPerCarton: number;
+      quantity: number;
+    }[];
+    availableOnly: boolean;
+  },
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const rows = payload.rows
+    .map(
+      (row, index) => `      <tr>
+        <td class="num">${index + 1}</td>
+        <td>${escapeHtml(row.sku)}</td>
+        <td>${escapeHtml(row.name)}</td>
+        <td>${escapeHtml(row.category ?? '—')}</td>
+        <td class="num">${money(row.salePrice)}</td>
+        <td class="num">${row.boxPrice == null ? '—' : money(row.boxPrice)}</td>
+        <td class="num">${row.cartonPrice == null ? '—' : money(row.cartonPrice)}</td>
+        <td class="num">${escapeHtml(row.quantity)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const empty = ar ? 'لا توجد أصناف' : 'No products';
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'الأصناف' : 'Products'}</span><span class="value">${payload.rows.length}</span></div>
+      <div><span class="label">${ar ? 'العرض' : 'Show'}</span><span class="value">${payload.availableOnly ? (ar ? 'المتوفر فقط' : 'Available only') : (ar ? 'كل الأصناف' : 'All products')}</span></div>
+    </section>
+    <table class="data">
+      <thead>
+        <tr>
+          <th class="num">#</th>
+          <th>${ar ? 'الكود' : 'SKU'}</th>
+          <th>${ar ? 'الصنف' : 'Product'}</th>
+          <th>${ar ? 'التصنيف' : 'Category'}</th>
+          <th class="num">${ar ? 'سعر البيع' : 'Sale price'}</th>
+          <th class="num">${ar ? 'سعر العلبة' : 'Box price'}</th>
+          <th class="num">${ar ? 'سعر الكرتونة' : 'Carton price'}</th>
+          <th class="num">${ar ? 'المتاح' : 'Available'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${rows || `        <tr><td colspan="8" class="muted center">${empty}</td></tr>`}
+      </tbody>
+    </table>`;
+  return renderPage({
+    title: ar ? 'قائمة الأسعار' : 'Price list',
+    company: settings,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang: ar ? 'ar' : 'en',
+  });
+}
+
+export function customerBalancesHtml(
+  rows: {
+    name: string;
+    phone: string | null;
+    salesperson: string | null;
+    balance: number;
+    invoices: number;
+  }[],
+  settings: AppSettings,
+  lang = 'en',
+): string {
+  const ar = isArabic(lang);
+  const bodyRows = rows
+    .map(
+      (row, index) => `      <tr>
+        <td class="num">${index + 1}</td>
+        <td>${escapeHtml(row.name)}</td>
+        <td>${escapeHtml(row.phone ?? '—')}</td>
+        <td>${escapeHtml(row.salesperson ?? '—')}</td>
+        <td class="num">${escapeHtml(row.invoices)}</td>
+        <td class="num">${money(row.balance)}</td>
+      </tr>`,
+    )
+    .join('\n');
+  const total = rows.reduce((sum, row) => sum + Number(row.balance), 0);
+  const empty = ar ? 'لا توجد أرصدة' : 'No balances';
+  const body = `    <section class="meta">
+      <div><span class="label">${ar ? 'عدد العملاء' : 'Customers'}</span><span class="value">${rows.length}</span></div>
+      <div><span class="label">${ar ? 'إجمالي الأرصدة' : 'Total balance'}</span><span class="value">${money(total)}</span></div>
+    </section>
+    <table class="data">
+      <thead>
+        <tr>
+          <th class="num">#</th>
+          <th>${ar ? 'العميل' : 'Customer'}</th>
+          <th>${ar ? 'الهاتف' : 'Phone'}</th>
+          <th>${ar ? 'المندوب' : 'Salesperson'}</th>
+          <th class="num">${ar ? 'الفواتير' : 'Invoices'}</th>
+          <th class="num">${ar ? 'الرصيد' : 'Balance'}</th>
+        </tr>
+      </thead>
+      <tbody>
+${bodyRows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
+      </tbody>
+    </table>`;
+  return renderPage({
+    title: ar ? 'أرصدة العملاء' : 'Customer balances',
+    company: settings,
+    body,
+    dir: ar ? 'rtl' : 'ltr',
+    lang: ar ? 'ar' : 'en',
   });
 }
 

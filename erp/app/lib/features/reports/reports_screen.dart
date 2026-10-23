@@ -19,12 +19,14 @@ import '../../widgets/section_card.dart';
 import '../customers/customer_statement_screen.dart';
 import '../shell/navigation.dart';
 import '../suppliers/supplier_statement_screen.dart';
+import 'dormant_customers_screen.dart';
 import 'extra_report_screen.dart';
 import 'financial_reports_screen.dart';
 import 'general_ledger_screen.dart';
 import 'expense_report_screen.dart';
 import 'item_movement_screen.dart';
 import 'operations_reports_screen.dart';
+import 'price_list_screen.dart';
 import 'order_fulfilment_report_screen.dart';
 import 'report_widgets.dart';
 import 'salespeople_reports_screen.dart';
@@ -392,6 +394,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
               builder: (_) => const _CustomerBalancesTab(),
             ),
             _ReportSpec(
+              icon: Icons.person_off_outlined,
+              title: s.dormantCustomers,
+              builder: (_) => const DormantCustomersScreen(),
+            ),
+            _ReportSpec(
               icon: Icons.hourglass_bottom_outlined,
               title: s.receivablesAging,
               onOpen: (controller) => controller.loadReceivablesAging(),
@@ -439,6 +446,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
           title: s.inventory,
           description: s.inventoryReportsDesc,
           reports: <_ReportSpec>[
+            _ReportSpec(
+              icon: Icons.sell_outlined,
+              title: s.priceList,
+              builder: (_) => const PriceListScreen(),
+            ),
             _ReportSpec(
               icon: Icons.price_change_outlined,
               title: s.valuation,
@@ -856,19 +868,62 @@ class _ValuationTab extends StatelessWidget {
   }
 }
 
-class _CustomerBalancesTab extends StatelessWidget {
+class _CustomerBalancesTab extends StatefulWidget {
   const _CustomerBalancesTab();
+
+  @override
+  State<_CustomerBalancesTab> createState() => _CustomerBalancesTabState();
+}
+
+class _CustomerBalancesTabState extends State<_CustomerBalancesTab> {
+  String? _salespersonId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<SalespeopleController>().ensureLoaded();
+    });
+  }
+
+  Future<void> _reload() => context
+      .read<ReportsController>()
+      .loadCustomerBalances(salespersonId: _salespersonId);
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ReportsController>();
+    final salespeople = context.watch<SalespeopleController>().salespeople;
     final s = context.s;
     return ReportAsyncSection(
       loading: controller.loadingCustomerBalances,
       error: controller.customerBalancesError,
       isEmpty: controller.customerBalances.isEmpty,
       emptyTitle: s.noOutstandingBalances,
-      onRetry: controller.loadCustomerBalances,
+      onRetry: _reload,
+      header: ReportHeader(
+        onPrint: () => PrintService.printCustomerBalances(
+          context,
+          salespersonId: _salespersonId,
+        ),
+        filters: <Widget>[
+          AppSelectField<String?>(
+            label: s.salesperson,
+            value: _salespersonId,
+            prefixIcon: Icons.support_agent_outlined,
+            options: <SelectOption<String?>>[
+              SelectOption<String?>(null, s.allSalespeople),
+              for (final person in salespeople)
+                SelectOption<String?>(person.id, person.name),
+            ],
+            onChanged: (value) {
+              setState(() => _salespersonId = value);
+              _reload();
+            },
+          ),
+        ],
+      ),
       children: <Widget>[
         SectionCard(
           title: s.customerBalances,

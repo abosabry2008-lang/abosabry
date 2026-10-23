@@ -10,6 +10,7 @@ import '../../state/customers_controller.dart';
 import '../../state/salespeople_controller.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
 
 /// Create / edit form for a customer.
@@ -48,6 +49,10 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
   /// Assigned sales representative (مندوب).
   late String? _salespersonId = widget.customer?.salespersonId;
 
+  /// Optional sales route (خط سير).
+  late String? _routeId = widget.customer?.routeId;
+  List<Map<String, dynamic>> _routes = <Map<String, dynamic>>[];
+
   bool _saving = false;
 
   /// Opening balances are an administrator-only figure.
@@ -61,6 +66,7 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       context.read<SalespeopleController>().ensureLoaded();
+      _loadRoutes();
       if (!_isAdmin) return;
       if (!widget.isEditing) {
         setState(() => _openingReady = true);
@@ -81,6 +87,19 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
         // Not loaded: the field stays hidden and is not sent.
       }
     });
+  }
+
+  Future<void> _loadRoutes() async {
+    try {
+      final rows = await context
+          .read<Session>()
+          .api
+          .getList('/customer-routes', query: <String, dynamic>{'active': 'true'});
+      if (!mounted) return;
+      setState(() => _routes = rows);
+    } on ApiException {
+      // Routes are optional.
+    }
   }
 
   @override
@@ -106,6 +125,7 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
         'creditLimit': double.tryParse(_creditLimit.text.trim()) ?? 0,
         'active': _active,
         'salespersonId': _salespersonId,
+        'routeId': _routeId,
         if (_isAdmin && _openingReady)
           'openingBalance': double.tryParse(_openingBalance.text.trim()) ?? 0,
       };
@@ -255,6 +275,41 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
                       prefixIcon: Icons.account_balance_wallet_outlined,
                     ),
                   ],
+                  const SizedBox(height: 14),
+                  SearchablePickerField(
+                    label: s.customerRoute,
+                    value: _routeId,
+                    enabled: !_saving,
+                    prefixIcon: Icons.route_outlined,
+                    searchHint: s.searchEllipsis,
+                    clearable: true,
+                    hint: s.noRoute,
+                    options: _routes
+                        .map(
+                          (route) => PickerOption(
+                            value: asString(route['id']),
+                            label: asString(route['name']),
+                            subtitle: asStringOrNull(route['code']),
+                            keywords: <String>[
+                              if (asStringOrNull(route['code']) != null)
+                                asString(route['code']),
+                            ],
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) => setState(() {
+                      _routeId = value;
+                      // A route carries its representative; reflect it here so
+                      // the operator sees who the customer will follow.
+                      final route = _routes
+                          .where((item) => asString(item['id']) == value)
+                          .firstOrNull;
+                      final rep = route == null
+                          ? null
+                          : asStringOrNull(route['salespersonId']);
+                      if (rep != null) _salespersonId = rep;
+                    }),
+                  ),
                   const SizedBox(height: 14),
                   if (!context.watch<Session>().isSalesperson)
                     AppSelectField<String?>(

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_exception.dart';
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
+import '../../core/print_service.dart';
 import '../../core/session.dart';
 import '../../models/box_statement.dart';
 import '../../models/cash_box.dart';
@@ -284,6 +285,16 @@ class _BoxDetailScreenState extends State<BoxDetailScreen> {
                           ),
                         ),
                       ),
+                    IconButton(
+                      tooltip: s.print,
+                      onPressed: () => PrintService.printCashBoxStatement(
+                        context,
+                        widget.boxId,
+                        from: _from,
+                        to: _to,
+                      ),
+                      icon: Icon(Icons.print_outlined, color: scheme.onPrimary),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
