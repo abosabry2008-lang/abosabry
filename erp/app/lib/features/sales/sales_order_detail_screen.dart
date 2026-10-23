@@ -100,92 +100,23 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
     }
   }
 
-  /// Fulfils the order, first warning the operator when items are not on hand.
-  /// The warning offers to deliver only the available quantity (skipping the
-  /// missing lines) so the rest can be purchased and delivered later.
+  /// One tap: fulfils the order and issues its invoice immediately. There is
+  /// no second confirmation and no separate "create invoice" step.
   Future<void> _fulfill() async {
-    final api = context.read<Session>().api;
-    final s = context.s;
-    setState(() => _busy = true);
-    Map<String, dynamic>? availability;
-    try {
-      availability = await api.getObject(
-        '/sales-orders/${widget.orderId}/availability',
-      );
-    } on ApiException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
-        setState(() => _busy = false);
-      }
-      return;
-    }
     if (!mounted) return;
-    setState(() => _busy = false);
-
-    final canFulfillEverything = availability['canFulfillEverything'] == true;
-    if (canFulfillEverything) {
-      await _act(
-        'fulfill',
-        confirmTitle: s.fulfilAllQ,
-        confirmMessage: s.fulfilAllMessage,
-        successMessage: s.salesOrderFulfilled,
-      );
-      return;
-    }
-
-    // Shortages found — show what is missing and offer to skip it.
-    final lines = (availability['lines'] is List)
-        ? (availability['lines'] as List).whereType<Map>().toList()
-        : const <Map>[];
-    final short = lines
-        .where((line) => (line['shortfall'] as num? ?? 0) > 0)
-        .toList();
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(s.shortageWarningTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(s.shortageWarningMessage),
-            const SizedBox(height: 12),
-            for (final line in short)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  '• ${line['productName']}: '
-                  '${line['available']} / ${line['requested']}',
-                ),
-              ),
-          ],
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop('cancel'),
-            child: Text(s.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop('partial'),
-            child: Text(s.fulfilAvailableOnly),
-          ),
-        ],
-      ),
-    );
-    if (choice != 'partial' || !mounted) return;
-
     setState(() => _busy = true);
+    final api = context.read<Session>().api;
     final messenger = ScaffoldMessenger.of(context);
+    final s = context.s;
     try {
       await api.post(
-        '/sales-orders/${widget.orderId}/fulfill',
-        body: <String, dynamic>{'onlyAvailable': true},
+        '/sales-orders/${widget.orderId}/execute',
+        body: const <String, dynamic>{'onlyAvailable': true},
       );
       await _load();
       if (!mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(s.fulfilOnlyAvailableDone)),
+        SnackBar(content: Text('${s.salesOrderFulfilled} · ${s.invoiceIssued}')),
       );
     } on ApiException catch (error) {
       if (!mounted) return;

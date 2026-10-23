@@ -260,8 +260,6 @@ class _PurchaseOrderDetailScreenState extends State<PurchaseOrderDetailScreen> {
                           ? null
                           : () => _act(
                                 'receive',
-                                confirmTitle: s.receiveAllOutstandingQ,
-                                confirmMessage: s.receiveAllOutstandingMessage,
                                 successMessage: s.stockReceived,
                               ),
                       icon: const Icon(Icons.download_outlined),

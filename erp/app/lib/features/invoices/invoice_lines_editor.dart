@@ -437,6 +437,9 @@ class _CompactInvoiceLineState extends State<_CompactInvoiceLine> {
               ProductPickerField(
                 product: line.product,
                 enabled: widget.enabled,
+                fallbackLabel: line.descriptionController.text.trim().isEmpty
+                    ? null
+                    : line.descriptionController.text.trim(),
                 onChanged: (value) {
                   line.setProduct(value);
                   widget.onChanged();

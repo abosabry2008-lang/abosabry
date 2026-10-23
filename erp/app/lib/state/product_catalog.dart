@@ -38,18 +38,30 @@ class ProductCatalog extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      final page = await api.getPage<Product>(
-        '/products',
-        query: <String, dynamic>{
-          if (_search.isNotEmpty) 'search': _search,
-          'page': 1,
-          'pageSize': _pageSize,
-        },
-        parse: Product.fromJson,
-      );
+      final all = <Product>[];
+      var page = 1;
+      while (page <= 100) {
+        final result = await api.getPage<Product>(
+          '/products',
+          query: <String, dynamic>{
+            if (_search.isNotEmpty) 'search': _search,
+            'page': page,
+            'pageSize': _pageSize,
+          },
+          parse: Product.fromJson,
+        );
+        all.addAll(result.items);
+        // Search results are a single, already narrowed result set.
+        if (_search.isNotEmpty ||
+            result.items.isEmpty ||
+            page >= result.totalPages) {
+          break;
+        }
+        page += 1;
+      }
       products
         ..clear()
-        ..addAll(page.items);
+        ..addAll(all);
       _loaded = true;
     } on ApiException catch (exception) {
       _error = exception.message;

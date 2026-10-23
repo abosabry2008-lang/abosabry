@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
+import '../../core/json_utils.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
 import '../../models/customer.dart';
@@ -49,12 +50,36 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
 
   bool _saving = false;
 
+  /// Opening balances are an administrator-only figure.
+  bool _isAdmin = false;
+  bool _openingReady = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    _isAdmin = context.read<Session>().isAdmin;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       context.read<SalespeopleController>().ensureLoaded();
+      if (!_isAdmin) return;
+      if (!widget.isEditing) {
+        setState(() => _openingReady = true);
+        return;
+      }
+      try {
+        final data = await context
+            .read<Session>()
+            .api
+            .getObject('/customers/${widget.customer!.id}');
+        if (!mounted) return;
+        final opening = asDouble(data['openingBalance']);
+        _openingBalance.text = opening == opening.roundToDouble()
+            ? opening.round().toString()
+            : opening.toString();
+        setState(() => _openingReady = true);
+      } on ApiException {
+        // Not loaded: the field stays hidden and is not sent.
+      }
     });
   }
 
@@ -81,7 +106,7 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
         'creditLimit': double.tryParse(_creditLimit.text.trim()) ?? 0,
         'active': _active,
         'salespersonId': _salespersonId,
-        if (!widget.isEditing)
+        if (_isAdmin && _openingReady)
           'openingBalance': double.tryParse(_openingBalance.text.trim()) ?? 0,
       };
 
@@ -221,7 +246,7 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
                     enabled: !_saving,
                     prefixIcon: Icons.credit_card_outlined,
                   ),
-                  if (!widget.isEditing) ...[
+                  if (_isAdmin && _openingReady) ...[
                     const SizedBox(height: 14),
                     AppNumberField(
                       label: 'الرصيد الافتتاحى',

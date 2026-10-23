@@ -16,12 +16,17 @@ class ProductPickerField extends StatelessWidget {
     required this.onChanged,
     this.label,
     this.enabled = true,
+    this.fallbackLabel,
   });
 
   final Product? product;
   final ValueChanged<Product> onChanged;
   final String? label;
   final bool enabled;
+
+  /// Shown when [product] is null (e.g. an old line whose product is no longer
+  /// in the catalogue) instead of the generic "select a product" hint.
+  final String? fallbackLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +48,7 @@ class ProductPickerField extends StatelessWidget {
         ),
         child: Text(
           selected == null
-              ? s.selectAProduct
+              ? (fallbackLabel ?? s.selectAProduct)
               : '${selected.name} (${selected.sku})',
           overflow: TextOverflow.ellipsis,
         ),

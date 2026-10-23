@@ -16,6 +16,7 @@ import {
   isSalesperson,
   scopedSalespersonId,
 } from '../../lib/salesperson-scope';
+import { getCustomerOpeningBalance, setCustomerOpeningBalance } from './customer-opening';
 
 const router = Router();
 router.use(authenticate);
@@ -102,9 +103,17 @@ router.get(
   '/:id',
   requirePermission('customers.read'),
   asyncHandler(async (req, res) => {
-    await assertCustomerAccess(currentUser(req), req.params.id);
+    const user = currentUser(req);
+    await assertCustomerAccess(user, req.params.id);
     const customer = await prisma.customer.findUnique({ where: { id: req.params.id }, include });
     if (!customer) throw ApiError.notFound('Customer not found');
+    if ((user.role ?? '').toUpperCase() === 'ADMIN') {
+      ok(res, {
+        ...serialize(customer),
+        openingBalance: await getCustomerOpeningBalance(customer.id),
+      });
+      return;
+    }
     ok(res, serialize(customer));
   }),
 );
@@ -119,6 +128,9 @@ router.post(
     // A representative cannot create customers for somebody else.
     if (isSalesperson(user)) data.salespersonId = user.id;
     const amount = round2(Number(openingBalance ?? 0));
+    if (amount !== 0 && (user.role ?? '').toUpperCase() !== 'ADMIN') {
+      throw ApiError.forbidden('Only an administrator can set an opening balance');
+    }
     const customer = await prisma.$transaction(async (tx) => {
       const resolvedCode = hasCode(code) ? code.trim() : await generateCustomerCode();
       const created = await tx.customer.create({
@@ -157,13 +169,21 @@ router.patch(
   asyncHandler(async (req, res) => {
     const user = currentUser(req);
     await assertCustomerAccess(user, req.params.id);
-    const data = { ...(req.body as Prisma.CustomerUncheckedUpdateInput) };
+    const { openingBalance, ...rest } = req.body as {
+      openingBalance?: number;
+    } & Record<string, unknown>;
+    if (openingBalance !== undefined && (user.role ?? '').toUpperCase() !== 'ADMIN') {
+      throw ApiError.forbidden('Only an administrator can change an opening balance');
+    }
+    const data = { ...rest } as Prisma.CustomerUncheckedUpdateInput;
     // Representatives may edit their customers but cannot reassign them.
     if (isSalesperson(user)) data.salespersonId = user.id;
-    const customer = await prisma.customer.update({
-      where: { id: req.params.id },
-      data,
-      include,
+    const customer = await prisma.$transaction(async (tx) => {
+      await tx.customer.update({ where: { id: req.params.id }, data });
+      if (openingBalance !== undefined) {
+        await setCustomerOpeningBalance(tx, req.params.id, Number(openingBalance), user.id);
+      }
+      return tx.customer.findUniqueOrThrow({ where: { id: req.params.id }, include });
     });
     ok(res, serialize(customer));
   }),

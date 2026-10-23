@@ -9,6 +9,7 @@ import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
 import { roleHasPermission } from '../../lib/permissions';
+import { createInvoiceTx, issueInvoiceTx } from '../invoices/invoices.service';
 import {
   assertCustomerAccess,
   assertSalesOrderAccess,
@@ -20,6 +21,7 @@ import {
   confirmSalesOrder,
   createSalesOrder,
   fulfillSalesOrder,
+  fulfillSalesOrderTx,
   salesOrderInclude,
   updateSalesOrder,
 } from './sales.service';
@@ -187,6 +189,55 @@ router.post(
     await assertSalesOrderAccess(currentUser(req), req.params.id);
     const order = await confirmSalesOrder(req.params.id);
     ok(res, serialize(order));
+  }),
+);
+
+// One-step execution: fulfil the order and issue its invoice together.
+router.post(
+  '/:id/execute',
+  requirePermission('sales.write'),
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    await assertSalesOrderAccess(user, req.params.id);
+    const result = await prisma.$transaction(async (tx) => {
+      const existingInvoice = await tx.invoice.findFirst({
+        where: { salesOrderId: req.params.id, status: { not: 'VOID' } },
+        select: { id: true, number: true, status: true },
+      });
+      const current = await tx.salesOrder.findUnique({
+        where: { id: req.params.id },
+        select: { status: true },
+      });
+      if (!current) throw ApiError.notFound('Sales order not found');
+      // Pressing execute again on an already fulfilled order just returns it.
+      const order =
+        current.status === 'FULFILLED'
+          ? await tx.salesOrder.findUniqueOrThrow({
+              where: { id: req.params.id },
+              include: salesOrderInclude,
+            })
+          : await fulfillSalesOrderTx(tx, req.params.id, {
+              onlyAvailable: req.body?.onlyAvailable === true,
+              userId: user.id,
+            });
+      if (existingInvoice) return { order, invoice: existingInvoice };
+      if (!order.lines.some((line) => line.fulfilledQty > 0)) {
+        throw ApiError.badRequest(
+          'No stock is available to execute this order',
+          'NOTHING_AVAILABLE',
+        );
+      }
+      const draft = await createInvoiceTx(tx, {
+        salesOrderId: req.params.id,
+        userId: user.id,
+      });
+      const invoice = await issueInvoiceTx(tx, draft.id, user.id);
+      return {
+        order,
+        invoice: { id: invoice.id, number: invoice.number, status: invoice.status },
+      };
+    });
+    ok(res, { order: serialize(result.order), invoice: result.invoice });
   }),
 );
 
