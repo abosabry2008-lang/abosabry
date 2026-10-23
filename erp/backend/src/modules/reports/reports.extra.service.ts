@@ -40,6 +40,8 @@ export interface SalesByCustomerRow {
   total: number;
   paid: number;
   balance: number;
+  cost: number;
+  profit: number;
 }
 
 export async function buildSalesByCustomer(fromInput?: Date, toInput?: Date, user?: ScopeUser) {
@@ -56,6 +58,14 @@ export async function buildSalesByCustomer(fromInput?: Date, toInput?: Date, use
       amountPaid: true,
       balance: true,
       customer: { select: { name: true, code: true } },
+      lines: {
+        select: {
+          quantity: true,
+          unitPrice: true,
+          discount: true,
+          product: { select: { costPrice: true } },
+        },
+      },
     },
   });
 
@@ -72,11 +82,34 @@ export async function buildSalesByCustomer(fromInput?: Date, toInput?: Date, use
         total: 0,
         paid: 0,
         balance: 0,
+        cost: 0,
+        profit: 0,
       } satisfies SalesByCustomerRow);
+    const cost = round2(
+      invoice.lines.reduce(
+        (sum, line) =>
+          sum +
+          line.quantity * num(line.product?.costPrice),
+        0,
+      ),
+    );
+    const revenue = round2(
+      invoice.lines.reduce(
+        (sum, line) =>
+          sum +
+          Math.max(
+            0,
+            line.quantity * num(line.unitPrice) - num(line.discount),
+          ),
+        0,
+      ),
+    );
     row.invoices += 1;
     row.total = round2(row.total + num(invoice.total));
     row.paid = round2(row.paid + num(invoice.amountPaid));
     row.balance = round2(row.balance + num(invoice.balance));
+    row.cost = round2(row.cost + cost);
+    row.profit = round2(row.profit + revenue - cost);
     map.set(key, row);
   }
 
@@ -90,6 +123,8 @@ export async function buildSalesByCustomer(fromInput?: Date, toInput?: Date, use
       total: round2(rows.reduce((sum, row) => sum + row.total, 0)),
       paid: round2(rows.reduce((sum, row) => sum + row.paid, 0)),
       balance: round2(rows.reduce((sum, row) => sum + row.balance, 0)),
+      cost: round2(rows.reduce((sum, row) => sum + row.cost, 0)),
+      profit: round2(rows.reduce((sum, row) => sum + row.profit, 0)),
     },
     rows,
   };

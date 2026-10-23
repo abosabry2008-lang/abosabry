@@ -176,6 +176,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ReportColumn('total', s.total, value: ReportValue.money),
                 ReportColumn('paid', s.paid, value: ReportValue.money),
                 ReportColumn('balance', s.balance, value: ReportValue.money),
+                if (session.canViewProfit) ...<ReportColumn>[
+                  ReportColumn('cost', s.costOfSales, value: ReportValue.money),
+                  ReportColumn('profit', s.netProfit, value: ReportValue.money),
+                ],
               ],
               totals: <ReportTotal>[
                 ReportTotal('customers', s.customers, money: false),
@@ -183,6 +187,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ReportTotal('total', s.total),
                 ReportTotal('paid', s.paid),
                 ReportTotal('balance', s.balance),
+                if (session.canViewProfit) ...<ReportTotal>[
+                  ReportTotal('cost', s.costOfSales),
+                  ReportTotal('profit', s.netProfit),
+                ],
               ],
             ),
           ),

@@ -66,6 +66,12 @@ class InvoiceLineDraft {
 
   double get lineTotal => net + taxAmount;
 
+  double get revenue => net;
+
+  double get cost => quantity * (product?.costPrice ?? 0);
+
+  double get profit => revenue - cost;
+
   bool get isValid =>
       quantity > 0 &&
       (product != null || descriptionController.text.trim().isNotEmpty);
@@ -112,12 +118,16 @@ class InvoiceLinesEditor extends StatefulWidget {
     required this.onChanged,
     this.customerId,
     this.enabled = true,
+    this.showProfit = false,
   });
 
   final List<InvoiceLineDraft> lines;
   final VoidCallback onChanged;
   final String? customerId;
   final bool enabled;
+
+  /// Admin-only profit view while the invoice is being entered.
+  final bool showProfit;
 
   @override
   State<InvoiceLinesEditor> createState() => _InvoiceLinesEditorState();
@@ -203,6 +213,8 @@ class _InvoiceLinesEditorState extends State<InvoiceLinesEditor> {
     final discountTotal = lines.fold<double>(0, (sum, line) => sum + line.discount);
     final taxTotal = lines.fold<double>(0, (sum, line) => sum + line.taxAmount);
     final total = lines.fold<double>(0, (sum, line) => sum + line.lineTotal);
+    final revenue = lines.fold<double>(0, (sum, line) => sum + line.revenue);
+    final cost = lines.fold<double>(0, (sum, line) => sum + line.cost);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -222,6 +234,11 @@ class _InvoiceLinesEditorState extends State<InvoiceLinesEditor> {
                 onChanged: _stageProduct,
               ),
               if (_lastPrice != null) LastSalePriceHint(price: _lastPrice!),
+              StockOnHandHint(
+                product: _quickProduct,
+                requestedQuantity:
+                    double.tryParse(_quickQty.text.trim())?.round() ?? 0,
+              ),
               const SizedBox(height: 8),
               Row(
                 children: <Widget>[
@@ -232,6 +249,7 @@ class _InvoiceLinesEditorState extends State<InvoiceLinesEditor> {
                       focusNode: _qtyFocus,
                       enabled: enabled,
                       decimal: false,
+                      onChanged: (_) => setState(() {}),
                       onSubmitted: (_) => _priceFocus.requestFocus(),
                       textInputAction: TextInputAction.next,
                     ),
@@ -305,6 +323,28 @@ class _InvoiceLinesEditorState extends State<InvoiceLinesEditor> {
             ],
           ),
         ),
+        if (widget.showProfit) ...<Widget>[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.tertiaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: <Widget>[
+                _SummaryRow(label: s.netSales, value: revenue),
+                _SummaryRow(label: s.costOfSales, value: cost),
+                const Divider(),
+                _SummaryRow(
+                  label: s.netProfit,
+                  value: revenue - cost,
+                  emphasise: true,
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

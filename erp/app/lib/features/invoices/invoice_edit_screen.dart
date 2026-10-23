@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
 import '../../core/l10n.dart';
+import '../../core/session.dart';
 import '../../models/customer.dart';
 import '../../models/invoice.dart';
 import '../../state/customers_controller.dart';
@@ -37,6 +38,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
 
   bool _linesDirty = false;
   bool _saving = false;
+  bool _showProfit = false;
 
   @override
   void initState() {
@@ -113,6 +115,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
   @override
   Widget build(BuildContext context) {
     final s = context.s;
+    final session = context.watch<Session>();
     final customers = context.watch<CustomersController>();
 
     // The customer's stored balance is what they owe overall. For an issued
@@ -247,10 +250,23 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
             SectionCard(
               title: s.lines,
               subtitle: s.productsAndServices,
+              trailing: session.isAdmin
+                  ? TextButton.icon(
+                      onPressed: () =>
+                          setState(() => _showProfit = !_showProfit),
+                      icon: Icon(
+                        _showProfit
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                      label: Text(_showProfit ? s.hideProfit : s.showProfit),
+                    )
+                  : null,
               child: InvoiceLinesEditor(
                 lines: _lines,
                 customerId: _customerId,
                 enabled: !_saving,
+                showProfit: session.isAdmin && _showProfit,
                 onChanged: _linesChanged,
               ),
             ),

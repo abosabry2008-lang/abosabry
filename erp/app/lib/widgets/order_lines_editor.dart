@@ -11,6 +11,7 @@ import '../models/product.dart';
 import 'form_fields.dart';
 import 'last_purchase_price_hint.dart';
 import 'last_sale_price.dart';
+import 'stock_on_hand_hint.dart';
 
 /// Editable order line used by the purchase and sales order forms.
 class OrderLineDraft {
@@ -55,6 +56,13 @@ class OrderLineDraft {
   double get taxAmount => net * taxRate / 100;
 
   double get lineTotal => net + taxAmount;
+
+  /// Pre-tax revenue and cost for this line (admin-only profit view).
+  double get revenue => net;
+
+  double get cost => quantity * (product?.costPrice ?? 0);
+
+  double get profit => revenue - cost;
 
   bool get isValid => product != null && product!.id.isNotEmpty && quantity > 0;
 
@@ -210,6 +218,7 @@ class OrderLinesEditor extends StatelessWidget {
     this.preferSalePrice = false,
     this.enforceSalePriceFloor = false,
     this.customerId,
+    this.showProfit = false,
   });
 
   final List<OrderLineDraft> lines;
@@ -231,6 +240,9 @@ class OrderLinesEditor extends StatelessWidget {
   /// customer last paid and the price starts at that amount.
   final String? customerId;
 
+  /// Admin-only: show revenue, cost and profit for the document being entered.
+  final bool showProfit;
+
   double get subtotal =>
       lines.fold<double>(0, (sum, line) => sum + line.gross);
 
@@ -241,6 +253,12 @@ class OrderLinesEditor extends StatelessWidget {
       lines.fold<double>(0, (sum, line) => sum + line.taxAmount);
 
   double get total => lines.fold<double>(0, (sum, line) => sum + line.lineTotal);
+
+  double get revenue => lines.fold<double>(0, (sum, line) => sum + line.revenue);
+
+  double get cost => lines.fold<double>(0, (sum, line) => sum + line.cost);
+
+  double get profit => revenue - cost;
 
   void _addProduct(BuildContext context, Product product) {
     final line = OrderLineDraft()..setProduct(product, preferSalePrice: preferSalePrice);
@@ -347,6 +365,24 @@ class OrderLinesEditor extends StatelessWidget {
             ],
           ),
         ),
+        if (showProfit) ...<Widget>[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.tertiaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: <Widget>[
+                _SummaryRow(label: s.netSales, value: revenue),
+                _SummaryRow(label: s.costOfSales, value: cost),
+                const Divider(),
+                _SummaryRow(label: s.netProfit, value: profit, emphasise: true),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -492,8 +528,13 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                 ),
               ],
             ),
-            if (widget.customerId != null && product != null)
+            if (widget.customerId != null && product != null) ...<Widget>[
               LastSalePriceLoader(customerId: widget.customerId!, product: product),
+              StockOnHandHint(
+                product: product,
+                requestedQuantity: line.quantity,
+              ),
+            ],
             if (widget.enforceSalePriceFloor && line.priceBelowCost)
               Padding(
                 padding: const EdgeInsets.only(top: 6),

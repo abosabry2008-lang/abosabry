@@ -81,12 +81,12 @@ function requireOwnSalesperson(req: Request): void {
 }
 
 /** Removes cost and profit figures from a report for users who may not see profit. */
-function stripProfit<T extends { totals?: Record<string, unknown>; rows?: Record<string, unknown>[] }>(
+function stripProfit<T extends { totals?: object; rows?: object[] }>(
   report: T,
   keys: string[],
 ): T {
-  const strip = (row: Record<string, unknown>) => {
-    const copy = { ...row };
+  const strip = (row: object) => {
+    const copy = { ...row } as Record<string, unknown>;
     for (const key of keys) delete copy[key];
     return copy;
   };
@@ -595,7 +595,13 @@ router.get(
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
-    ok(res, await buildSalesByCustomer(from, to, currentUser(req)));
+    const report = await buildSalesByCustomer(from, to, currentUser(req));
+    ok(
+      res,
+      canViewProfit(currentUser(req))
+        ? report
+        : stripProfit(report, ['cost', 'profit']),
+    );
   }),
 );
 

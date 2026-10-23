@@ -41,6 +41,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
   final TextEditingController _notes = TextEditingController();
   bool _saving = false;
   bool _linesDirty = false;
+  bool _showProfit = false;
 
   bool get _editing => widget.order != null;
 
@@ -193,6 +194,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
   @override
   Widget build(BuildContext context) {
     final s = context.s;
+    final session = context.watch<Session>();
     final customers = context.watch<CustomersController>();
     final salespeople = context.watch<SalespeopleController>();
 
@@ -215,7 +217,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
               title: s.orderDetails,
               child: Column(
                 children: <Widget>[
-                  if (!context.watch<Session>().isSalesperson)
+                  if (!session.isSalesperson)
                     SearchablePickerField(
                     label: s.salesperson,
                     value: _salespersonId,
@@ -321,6 +323,18 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
             SectionCard(
               title: s.lines,
               subtitle: s.productsToSell,
+              trailing: session.isAdmin
+                  ? TextButton.icon(
+                      onPressed: () =>
+                          setState(() => _showProfit = !_showProfit),
+                      icon: Icon(
+                        _showProfit
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                      label: Text(_showProfit ? s.hideProfit : s.showProfit),
+                    )
+                  : null,
               child: OrderLinesEditor(
                 lines: _lines,
                 enabled: !_saving,
@@ -328,6 +342,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                 preferSalePrice: true,
                 enforceSalePriceFloor: true,
                 customerId: _customerId,
+                showProfit: session.isAdmin && _showProfit,
                 onChanged: () => setState(() => _linesDirty = true),
               ),
             ),
