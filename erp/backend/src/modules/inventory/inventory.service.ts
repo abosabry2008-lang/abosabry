@@ -1,6 +1,8 @@
 import { MovementType } from '@prisma/client';
 import { ApiError } from '../../lib/api-error';
+import { round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
+import { ACCOUNT, postJournal } from '../accounting/accounting.service';
 
 export interface MovementInput {
   type: MovementType;
@@ -49,7 +51,9 @@ export async function applyMovement(tx: Tx, input: MovementInput): Promise<numbe
       locationId: input.locationId,
       warehouseId: location.warehouseId,
       quantity: input.quantity,
-      unitCost: input.unitCost ?? 0,
+      // Transfers and adjustments have no explicit cost; use the product's
+      // recorded cost so inventory valuation stays meaningful.
+      unitCost: input.unitCost ?? Number(product.costPrice),
       balanceAfter: level.quantity,
       reference: input.reference,
       note: input.note,
@@ -88,20 +92,74 @@ export interface ReceiveStockInput {
   userId?: string;
 }
 
+async function movementCost(
+  tx: Tx,
+  productId: string,
+  provided?: number,
+): Promise<number> {
+  if (provided !== undefined) return provided;
+  const product = await tx.product.findUnique({
+    where: { id: productId },
+    select: { costPrice: true },
+  });
+  return Number(product?.costPrice ?? 0);
+}
+
+/** Inventory increase/decrease against the adjustment account. */
+async function postInventoryValue(
+  tx: Tx,
+  input: {
+    increase: boolean;
+    value: number;
+    reference?: string;
+    note?: string;
+    userId?: string;
+  },
+): Promise<void> {
+  if (input.value <= 0) return;
+  await postJournal(tx, {
+    memo:
+      input.note ??
+      (input.increase ? 'Inventory received' : 'Inventory issued'),
+    reference: input.reference,
+    sourceType: 'INVENTORY_MOVEMENT',
+    userId: input.userId,
+    lines: input.increase
+      ? [
+          { accountCode: ACCOUNT.INVENTORY, debit: input.value, description: 'Inventory in' },
+          { accountCode: ACCOUNT.SETTLEMENT, credit: input.value, description: 'Inventory adjustment' },
+        ]
+      : [
+          { accountCode: ACCOUNT.SETTLEMENT, debit: input.value, description: 'Inventory adjustment' },
+          { accountCode: ACCOUNT.INVENTORY, credit: input.value, description: 'Inventory out' },
+        ],
+  });
+}
+
 export async function receiveStock(input: ReceiveStockInput): Promise<{ balance: number }> {
   if (input.quantity <= 0) throw ApiError.badRequest('Quantity must be greater than zero');
-  const balance = await prisma.$transaction((tx) =>
-    applyMovement(tx, {
+  const balance = await prisma.$transaction(async (tx) => {
+    const quantity = Math.abs(input.quantity);
+    const cost = await movementCost(tx, input.productId, input.unitCost);
+    const balance = await applyMovement(tx, {
       type: 'RECEIVE',
       productId: input.productId,
       locationId: input.locationId,
-      quantity: Math.abs(input.quantity),
-      unitCost: input.unitCost,
+      quantity,
+      unitCost: cost,
       reference: input.reference,
       note: input.note,
       userId: input.userId,
-    }),
-  );
+    });
+    await postInventoryValue(tx, {
+      increase: true,
+      value: round2(quantity * cost),
+      reference: input.reference,
+      note: input.note ?? 'Stock received',
+      userId: input.userId,
+    });
+    return balance;
+  });
   return { balance };
 }
 
@@ -124,16 +182,25 @@ export async function dispatchStock(input: DispatchStockInput): Promise<{ balanc
         { available, requested: quantity },
       );
     }
-    return applyMovement(tx, {
+    const cost = await movementCost(tx, input.productId, input.unitCost);
+    const balance = await applyMovement(tx, {
       type: 'DISPATCH',
       productId: input.productId,
       locationId: input.locationId,
       quantity: -quantity,
-      unitCost: input.unitCost,
+      unitCost: cost,
       reference: input.reference,
       note: input.note,
       userId: input.userId,
     });
+    await postInventoryValue(tx, {
+      increase: false,
+      value: round2(quantity * cost),
+      reference: input.reference,
+      note: input.note ?? 'Stock issued',
+      userId: input.userId,
+    });
+    return balance;
   });
   return { balance };
 }
@@ -149,16 +216,25 @@ export interface AdjustStockInput {
 
 export async function adjustStock(input: AdjustStockInput): Promise<{ balance: number }> {
   if (input.quantity === 0) throw ApiError.badRequest('Adjustment quantity must not be zero');
-  const balance = await prisma.$transaction((tx) =>
-    applyMovement(tx, {
+  const balance = await prisma.$transaction(async (tx) => {
+    const cost = await movementCost(tx, input.productId);
+    const balance = await applyMovement(tx, {
       type: 'ADJUSTMENT',
       productId: input.productId,
       locationId: input.locationId,
       quantity: input.quantity,
+      unitCost: cost,
       note: input.reason,
       userId: input.userId,
-    }),
-  );
+    });
+    await postInventoryValue(tx, {
+      increase: input.quantity > 0,
+      value: round2(Math.abs(input.quantity) * cost),
+      note: input.reason ?? 'Stock adjustment',
+      userId: input.userId,
+    });
+    return balance;
+  });
   return { balance };
 }
 
@@ -318,11 +394,19 @@ export async function cycleCount(
       const expected = level?.quantity ?? 0;
       const difference = item.countedQty - expected;
       if (difference !== 0) {
+        const cost = await movementCost(tx, item.productId);
         await applyMovement(tx, {
           type: 'CYCLE_COUNT',
           productId: item.productId,
           locationId: input.locationId,
           quantity: difference,
+          unitCost: cost,
+          note: input.note ?? 'Cycle count adjustment',
+          userId: input.userId,
+        });
+        await postInventoryValue(tx, {
+          increase: difference > 0,
+          value: round2(Math.abs(difference) * cost),
           note: input.note ?? 'Cycle count adjustment',
           userId: input.userId,
         });
