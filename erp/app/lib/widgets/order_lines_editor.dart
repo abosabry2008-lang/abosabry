@@ -190,7 +190,9 @@ class OrderLineDraft {
   }
 }
 
-/// Renders an editable list of [OrderLineDraft]s with a totals footer.
+/// Order lines as a compact sheet. Picking an item adds it at once; each row
+/// shows the item, quantity, price and total, with discount and tax behind the
+/// edit button.
 class OrderLinesEditor extends StatelessWidget {
   const OrderLinesEditor({
     super.key,
@@ -230,6 +232,12 @@ class OrderLinesEditor extends StatelessWidget {
 
   double get total => lines.fold<double>(0, (sum, line) => sum + line.lineTotal);
 
+  void _addProduct(Product product) {
+    final line = OrderLineDraft()..setProduct(product, preferSalePrice: preferSalePrice);
+    lines.add(line);
+    onChanged();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -237,178 +245,52 @@ class OrderLinesEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        for (var index = 0; index < lines.length; index++)
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ProductPickerField(
+            product: null,
+            enabled: enabled,
+            label: s.addLine,
+            onChanged: _addProduct,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (lines.isEmpty)
           Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Card(
-              margin: EdgeInsets.zero,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: ProductPickerField(
-                            product: lines[index].product,
-                            enabled: enabled,
-                            onChanged: (value) {
-                              lines[index].setProduct(
-                                value,
-                                preferSalePrice: preferSalePrice,
-                              );
-                              onChanged();
-                            },
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: s.removeLine,
-                          onPressed: enabled
-                              ? () {
-                                  lines.removeAt(index).dispose();
-                                  onChanged();
-                                }
-                              : null,
-                          icon: const Icon(Icons.delete_outline),
-                        ),
-                      ],
-                    ),
-                    LastPurchasePriceHint(product: lines[index].product),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: <Widget>[
-                        if (lines[index].hasPackaging) ...<Widget>[
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: lines[index].sellUnit == 'carton' ? 'carton' : 'box',
-                              decoration: InputDecoration(
-                                labelText: s.unit,
-                                isDense: true,
-                              ),
-                              items: const [
-                                DropdownMenuItem(value: 'box', child: Text('علبة')),
-                                DropdownMenuItem(value: 'carton', child: Text('كرتونة')),
-                              ],
-                              onChanged: enabled
-                                  ? (value) {
-                                      if (value == null) return;
-                                      lines[index].sellUnit = value;
-                                      lines[index].applyPackPrice(preferSalePrice: preferSalePrice);
-                                      onChanged();
-                                    }
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        Expanded(
-                          child: AppNumberField(
-                            label: s.qty,
-                            controller: lines[index].quantityController,
-                            enabled: enabled,
-                            decimal: false,
-                            onChanged: (_) => onChanged(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: AppNumberField(
-                            label: priceLabel ?? s.unitPrice,
-                            controller: lines[index].priceController,
-                            enabled: enabled,
-                            onChanged: (_) => onChanged(),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (enforceSalePriceFloor && lines[index].priceBelowCost)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Row(
-                          children: <Widget>[
-                            Icon(
-                              Icons.error_outline,
-                              size: 16,
-                              color: theme.colorScheme.error,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                s.priceBelowCost(
-                                  lines[index].product?.name ?? s.product,
-                                ),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.error,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: <Widget>[
-                        if (showDiscount) ...<Widget>[
-                          Expanded(
-                            child: AppNumberField(
-                              label: s.discountWord,
-                              controller: lines[index].discountController,
-                              enabled: enabled,
-                              onChanged: (_) => onChanged(),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        if (showTax)
-                          Expanded(
-                            child: AppNumberField(
-                              label: s.taxRatePercent,
-                              controller: lines[index].taxController,
-                              enabled: enabled,
-                              onChanged: (_) => onChanged(),
-                            ),
-                          ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: <Widget>[
-                              Text(
-                                s.lineTotal,
-                                style: theme.textTheme.labelSmall,
-                              ),
-                              Text(
-                                Formatters.money(lines[index].lineTotal),
-                                style: theme.textTheme.titleMedium,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              s.noLinesYet,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
               ),
             ),
-          ),
-        OutlinedButton.icon(
-          onPressed: enabled
-              ? () {
-                  lines.add(OrderLineDraft());
+          )
+        else
+          for (var index = 0; index < lines.length; index++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _OrderLineRow(
+                key: ObjectKey(lines[index]),
+                line: lines[index],
+                enabled: enabled,
+                priceLabel: priceLabel,
+                preferSalePrice: preferSalePrice,
+                showDiscount: showDiscount,
+                showTax: showTax,
+                enforceSalePriceFloor: enforceSalePriceFloor,
+                onChanged: onChanged,
+                onRemove: () {
+                  lines.removeAt(index).dispose();
                   onChanged();
-                }
-              : null,
-          icon: const Icon(Icons.add),
-          label: Text(s.addLine),
-        ),
-        const SizedBox(height: 16),
+                },
+              ),
+            ),
+        const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -431,6 +313,189 @@ class OrderLinesEditor extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// One order line: item, quantity, price and total on a single row.
+class _OrderLineRow extends StatefulWidget {
+  const _OrderLineRow({
+    super.key,
+    required this.line,
+    required this.enabled,
+    required this.priceLabel,
+    required this.preferSalePrice,
+    required this.showDiscount,
+    required this.showTax,
+    required this.enforceSalePriceFloor,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  final OrderLineDraft line;
+  final bool enabled;
+  final String? priceLabel;
+  final bool preferSalePrice;
+  final bool showDiscount;
+  final bool showTax;
+  final bool enforceSalePriceFloor;
+  final VoidCallback onChanged;
+  final VoidCallback onRemove;
+
+  @override
+  State<_OrderLineRow> createState() => _OrderLineRowState();
+}
+
+class _OrderLineRowState extends State<_OrderLineRow> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final s = context.s;
+    final line = widget.line;
+    final product = line.product;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 4, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: product == null
+                      ? ProductPickerField(
+                          product: null,
+                          enabled: widget.enabled,
+                          onChanged: (value) {
+                            line.setProduct(value, preferSalePrice: widget.preferSalePrice);
+                            widget.onChanged();
+                          },
+                        )
+                      : Text(
+                          '${product.name} (${product.sku})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                ),
+                Text(
+                  Formatters.money(line.lineTotal),
+                  style: theme.textTheme.titleMedium,
+                ),
+                IconButton(
+                  tooltip: s.edit,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: widget.enabled
+                      ? () => setState(() => _expanded = !_expanded)
+                      : null,
+                  icon: Icon(_expanded ? Icons.expand_less : Icons.tune_outlined),
+                ),
+                IconButton(
+                  tooltip: s.removeLine,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: widget.enabled ? widget.onRemove : null,
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ),
+            Row(
+              children: <Widget>[
+                if (line.hasPackaging) ...<Widget>[
+                  SizedBox(
+                    width: 104,
+                    child: DropdownButtonFormField<String>(
+                      value: line.sellUnit == 'carton' ? 'carton' : 'box',
+                      decoration: InputDecoration(
+                        labelText: s.unit,
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'box', child: Text('علبة')),
+                        DropdownMenuItem(value: 'carton', child: Text('كرتونة')),
+                      ],
+                      onChanged: widget.enabled
+                          ? (value) {
+                              if (value == null) return;
+                              line.sellUnit = value;
+                              line.applyPackPrice(preferSalePrice: widget.preferSalePrice);
+                              widget.onChanged();
+                            }
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: AppNumberField(
+                    label: s.qty,
+                    controller: line.quantityController,
+                    enabled: widget.enabled,
+                    decimal: false,
+                    onChanged: (_) => widget.onChanged(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: AppNumberField(
+                    label: widget.priceLabel ?? s.unitPrice,
+                    controller: line.priceController,
+                    enabled: widget.enabled,
+                    onChanged: (_) => widget.onChanged(),
+                  ),
+                ),
+              ],
+            ),
+            if (widget.enforceSalePriceFloor && line.priceBelowCost)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  s.priceBelowCost(product?.name ?? s.product),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+            if (_expanded) ...<Widget>[
+              const SizedBox(height: 8),
+              Row(
+                children: <Widget>[
+                  if (widget.showDiscount) ...<Widget>[
+                    Expanded(
+                      child: AppNumberField(
+                        label: s.discountWord,
+                        controller: line.discountController,
+                        enabled: widget.enabled,
+                        onChanged: (_) => widget.onChanged(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  if (widget.showTax)
+                    Expanded(
+                      child: AppNumberField(
+                        label: s.taxRatePercent,
+                        controller: line.taxController,
+                        enabled: widget.enabled,
+                        onChanged: (_) => widget.onChanged(),
+                      ),
+                    ),
+                ],
+              ),
+              LastPurchasePriceHint(product: product),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

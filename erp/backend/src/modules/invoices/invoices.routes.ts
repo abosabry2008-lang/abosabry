@@ -137,6 +137,43 @@ router.get(
   }),
 );
 
+// Last price this customer was invoiced for a product (sales-invoice hint).
+router.get(
+  '/last-price',
+  requirePermission('invoices.read'),
+  asyncHandler(async (req, res) => {
+    const customerId = asString(req.query.customerId);
+    const productId = asString(req.query.productId);
+    if (!customerId || !productId) {
+      throw ApiError.badRequest('customerId and productId are required');
+    }
+    await assertCustomerAccess(currentUser(req), customerId);
+    const line = await prisma.invoiceLine.findFirst({
+      where: {
+        productId,
+        invoice: { customerId, status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] } },
+      },
+      orderBy: { invoice: { issueDate: 'desc' } },
+      select: {
+        unitPrice: true,
+        sellUnit: true,
+        invoice: { select: { number: true, issueDate: true } },
+      },
+    });
+    ok(
+      res,
+      line
+        ? {
+            unitPrice: Number(line.unitPrice),
+            sellUnit: line.sellUnit,
+            invoiceNumber: line.invoice.number,
+            issueDate: line.invoice.issueDate,
+          }
+        : null,
+    );
+  }),
+);
+
 router.get(
   '/:id',
   requirePermission('invoices.read'),
