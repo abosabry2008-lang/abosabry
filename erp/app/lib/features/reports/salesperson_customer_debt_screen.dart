@@ -30,6 +30,7 @@ class _SalespersonCustomerDebtScreenState
   DateTime? _from;
   DateTime? _to;
   String? _salespersonId;
+  String _filter = 'all';
 
   @override
   void initState() {
@@ -52,6 +53,7 @@ class _SalespersonCustomerDebtScreenState
       salespersonId: id,
       from: _from,
       to: _to,
+      filter: _filter,
     );
   }
 
@@ -90,6 +92,7 @@ class _SalespersonCustomerDebtScreenState
                   selectedId,
                   from: _from,
                   to: _to,
+                  filter: _filter,
                 ),
         filters: <Widget>[
           DateRangeButton(
@@ -107,6 +110,21 @@ class _SalespersonCustomerDebtScreenState
                 SelectOption<String?>(person.id, person.name),
             ],
             onChanged: (value) => _apply(_from, _to, value),
+          ),
+          const SizedBox(width: 10),
+          AppSelectField<String>(
+            label: s.showLabel,
+            value: _filter,
+            prefixIcon: Icons.filter_alt_outlined,
+            options: <SelectOption<String>>[
+              SelectOption<String>('all', s.allCustomers),
+              SelectOption<String>('debtors', s.customersWithDebt),
+              SelectOption<String>('creditors', s.customersWithCredit),
+            ],
+            onChanged: (value) {
+              setState(() => _filter = value ?? 'all');
+              _reload();
+            },
           ),
         ],
       ),

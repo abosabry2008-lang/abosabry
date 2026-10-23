@@ -558,6 +558,12 @@ class AppStrings {
   String get fromSupplier => _t('From supplier', 'من المورد');
   String get toSupplier => _t('To supplier', 'إلى المورد');
   String get cashSale => _t('Cash sale', 'بيع نقدي');
+  String get allCustomers => _t('All customers', 'كل العملاء');
+  String get customersWithDebt =>
+      _t('Customers who owe money', 'العملاء اللي عليهم فلوس');
+  String get customersWithCredit =>
+      _t('Customers with credit', 'العملاء اللي لهم فلوس');
+  String get showLabel => _t('Show', 'العرض');
   String get newSupplier => _t('New supplier', 'مورد جديد');
   String get deleteSupplierQ => _t('Delete supplier?', 'حذف المورد؟');
   String supplierWillBeRemoved(String name) =>

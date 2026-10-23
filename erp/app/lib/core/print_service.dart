@@ -211,11 +211,13 @@ class PrintService {
     String? token, {
     DateTime? from,
     DateTime? to,
+    String filter = 'all',
   }) =>
       _uri('/print/salespeople/$salespersonId/customers', <String, String?>{
         'token': token,
         if (from != null) 'from': Formatters.isoDate(from),
         if (to != null) 'to': Formatters.isoDate(to),
+        'filter': filter,
       });
 
   static Future<bool> printShortages(
@@ -229,6 +231,7 @@ class PrintService {
     String salespersonId, {
     DateTime? from,
     DateTime? to,
+    String filter = 'all',
   }) =>
       open(
         context,
@@ -237,6 +240,7 @@ class PrintService {
           token(context),
           from: from,
           to: to,
+          filter: filter,
         ),
       );
 

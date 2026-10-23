@@ -440,8 +440,11 @@ router.get(
     requireOwnSalesperson(req);
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
+    const rawFilter = asString(req.query.filter);
+    const filter =
+      rawFilter === 'debtors' || rawFilter === 'creditors' ? rawFilter : 'all';
     try {
-      ok(res, await buildSalespersonCustomerDebt(req.params.id, from, to));
+      ok(res, await buildSalespersonCustomerDebt(req.params.id, from, to, filter));
     } catch (error) {
       if (error instanceof Error && error.message === 'SALESPERSON_NOT_FOUND') {
         throw ApiError.notFound('Salesperson not found', 'SALESPERSON_NOT_FOUND');

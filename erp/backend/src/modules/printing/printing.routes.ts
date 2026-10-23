@@ -323,8 +323,11 @@ router.get(
     const from = asDate(req.query.from);
     const to = asDate(req.query.to);
     const lang = asString(req.query.lang) ?? 'en';
+    const rawFilter = asString(req.query.filter);
+    const filter =
+      rawFilter === 'debtors' || rawFilter === 'creditors' ? rawFilter : 'all';
     const [report, settings] = await Promise.all([
-      buildSalespersonCustomerDebt(req.params.id, from, to),
+      buildSalespersonCustomerDebt(req.params.id, from, to, filter),
       getSettings(),
     ]);
     sendHtml(res, salespersonCustomerDebtHtml(report, settings, lang));

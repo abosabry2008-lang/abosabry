@@ -1226,6 +1226,13 @@ export function salespersonCustomerDebtHtml(
       <div><span class="label">${ar ? 'المندوب' : 'Salesperson'}</span><span class="value">${escapeHtml(report.salesperson.name)}</span></div>
       <div><span class="label">${ar ? 'من' : 'From'}</span><span class="value">${escapeHtml(formatDate(report.from))}</span></div>
       <div><span class="label">${ar ? 'إلى' : 'To'}</span><span class="value">${escapeHtml(formatDate(report.to))}</span></div>
+      <div><span class="label">${ar ? 'العرض' : 'Show'}</span><span class="value">${escapeHtml(
+        report.filter === 'debtors'
+          ? ar ? 'العملاء اللي عليهم فلوس' : 'Customers who owe money'
+          : report.filter === 'creditors'
+            ? ar ? 'العملاء اللي لهم فلوس' : 'Customers with credit'
+            : ar ? 'كل العملاء' : 'All customers',
+      )}</span></div>
     </section>
     <table class="data">
       <thead>

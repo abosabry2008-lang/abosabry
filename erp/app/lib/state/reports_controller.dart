@@ -749,12 +749,14 @@ class ReportsController extends ChangeNotifier {
     required String salespersonId,
     DateTime? from,
     DateTime? to,
+    String filter = 'all',
   }) =>
       _loadSection(
         path: '/reports/salespeople/$salespersonId/customers',
         query: <String, dynamic>{
           if (from != null) 'from': from.toIso8601String(),
           if (to != null) 'to': to.toIso8601String(),
+          'filter': filter,
         },
         setStatus: (loading, error) {
           loadingSalespersonCustomerDebt = loading;

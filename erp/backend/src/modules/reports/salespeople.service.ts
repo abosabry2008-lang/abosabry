@@ -697,10 +697,13 @@ export interface SalespersonCustomerRow {
   balance: number;
 }
 
+export type CustomerDebtFilter = 'all' | 'debtors' | 'creditors';
+
 export interface SalespersonCustomerDebt {
   salesperson: { id: string; name: string };
   from: string;
   to: string;
+  filter: CustomerDebtFilter;
   rows: SalespersonCustomerRow[];
   totals: {
     previous: number;
@@ -721,6 +724,7 @@ export async function buildSalespersonCustomerDebt(
   salespersonId: string,
   fromInput?: Date,
   toInput?: Date,
+  filter: CustomerDebtFilter = 'all',
 ): Promise<SalespersonCustomerDebt> {
   const now = new Date();
   const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
@@ -837,7 +841,8 @@ export async function buildSalespersonCustomerDebt(
     // any migration/opening balance that has no invoice behind it.
     const closing = round2(Number(customer.balance));
     const previous = round2(closing - debit + credit);
-    if (previous === 0 && debit === 0 && credit === 0) continue;
+    if (filter === 'debtors' && closing <= 0) continue;
+    if (filter === 'creditors' && closing >= 0) continue;
     rows.push({
       customerId: customer.id,
       customer: customer.name,
@@ -860,7 +865,13 @@ export async function buildSalespersonCustomerDebt(
     if (key >= fromKey) walkInDebit = round2(walkInDebit + Number(invoice.total));
   }
   walkInPrevious = round2(walkInClosing - walkInDebit);
-  if (walkInPrevious !== 0 || walkInDebit !== 0) {
+  const walkInVisible =
+    filter === 'all'
+      ? walkInPrevious !== 0 || walkInDebit !== 0
+      : filter === 'debtors'
+        ? walkInClosing > 0
+        : walkInClosing < 0;
+  if (walkInVisible) {
     rows.push({
       customerId: 'walk-in',
       customer: 'Walk-in',
@@ -884,5 +895,5 @@ export async function buildSalespersonCustomerDebt(
     { previous: 0, debit: 0, credit: 0, balance: 0 },
   );
 
-  return { salesperson, from: fromKey, to: toKey, rows, totals };
+  return { salesperson, from: fromKey, to: toKey, filter, rows, totals };
 }
