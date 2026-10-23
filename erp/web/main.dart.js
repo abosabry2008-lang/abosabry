@@ -54809,8 +54809,9 @@ q.push(A.eG(B.cI,A.d(a8.gi()==="ar"?"\u062a\u0639\u062f\u064a\u0644":"Edit",a5,a
 q=r.f
 if(q!=="VOID"){o=A.a([],l)
 if(q==="DRAFT"&&p){n=a4.f?a5:a4.gaqJ()
-o.push(A.eG(B.U9,A.d(a8.gi()==="ar"?"\u0625\u0635\u062f\u0627\u0631":"Issue",a5,a5,a5,a5,a5,a5,a5,a5),n))}if(q==="ISSUED"||q==="PARTIALLY_PAID"){n=a4.f?a5:a4.gauu()
-o.push(A.d4(B.ui,A.d(a8.gi()==="ar"?"\u062a\u0633\u062c\u064a\u0644 \u062f\u0641\u0639\u0629":"Record payment",a5,a5,a5,a5,a5,a5,a5,a5),n,a5))}if(q!=="PAID"&&s.ghk()){q=a4.f?a5:a4.gayK()
+o.push(A.eG(B.U9,A.d(a8.gi()==="ar"?"\u0625\u0635\u062f\u0627\u0631":"Issue",a5,a5,a5,a5,a5,a5,a5,a5),n))}if(q==="ISSUED"||q==="PARTIALLY_PAID"){q=a4.f?a5:a4.gauu()
+o.push(A.d4(B.ui,A.d(a8.gi()==="ar"?"\u062a\u0633\u062c\u064a\u0644 \u062f\u0641\u0639\u0629":"Record payment",a5,a5,a5,a5,a5,a5,a5,a5),q,a5))}q=s.ghk()
+if(q){q=a4.f?a5:a4.gayK()
 o.push(A.ec(B.eX,A.d(a8.gi()==="ar"?"\u0625\u0628\u0637\u0627\u0644":"Void",a5,a5,a5,a5,a5,a5,a5,a5),q,a5))}B.b.M(f,A.a([B.C,A.hv(o,B.ch,12,12)],l))}if(a4.f)B.b.M(f,A.a([B.P,B.aQ],l))
 return A.cb(a5,a5,A.h5(A.cu(f,a5,B.q,B.ba,a5,!1),a4.gYY()),a5,a5)}}
 A.aNG.prototype={

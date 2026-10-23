@@ -115,7 +115,10 @@ class Invoice {
   final List<InvoiceLine> lines;
 
   bool get canIssue => status == 'DRAFT';
-  bool get canVoid => status != 'VOID' && status != 'PAID';
+  /// Admins may void any live invoice, including a paid one (the API cancels
+  /// its payments first). The only exception is a receipt-paid invoice, which
+  /// must have its collection receipt cancelled first.
+  bool get canVoid => status != 'VOID';
   bool get isOverdue {
     if (status == 'PAID' || status == 'VOID' || dueDate == null) return false;
     return balance > 0 && dueDate!.isBefore(DateTime.now());
