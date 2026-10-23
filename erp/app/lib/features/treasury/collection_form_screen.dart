@@ -9,6 +9,7 @@ import '../../core/session.dart';
 import '../../models/cash_box.dart';
 import '../../models/customer.dart';
 import '../../models/user.dart';
+import '../../state/settings_controller.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
@@ -250,12 +251,14 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final currencyCode = context.watch<SettingsController?>()?.baseCurrencyCode;
     final boxOptions = _boxes
         .where((box) => box.active)
         .map(
           (box) => SelectOption<String>(
             box.id,
-            '${box.name} · ${Formatters.money(box.balance)}',
+            '${box.name} · '
+            '${Formatters.money(box.balance, currencyCode: currencyCode)}',
           ),
         )
         .toList();
