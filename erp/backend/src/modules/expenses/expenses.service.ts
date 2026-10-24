@@ -207,7 +207,15 @@ export async function deleteExpenseCategory(id: string) {
       'HAS_EXPENSES',
     );
   }
-  await prisma.expenseCategory.delete({ where: { id } });
+  await prisma.$transaction(async (tx) => {
+    await reverseJournalBySource(tx, {
+      sourceType: 'EXPENSE_CATEGORY_OPENING',
+      sourceId: id,
+      reversalSourceType: 'EXPENSE_CATEGORY_OPENING_REVERSAL',
+      memo: `Expense category opening removed (${category.name})`,
+    });
+    await tx.expenseCategory.delete({ where: { id } });
+  });
   return { id, deleted: true };
 }
 
