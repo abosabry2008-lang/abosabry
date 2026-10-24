@@ -57182,7 +57182,7 @@ break
 case 6:case 1:return A.p(q,r)
 case 2:return A.o(o.at(-1),r)}})
 return A.q($async$FL,r)},
-u(a2){var s,r,q,p,o,n,m,l,k,j,i,h=this,g=null,f="\u0627\u0644\u062a\u0641\u0627\u0635\u064a\u0644",e="Invoice",d="\u0641\u0627\u062a\u0648\u0631\u0629",c="Customer",b="\u0627\u0644\u0639\u0645\u064a\u0644",a="Supplier",a0=t.v,a1=A.k(a2,B.f,a0)
+u(a2){var s,r,q,p,o,n,m,l,k,j,i,h=this,g=null,f="\u0627\u0644\u062a\u0641\u0627\u0635\u064a\u0644",e="Customer",d="\u0627\u0644\u0639\u0645\u064a\u0644",c="Supplier",b="Invoice (optional)",a="\u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 (\u0627\u062e\u062a\u064a\u0627\u0631\u064a)",a0=t.v,a1=A.k(a2,B.f,a0)
 if(a1==null)a1=B.e
 s=a1.a
 r=s.gi()==="ar"?"\u062a\u0633\u062c\u064a\u0644 \u062f\u0641\u0639\u0629":"Record a payment"
@@ -57217,20 +57217,20 @@ if(a1){a1=A.k(a2,B.f,a0)
 a1=(a1==null?B.e:a1).a.gi()==="ar"?f:"Details"
 s=A.a([],n)
 if(h.a.e!=null){r=A.k(a2,B.f,a0)
-r=(r==null?B.e:r).a.gi()==="ar"?d:e
+r=(r==null?B.e:r).a.gi()==="ar"?"\u0641\u0627\u062a\u0648\u0631\u0629":"Invoice"
 p=h.a.e
 p.toString
 s.push(new A.Mu(r,p,g))}if(h.a.r!=null){r=A.k(a2,B.f,a0)
-r=(r==null?B.e:r).a.gi()==="ar"?b:c
+r=(r==null?B.e:r).a.gi()==="ar"?d:e
 p=h.a.r
 p.toString
 s.push(new A.Mu(r,p,g))}h.a.toString
 B.b.L(q,A.a([B.N,new A.ad(a1,g,g,A.Q(s,B.j,B.h,B.i),B.p,g)],n))}if(!h.a.Q){if(h.gyk()==="INBOUND"){a1=A.k(a2,B.f,a0)
-a1=(a1==null?B.e:a1).a.gi()==="ar"?b:c}else{a1=A.k(a2,B.f,a0)
-a1=(a1==null?B.e:a1).a.gi()==="ar"?"\u0645\u0648\u0631\u062f":a}s=A.a([],n)
+a1=(a1==null?B.e:a1).a.gi()==="ar"?d:e}else{a1=A.k(a2,B.f,a0)
+a1=(a1==null?B.e:a1).a.gi()==="ar"?"\u0645\u0648\u0631\u062f":c}s=A.a([],n)
 if(h.cx)s.push(B.a9G)
 else if(h.gyk()==="INBOUND"){r=A.k(a2,B.f,a0)
-r=(r==null?B.e:r).a.gi()==="ar"?b:c
+r=(r==null?B.e:r).a.gi()==="ar"?d:e
 p=h.z
 o=A.k(a2,B.f,a0)
 o=(o==null?B.e:o).a.gi()==="ar"?"\u0627\u062e\u062a\u0631 \u0639\u0645\u064a\u0644\u064b\u0627":"Select a customer"
@@ -57241,7 +57241,7 @@ k=h.z
 j=h.ax
 i=A.V(j).j("O<1,cA>")
 s.push(A.kk(k!=null,!m,o,r,new A.aUB(h),A.Y(new A.O(j,new A.aUC(),i),!0,i.j("ab.E")),B.cp,l,g,p))}else{r=A.k(a2,B.f,a0)
-r=(r==null?B.e:r).a.gi()==="ar"?"\u0645\u0648\u0631\u062f":a
+r=(r==null?B.e:r).a.gi()==="ar"?"\u0645\u0648\u0631\u062f":c
 p=h.Q
 o=A.k(a2,B.f,a0)
 o=(o==null?B.e:o).a.gi()==="ar"?"\u0627\u062e\u062a\u0631 \u0645\u0648\u0631\u062f\u064b\u0627":"Select a supplier"
@@ -57253,9 +57253,9 @@ j=h.ay
 i=A.V(j).j("O<1,cA>")
 s.push(A.kk(k!=null,!m,o,r,new A.aUD(h),A.Y(new A.O(j,new A.aUt(),i),!0,i.j("ab.E")),B.cK,l,g,p))}a1=A.a([B.N,new A.ad(a1,g,g,A.Q(s,B.j,B.h,B.i),B.p,g)],n)
 if(h.gyk()==="INBOUND"){s=A.k(a2,B.f,a0)
-s=(s==null?B.e:s).a.gi()==="ar"?d:e
+s=(s==null?B.e:s).a.gi()==="ar"?a:b
 r=A.k(a2,B.f,a0)
-r=(r==null?B.e:r).a.gi()==="ar"?d:e
+r=(r==null?B.e:r).a.gi()==="ar"?a:b
 p=h.y
 o=A.k(a2,B.f,a0)
 o=(o==null?B.e:o).a.gi()==="ar"?"\u0628\u062f\u0648\u0646 \u0641\u0627\u062a\u0648\u0631\u0629":"No invoice"
@@ -57265,7 +57265,10 @@ l=(l==null?B.e:l).a.gi()==="ar"?"\u0627\u0628\u062d\u062b \u0641\u064a \u0627\u0
 k=h.y
 j=h.ch
 i=A.V(j).j("O<1,cA>")
-B.b.L(a1,A.a([B.N,new A.ad(s,g,g,A.kk(k!=null,!m,o,r,h.gatn(),A.Y(new A.O(j,new A.aUu(),i),!0,i.j("ab.E")),B.cr,l,g,p),B.p,g)],n))}B.b.L(q,a1)}q.push(B.N)
+p=A.kk(k!=null,!m,o,r,h.gatn(),A.Y(new A.O(j,new A.aUu(),i),!0,i.j("ab.E")),B.cr,l,g,p)
+l=A.k(a2,B.f,a0)
+r=(l==null?B.e:l).a.gi()==="ar"?"\u0627\u062a\u0631\u0643 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0641\u0627\u0631\u063a\u0629 \u0644\u064a\u064f\u062e\u0635\u0645 \u0627\u0644\u0645\u0628\u0644\u063a \u0645\u0646 \u0631\u0635\u064a\u062f \u0627\u0644\u0639\u0645\u064a\u0644 \u062f\u0648\u0646 \u0631\u0628\u0637\u0647 \u0628\u0641\u0627\u062a\u0648\u0631\u0629.":"Leave the invoice empty to deduct the amount from the customer balance without linking it to an invoice."
+B.b.L(a1,A.a([B.N,new A.ad(s,g,g,A.Q(A.a([p,B.T,A.c(r,g,g,g,g,A.j(a2).p1.Q,g,g,g)],n),B.ad,B.h,B.i),B.p,g)],n))}B.b.L(q,a1)}q.push(B.N)
 a1=A.k(a2,B.f,a0)
 a1=(a1==null?B.e:a1).a.gi()==="ar"?f:"Details"
 s=A.k(a2,B.f,a0)

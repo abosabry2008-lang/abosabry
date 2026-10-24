@@ -401,28 +401,38 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
               if (_inbound) ...<Widget>[
                 const SizedBox(height: 16),
                 SectionCard(
-                  title: context.s.invoice,
-                  child: SearchablePickerField(
-                    label: context.s.invoice,
-                    value: _invoiceId,
-                    hint: context.s.noInvoice,
-                    enabled: !_saving,
-                    prefixIcon: Icons.receipt_long_outlined,
-                    searchHint: context.s.searchInvoicesHint,
-                    clearable: _invoiceId != null,
-                    options: _invoices
-                        .map(
-                          (invoice) => PickerOption(
-                            value: invoice.id,
-                            label: invoice.number,
-                            subtitle: invoice.customerName,
-                            trailing: invoice.balance == 0
-                                ? null
-                                : Formatters.money(invoice.balance),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: _onInvoiceChanged,
+                  title: context.s.invoiceOptional,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      SearchablePickerField(
+                        label: context.s.invoiceOptional,
+                        value: _invoiceId,
+                        hint: context.s.noInvoice,
+                        enabled: !_saving,
+                        prefixIcon: Icons.receipt_long_outlined,
+                        searchHint: context.s.searchInvoicesHint,
+                        clearable: _invoiceId != null,
+                        options: _invoices
+                            .map(
+                              (invoice) => PickerOption(
+                                value: invoice.id,
+                                label: invoice.number,
+                                subtitle: invoice.customerName,
+                                trailing: invoice.balance == 0
+                                    ? null
+                                    : Formatters.money(invoice.balance),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _onInvoiceChanged,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.s.onAccountHint,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ),
                 ),
               ],

@@ -801,6 +801,11 @@ class AppStrings {
       );
   String get paidOn => _t('Paid on', 'تاريخ الدفع');
   String get noInvoice => _t('No invoice', 'بدون فاتورة');
+  String get invoiceOptional => _t('Invoice (optional)', 'الفاتورة (اختياري)');
+  String get onAccountHint => _t(
+        'Leave the invoice empty to deduct the amount from the customer balance without linking it to an invoice.',
+        'اترك الفاتورة فارغة ليُخصم المبلغ من رصيد العميل دون ربطه بفاتورة.',
+      );
   String get chooseSupplier => _t('Choose a supplier', 'اختر موردًا');
   String get selectSupplier => _t('Select a supplier', 'اختر موردًا');
   String get selectCustomer => _t('Select a customer', 'اختر عميلًا');
