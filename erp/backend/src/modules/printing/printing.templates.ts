@@ -312,8 +312,8 @@ export function invoiceHtml(
     <table class="data">
       <thead>
         <tr>
-          <th class="num">#</th>
-          <th>${escapeHtml(t('Description', 'الوصف'))}</th>
+          <th class="num">${escapeHtml(t('No.', 'م'))}</th>
+          <th>${escapeHtml(t('Item', 'الصنف'))}</th>
           <th class="num">${escapeHtml(t('Qty', 'الكمية'))}</th>
           <th class="num">${escapeHtml(t('Unit price', 'سعر الوحدة'))}</th>
           <th class="num">${escapeHtml(t('Line total', 'إجمالي السطر'))}</th>
@@ -405,7 +405,7 @@ export function salespersonInvoicesHtml(
     </div>
     <table class="data a5-table">
       <thead><tr>
-        <th class="num">#</th>
+        <th class="num">${escapeHtml(t('No.', 'م'))}</th>
         <th>${escapeHtml(t('Item', 'الصنف'))}</th>
         <th class="num">${escapeHtml(t('Qty', 'الكمية'))}</th>
         <th class="num">${escapeHtml(t('Price', 'السعر'))}</th>
