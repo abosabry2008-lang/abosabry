@@ -128,6 +128,19 @@ const STYLES = `
   }
   section.meta .label { display: inline-block; min-width: 110px; color: #64748b; }
   section.meta .value { font-weight: 600; }
+  section.panel.invoice-info { background: #f8fafc; }
+  .invoice-info .info-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 24px;
+  }
+  .invoice-info .info-row + .info-row {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+  }
+  .invoice-info .label { display: inline-block; min-width: 90px; color: #64748b; }
+  .invoice-info .value { font-weight: 600; }
   section.panel {
     margin: 0 0 20px;
     padding: 12px 16px;
@@ -287,30 +300,28 @@ export function invoiceHtml(
   const orderUser = invoice.salesOrder?.user;
   const salesperson =
     customer?.salesperson ?? (orderUser?.role === 'SALES' ? orderUser : null);
-  const salespersonLine = salesperson
-    ? `<div class="muted">${escapeHtml(t('Salesperson', 'المندوب'))}: ${escapeHtml(salesperson.name)}${salesperson.phone ? ` · ${escapeHtml(salesperson.phone)}` : ''}</div>`
+  const salespersonText = salesperson
+    ? `${escapeHtml(salesperson.name)}${salesperson.phone ? ` · ${escapeHtml(salesperson.phone)}` : ''}`
     : '';
-  const customerLines = customer
-    ? [
-        `<div>${escapeHtml(customer.name)}</div>`,
-        customer.address ? `<div class="muted">${escapeHtml(customer.address)}</div>` : '',
-        customer.email ? `<div class="muted">${escapeHtml(customer.email)}</div>` : '',
-        customer.phone ? `<div class="muted">${escapeHtml(customer.phone)}</div>` : '',
-        salespersonLine,
-      ].join('\n    ')
-    : [
-        `<div class="muted">${escapeHtml(t('Walk-in customer', 'عميل نقدي'))}</div>`,
-        salespersonLine,
-      ].join('\n    ');
+  const customerName = customer
+    ? escapeHtml(customer.name)
+    : escapeHtml(t('Walk-in customer', 'عميل نقدي'));
+  const customerContact = customer
+    ? [customer.phone, customer.address, customer.email]
+        .filter((value): value is string => Boolean(value))
+        .map((value) => escapeHtml(value))
+        .join(' · ')
+    : '';
 
-  const body = `    <section class="meta">
-      <div><span class="label">${escapeHtml(t('Invoice', 'فاتورة'))}</span><span class="value">${escapeHtml(invoice.number)}</span></div>
-      <div><span class="label">${escapeHtml(t('Issue date', 'تاريخ الإصدار'))}</span><span class="value">${escapeHtml(formatDate(invoice.issueDate))}</span></div>
-      <div><span class="label">${escapeHtml(t('Due date', 'تاريخ الاستحقاق'))}</span><span class="value">${escapeHtml(invoice.dueDate ? formatDate(invoice.dueDate) : '—')}</span></div>
-    </section>
-    <section class="panel">
-      <h3>${escapeHtml(t('Bill to', 'العميل'))}</h3>
-      ${customerLines}
+  const body = `    <section class="panel invoice-info">
+      <div class="info-row">
+        <div><span class="label">${escapeHtml(t('Invoice', 'فاتورة'))}</span><span class="value">${escapeHtml(invoice.number)}</span></div>
+        <div><span class="label">${escapeHtml(t('Issue date', 'تاريخ الإصدار'))}</span><span class="value">${escapeHtml(formatDate(invoice.issueDate))}</span></div>
+      </div>
+      <div class="info-row">
+        <div><span class="label">${escapeHtml(t('Customer', 'العميل'))}</span><span class="value">${customerName}</span>${customerContact ? `<span class="muted"> · ${customerContact}</span>` : ''}</div>
+        ${salesperson ? `<div><span class="label">${escapeHtml(t('Salesperson', 'المندوب'))}</span><span class="value">${salespersonText}</span></div>` : '<div></div>'}
+      </div>
     </section>
     <table class="data invoice-lines">
       <colgroup>
