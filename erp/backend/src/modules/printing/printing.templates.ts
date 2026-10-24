@@ -327,7 +327,6 @@ ${lineRows || `        <tr><td colspan="5" class="muted center">${escapeHtml(t('
     <div class="totals-wrap">
       <table class="totals">
         <tbody>
-          <tr><th>${escapeHtml(t('Subtotal', 'الإجمالي الفرعي'))}</th><td class="num">${money(invoice.subtotal)}</td></tr>
           <tr class="grand"><th>${escapeHtml(t('Total', 'الإجمالي'))}</th><td class="num">${money(invoice.total)}</td></tr>
           <tr><th>${escapeHtml(t('Paid', 'المدفوع'))}</th><td class="num">${money(invoice.amountPaid)}</td></tr>${
             customer
@@ -415,7 +414,6 @@ export function salespersonInvoicesHtml(
     </table>
     <table class="totals a5-totals">
       <tbody>
-        <tr><th>${escapeHtml(t('Subtotal', 'الإجمالي الفرعي'))}</th><td class="num">${money(invoice.subtotal)}</td></tr>
         <tr class="grand"><th>${escapeHtml(t('Total', 'الإجمالي'))}</th><td class="num">${money(invoice.total)}</td></tr>
         <tr><th>${escapeHtml(t('Paid', 'المدفوع'))}</th><td class="num">${money(invoice.amountPaid)}</td></tr>
       </tbody>
