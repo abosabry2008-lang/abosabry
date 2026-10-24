@@ -604,6 +604,7 @@ class AppStrings {
       _t('Search purchase orders…', 'ابحث في أوامر الشراء…');
   String get statusWord => _t('Status', 'الحالة');
   String get allStatuses => _t('All statuses', 'كل الحالات');
+  String get productCard => _t('Item card', 'كشف الصنف');
   String get noPurchaseOrders => _t('No purchase orders', 'لا توجد أوامر شراء');
   String get createPurchaseOrderHint =>
       _t('Create a purchase order to restock inventory.', 'أنشئ أمر شراء لإعادة تعبئة المخزون.');
@@ -877,6 +878,8 @@ class AppStrings {
   String get noSalesperson => _t('No salesperson', 'بدون مندوب');
   String get collection => _t('Collection receipt', 'إيصال تحصيل');
   String get newCollection => _t('New collection receipt', 'إيصال تحصيل جديد');
+  String get editCollection =>
+      _t('Edit collection receipt', 'تعديل إيصال تحصيل');
   String get collectionsHint => _t(
         "Collect several customers' dues in one receipt handed in by an agent.",
         'حصّل مستحقات عدة عملاء في إيصال واحد يورده المندوب.',

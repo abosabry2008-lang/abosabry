@@ -15,11 +15,12 @@ import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
 import 'invoice_lines_editor.dart';
 
-/// Editable draft invoice: customer, due date, notes and lines.
+/// Editable invoice: create a new one (issued immediately) or edit a draft /
+/// issued invoice as an administrator.
 class InvoiceEditScreen extends StatefulWidget {
-  const InvoiceEditScreen({super.key, required this.invoice});
+  const InvoiceEditScreen({super.key, this.invoice});
 
-  final Invoice invoice;
+  final Invoice? invoice;
 
   @override
   State<InvoiceEditScreen> createState() => _InvoiceEditScreenState();
@@ -29,12 +30,13 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   late final TextEditingController _notes =
-      TextEditingController(text: widget.invoice.notes ?? '');
-  late String? _customerId = widget.invoice.customerId;
-  late DateTime? _dueDate = widget.invoice.dueDate;
-  late final List<InvoiceLineDraft> _lines = widget.invoice.lines
-      .map(InvoiceLineDraft.fromLine)
-      .toList();
+      TextEditingController(text: widget.invoice?.notes ?? '');
+  late String? _customerId = widget.invoice?.customerId;
+  late DateTime? _dueDate = widget.invoice?.dueDate;
+  late final List<InvoiceLineDraft> _lines =
+      (widget.invoice?.lines ?? const <InvoiceLine>[])
+          .map(InvoiceLineDraft.fromLine)
+          .toList();
 
   bool _linesDirty = false;
   bool _saving = false;
@@ -84,7 +86,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_linesDirty) {
+    if (_linesDirty || widget.invoice == null) {
       if (_lines.isEmpty || _lines.any((line) => !line.isValid)) {
         _snack(context.s.eachLineNeedsProduct);
         return;
@@ -95,9 +97,24 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     try {
-      await controller.updateInvoice(widget.invoice.id, _body());
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(context.s.invoiceUpdated)));
+      if (widget.invoice == null) {
+        // A directly created invoice is issued immediately.
+        await context.read<Session>().api.postObject(
+          '/invoices',
+          body: <String, dynamic>{..._body(), 'issue': true},
+        );
+        await controller.refresh();
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(content: Text(context.s.invoiceIssued)),
+        );
+      } else {
+        await controller.updateInvoice(widget.invoice!.id, _body());
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(content: Text(context.s.invoiceUpdated)),
+        );
+      }
       navigator.pop(true);
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -117,6 +134,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
     final s = context.s;
     final session = context.watch<Session>();
     final customers = context.watch<CustomersController>();
+    final invoice = widget.invoice;
 
     // The customer's stored balance is what they owe overall. For an issued
     // invoice that already includes this invoice's own balance, so subtract it
@@ -127,13 +145,13 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
             .where((customer) => customer.id == _customerId)
             .cast<Customer?>()
             .firstWhere((customer) => true, orElse: () => null);
-    final counted = <String>{'ISSUED', 'PARTIALLY_PAID', 'PAID'}
-        .contains(widget.invoice.status);
+    final counted = invoice != null &&
+        <String>{'ISSUED', 'PARTIALLY_PAID', 'PAID'}.contains(invoice.status);
     final previousBalance = selectedCustomer == null
         ? 0.0
         : double.parse(
             (selectedCustomer.balance -
-                    (counted ? widget.invoice.balance : 0))
+                    (counted ? invoice.balance : 0))
                 .toStringAsFixed(2),
           );
 
@@ -145,7 +163,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
           children: <Widget>[
             SectionCard(
               title: s.invoiceDetails,
-              subtitle: widget.invoice.number,
+              subtitle: invoice?.number ?? s.createInvoice,
               child: Column(
                 children: <Widget>[
                   SearchablePickerField(
@@ -230,9 +248,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
                           MoneyText(
                             double.parse(
                               (previousBalance +
-                                      (counted
-                                          ? 0
-                                          : widget.invoice.balance))
+                                      (counted ? 0 : (invoice?.balance ?? 0)))
                                   .toStringAsFixed(2),
                             ),
                             style: const TextStyle(
@@ -291,7 +307,13 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.save_outlined),
-                    label: Text(_saving ? s.saving : s.saveChanges),
+                    label: Text(
+                      _saving
+                          ? s.saving
+                          : invoice == null
+                              ? s.createInvoice
+                              : s.saveChanges,
+                    ),
                   ),
                 ),
               ],

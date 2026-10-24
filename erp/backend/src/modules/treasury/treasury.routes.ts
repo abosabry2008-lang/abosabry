@@ -17,6 +17,7 @@ import {
   cancelCollection,
   collectionInclude,
   createCollection,
+  updateCollection,
 } from '../payments/payments.service';
 import {
   buildCashBoxStatement,
@@ -81,6 +82,8 @@ const collectionSchema = z.object({
     )
     .min(1),
 });
+
+const collectionUpdateSchema = collectionSchema.partial();
 
 // --- serializers ------------------------------------------------------------
 
@@ -322,6 +325,20 @@ router.get(
     if (isSalesperson(user) && voucher.salespersonId !== user.id) {
       throw ApiError.forbidden('You can only view your own collection receipts', 'COLLECTION_NOT_ASSIGNED');
     }
+    ok(res, serializeCollection(voucher));
+  }),
+);
+
+router.patch(
+  '/collections/:id',
+  requirePermission('payments.write'),
+  requireAdmin(),
+  validateBody(collectionUpdateSchema),
+  asyncHandler(async (req, res) => {
+    const voucher = await updateCollection(req.params.id, {
+      ...req.body,
+      userId: currentUser(req).id,
+    });
     ok(res, serializeCollection(voucher));
   }),
 );

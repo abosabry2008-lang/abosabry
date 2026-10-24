@@ -7,9 +7,11 @@ class InvoicesController extends PagedListController<Invoice> {
   InvoicesController(super.api);
 
   String? _status;
+  String? _salespersonId;
   final DayFilter dayFilter = DayFilter();
 
   String? get status => _status;
+  String? get salespersonId => _salespersonId;
 
   @override
   String get path => '/invoices';
@@ -18,7 +20,15 @@ class InvoicesController extends PagedListController<Invoice> {
   Map<String, dynamic> queryParameters() => <String, dynamic>{
         ...dayFilter.query(),
         if (_status != null && _status!.isNotEmpty) 'status': _status,
+        if (_salespersonId != null && _salespersonId!.isNotEmpty)
+          'salespersonId': _salespersonId,
       };
+
+  void filterBySalesperson(String? value) {
+    if (value == _salespersonId) return;
+    _salespersonId = value;
+    refresh();
+  }
 
   void filterByDay(DateTime value) {
     if (dayFilter.select(value)) refresh();

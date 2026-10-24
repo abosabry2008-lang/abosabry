@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
+import '../../core/session.dart';
 import '../../models/invoice.dart';
 import '../../state/invoices_controller.dart';
+import '../../state/salespeople_controller.dart';
 import '../../widgets/async_list_view.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/money_text.dart';
@@ -15,6 +17,7 @@ import '../shell/navigation.dart';
 import '../../widgets/day_search_row.dart';
 import '../../widgets/page_header.dart';
 import 'invoice_detail_screen.dart';
+import 'invoice_edit_screen.dart';
 
 const List<String> invoiceStatuses = <String>[
   'DRAFT',
@@ -32,6 +35,15 @@ class InvoicesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.s;
     final controller = context.watch<InvoicesController>();
+    final session = context.watch<Session>();
+    final salespeople = context.watch<SalespeopleController>();
+    if (salespeople.salespeople.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.read<SalespeopleController>().ensureLoaded();
+        }
+      });
+    }
     return Scaffold(
       body: Column(
         children: <Widget>[
@@ -86,6 +98,24 @@ class InvoicesScreen extends StatelessWidget {
                   value == null || value.isEmpty ? null : value,
                 ),
               ),
+              if (!session.isSalesperson)
+                AppSelectField<String>(
+                  label: s.salesperson,
+                  value: controller.salespersonId,
+                  hint: s.allSalespeople,
+                  options: <SelectOption<String>>[
+                    SelectOption<String>('', s.allSalespeople),
+                    ...salespeople.salespeople.map(
+                      (person) => SelectOption<String>(
+                        person.id,
+                        person.name,
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) => controller.filterBySalesperson(
+                    value == null || value.isEmpty ? null : value,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -135,6 +165,17 @@ class InvoicesScreen extends StatelessWidget {
           ),
         ],
       ),
+      floatingActionButton: session.can('invoices.write')
+          ? FloatingActionButton.extended(
+              onPressed: () => pushScreen<void>(
+                context,
+                s.createInvoice,
+                const InvoiceEditScreen(),
+              ).then((_) => controller.refresh()),
+              icon: const Icon(Icons.add),
+              label: Text(s.createInvoice),
+            )
+          : null,
     );
   }
 }

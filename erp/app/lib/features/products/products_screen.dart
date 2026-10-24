@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
+import '../../core/print_service.dart';
 import '../../core/session.dart';
 import '../../models/product.dart';
 import '../../state/categories_controller.dart';
@@ -248,6 +249,16 @@ class _ProductTile extends StatelessWidget {
                           const SizedBox(width: 8),
                           const _DeletedBadge(),
                         ],
+                        const Spacer(),
+                        IconButton(
+                          tooltip: context.s.productCard,
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.print_outlined, size: 18),
+                          onPressed: () => PrintService.printItemMovement(
+                            context,
+                            productId: product.id,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 2),

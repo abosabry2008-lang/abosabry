@@ -73,7 +73,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<CustomersController>().ensureCatalogLoaded();
-      context.read<SuppliersController>().ensureLoaded();
+      context.read<SuppliersController>().ensureCatalogLoaded();
       context.read<SalespeopleController>().ensureLoaded();
       _loadWarehouses();
     });
@@ -291,7 +291,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
                       value: _supplierId,
                       enabled: !_saving && !_isEdit,
                       prefixIcon: Icons.local_shipping_outlined,
-                      options: suppliers.items
+                      options: suppliers.catalog
                           .map(
                             (supplier) => SelectOption<String>(
                               supplier.id,

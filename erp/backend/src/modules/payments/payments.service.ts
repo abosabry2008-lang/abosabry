@@ -890,6 +890,138 @@ export async function createCollection(input: CreateCollectionInput) {
   return prisma.$transaction((tx) => createCollectionTx(tx, input));
 }
 
+/**
+ * Edits a collection receipt in place: the old payments are reversed (which
+ * restores customer balances, cash boxes and journals) and the receipt is
+ * rebuilt with the new header and lines under the same voucher number.
+ */
+export async function updateCollectionTx(
+  tx: Tx,
+  voucherId: string,
+  input: Partial<CreateCollectionInput>,
+) {
+  const existing = await tx.collectionVoucher.findUnique({
+    where: { id: voucherId },
+    include: {
+      payments: { select: { id: true, cancelledAt: true } },
+      lines: true,
+    },
+  });
+  if (!existing) throw ApiError.notFound('Collection receipt not found');
+  if (existing.cancelledAt) {
+    throw ApiError.conflict('A cancelled receipt cannot be edited', 'ALREADY_CANCELLED');
+  }
+
+  const lines = input.lines ??
+    existing.lines.map((line) => ({
+      customerId: line.customerId,
+      invoiceId: line.invoiceId,
+      cashBoxId: line.cashBoxId,
+      amount: Number(line.amount),
+      note: line.note,
+    }));
+  if (lines.length === 0) {
+    throw ApiError.badRequest('A collection receipt needs at least one line', 'NO_LINES');
+  }
+  if (lines.some((line) => !(line.amount > 0))) {
+    throw ApiError.badRequest('Every collection line needs a positive amount', 'INVALID_LINE');
+  }
+
+  for (const payment of existing.payments) {
+    if (!payment.cancelledAt) await cancelPaymentTx(tx, payment.id, input.userId);
+  }
+  await tx.collectionLine.deleteMany({ where: { collectionVoucherId: voucherId } });
+
+  const box = await resolveCashBoxTx(tx, input.cashBoxId ?? existing.cashBoxId);
+  const collectedAt = input.collectedAt ?? existing.collectedAt;
+  const salespersonId =
+    input.salespersonId === undefined ? existing.salespersonId : input.salespersonId;
+  if (salespersonId) {
+    const salesperson = await tx.user.findUnique({ where: { id: salespersonId } });
+    if (!salesperson) {
+      throw ApiError.badRequest('Salesperson not found', 'SALESPERSON_NOT_FOUND');
+    }
+  }
+
+  await tx.collectionVoucher.update({
+    where: { id: voucherId },
+    data: {
+      cashBoxId: box.id,
+      salespersonId,
+      collectedAt,
+      reference:
+        input.reference === undefined ? existing.reference : input.reference,
+      note: input.note === undefined ? existing.note : input.note,
+      total: 0,
+    },
+  });
+
+  let total = 0;
+  for (const line of lines) {
+    let invoice: { id: string; number: string; customerId: string | null } | null = null;
+    if (line.invoiceId) {
+      invoice = await tx.invoice.findUnique({
+        where: { id: line.invoiceId },
+        select: { id: true, number: true, customerId: true },
+      });
+      if (!invoice) throw ApiError.notFound('Invoice not found');
+    }
+    const customerId = line.customerId ?? invoice?.customerId ?? null;
+    if (!customerId) {
+      throw ApiError.badRequest('Each collection line needs a customer', 'CUSTOMER_REQUIRED');
+    }
+    if (
+      line.customerId &&
+      invoice?.customerId &&
+      invoice.customerId !== line.customerId
+    ) {
+      throw ApiError.badRequest('The invoice belongs to a different customer', 'CUSTOMER_MISMATCH');
+    }
+
+    const amount = round2(line.amount);
+    const lineBox = line.cashBoxId
+      ? await resolveCashBoxTx(tx, line.cashBoxId)
+      : box;
+    await createPaymentTx(tx, {
+      invoiceId: invoice?.id ?? null,
+      customerId,
+      amount,
+      direction: 'INBOUND',
+      method: 'CASH',
+      paidAt: collectedAt,
+      reference: input.reference === undefined ? existing.reference ?? existing.number : input.reference ?? existing.number,
+      note: line.note ?? input.note ?? existing.note ?? `Collection ${existing.number}`,
+      userId: input.userId,
+      cashBoxId: lineBox.id,
+      collectionVoucherId: voucherId,
+    });
+    await tx.collectionLine.create({
+      data: {
+        collectionVoucherId: voucherId,
+        customerId,
+        invoiceId: invoice?.id ?? null,
+        cashBoxId: lineBox.id,
+        amount,
+        note: line.note ?? null,
+      },
+    });
+    total = round2(total + amount);
+  }
+
+  return tx.collectionVoucher.update({
+    where: { id: voucherId },
+    data: { total },
+    include: collectionInclude,
+  });
+}
+
+export async function updateCollection(
+  voucherId: string,
+  input: Partial<CreateCollectionInput>,
+) {
+  return prisma.$transaction((tx) => updateCollectionTx(tx, voucherId, input));
+}
+
 export async function cancelCollectionTx(tx: Tx, voucherId: string, userId?: string) {
   const voucher = await tx.collectionVoucher.findUnique({
     where: { id: voucherId },

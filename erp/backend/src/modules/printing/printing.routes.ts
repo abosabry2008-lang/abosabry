@@ -105,6 +105,7 @@ router.get(
     sendHtml(res, invoiceHtml(invoice, settings, {
       previousBalance,
       lang: asString(req.query.lang) ?? 'en',
+      size: asString(req.query.size) === 'a5' ? 'a5' : 'a4',
     }));
   }),
 );

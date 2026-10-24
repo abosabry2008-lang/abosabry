@@ -1,5 +1,6 @@
 import { PaymentMethod, Prisma } from '@prisma/client';
 import { ApiError } from '../../lib/api-error';
+import { localMonthKey } from '../../lib/local-time';
 import { round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { nextNumber } from '../../lib/sequence';
@@ -537,11 +538,23 @@ export async function buildExpenseReport(filter: ExpenseReportFilter) {
     };
   }
 
-  const expenses = await prisma.expense.findMany({
-    where,
-    include: expenseInclude,
-    orderBy: [{ spentAt: 'asc' }, { createdAt: 'asc' }],
-  });
+  const [expenses, categories] = await Promise.all([
+    prisma.expense.findMany({
+      where,
+      include: expenseInclude,
+      orderBy: [{ spentAt: 'asc' }, { createdAt: 'asc' }],
+    }),
+    prisma.expenseCategory.findMany({
+      where: filter.categoryId ? { id: filter.categoryId } : {},
+      select: { id: true, name: true, openingBalance: true },
+    }),
+  ]);
+
+  // Opening balances are carried into every report so a category whose
+  // balance was entered once keeps showing it on its statements.
+  const openingBalance = round2(
+    categories.reduce((sum, row) => sum + Number(row.openingBalance), 0),
+  );
 
   const byCategory = new Map<string, { categoryId: string | null; name: string; amount: number; count: number }>();
   const byMonth = new Map<string, number>();
@@ -563,7 +576,7 @@ export async function buildExpenseReport(filter: ExpenseReportFilter) {
     catEntry.count += 1;
     byCategory.set(catKey, catEntry);
 
-    const month = `${expense.spentAt.getUTCFullYear()}-${String(expense.spentAt.getUTCMonth() + 1).padStart(2, '0')}`;
+    const month = localMonthKey(expense.spentAt);
     byMonth.set(month, round2((byMonth.get(month) ?? 0) + amount));
 
     const boxKey = expense.cashBoxId ?? '__none__';
@@ -580,6 +593,8 @@ export async function buildExpenseReport(filter: ExpenseReportFilter) {
     from: filter.from ? filter.from.toISOString() : null,
     to: filter.to ? filter.to.toISOString() : null,
     total,
+    openingBalance,
+    closingBalance: round2(openingBalance + total),
     count: expenses.length,
     expenses: expenses.map((expense) => ({
       ...expense,

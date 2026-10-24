@@ -202,6 +202,8 @@ export interface PageOptions {
    * so they carry only the report title.
    */
   showCompanyDetails?: boolean;
+  /** Extra CSS appended after the shared styles (used for A5 invoices). */
+  extraCss?: string;
 }
 
 /** Wraps a document body in a self-contained, printable HTML page. */
@@ -213,6 +215,7 @@ export function renderPage({
   dir = 'ltr',
   lang = 'en',
   showCompanyDetails = true,
+  extraCss = '',
 }: PageOptions): string {
   const companyName = escapeHtml(company.companyName || 'ERP');
   const contact: string[] = [];
@@ -247,7 +250,7 @@ export function renderPage({
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
-<style>${STYLES}</style>
+<style>${STYLES}${extraCss}</style>
 </head>
 <body>
 <div class="page">
@@ -273,7 +276,7 @@ ${body}
 export function invoiceHtml(
   invoice: InvoiceWithRelations,
   settings: AppSettings,
-  options: { previousBalance?: number; lang?: string } = {},
+  options: { previousBalance?: number; lang?: string; size?: 'a4' | 'a5' } = {},
 ): string {
   const ar = (options.lang ?? 'en') === 'ar';
   const t = (en: string, arabic: string) => (ar ? arabic : en);
@@ -370,12 +373,38 @@ ${lineRows || `        <tr><td colspan="5" class="muted center">${escapeHtml(t('
     }
 `;
 
+  const a5 = options.size === 'a5';
+  const a5Css = a5
+    ? `
+  @page { size: A5; margin: 7mm; }
+  body { padding: 0; background: #ffffff; font-size: 10.5px; line-height: 1.35; }
+  .page { max-width: none; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0; }
+  .doc-header { padding-bottom: 8px; margin-bottom: 10px; gap: 12px; }
+  .company h1 { font-size: 16px; }
+  .company .muted { font-size: 9px; }
+  .doc-title h2 { font-size: 14px; }
+  section.panel { padding: 8px 10px; margin-bottom: 10px; }
+  .invoice-info .info-row { gap: 4px 12px; }
+  .invoice-info .info-row + .info-row { margin-top: 5px; padding-top: 5px; }
+  .invoice-info .label { min-width: 68px; }
+  table.data { margin-bottom: 10px; }
+  table.data th, table.data td { padding: 4px 5px; font-size: 9.5px; }
+  table.data thead th { padding: 4px 5px; font-size: 9px; }
+  table.data tr { page-break-inside: avoid; break-inside: avoid; }
+  table.data thead { display: table-header-group; }
+  .totals-wrap { margin-bottom: 10px; }
+  table.totals th, table.totals td { padding: 3px 8px; font-size: 10px; }
+  .doc-footer { margin-top: 10px; padding-top: 6px; font-size: 9px; }
+`
+    : '';
+
   return renderPage({
     title: `${t('Invoice', 'فاتورة')} ${invoice.number}`,
     company: settings,
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang: ar ? 'ar' : 'en',
+    extraCss: a5Css,
   });
 }
 
@@ -1210,7 +1239,9 @@ export function expenseReportHtml(
 
   const body = `    <section class="meta">
       <div><span class="label">${ar ? 'عدد المصروفات' : 'Expenses'}</span><span class="value">${escapeHtml(report.count)}</span></div>
-      <div><span class="label">${ar ? 'الإجمالي' : 'Total'}</span><span class="value">${money(report.total)}</span></div>
+      <div><span class="label">${ar ? 'الرصيد الافتتاحي' : 'Opening balance'}</span><span class="value">${money(report.openingBalance)}</span></div>
+      <div><span class="label">${ar ? 'إجمالي الفترة' : 'Period total'}</span><span class="value">${money(report.total)}</span></div>
+      <div><span class="label">${ar ? 'الرصيد الختامي' : 'Closing balance'}</span><span class="value">${money(report.closingBalance)}</span></div>
     </section>
     <h3 class="section-title">${ar ? 'حسب التصنيف' : 'By category'}</h3>
     <table class="data">
@@ -1365,6 +1396,21 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
       </tbody>
     </table>`;
 
+  const compactCss = `
+  @page { margin: 8mm; }
+  body { padding: 0; background: #ffffff; font-size: 12px; line-height: 1.25; }
+  .page { max-width: none; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0; }
+  .doc-header { padding-bottom: 6px; margin-bottom: 8px; }
+  .doc-title h2 { font-size: 15px; }
+  section.meta { gap: 4px 14px; margin-bottom: 8px; padding: 6px 10px; font-size: 11px; }
+  table.data { margin-bottom: 6px; }
+  table.data th, table.data td { padding: 2px 6px; font-size: 13px; line-height: 1.2; }
+  table.data thead th { padding: 3px 6px; font-size: 10px; }
+  table.data tr { page-break-inside: avoid; break-inside: avoid; }
+  table.data thead { display: table-header-group; }
+  .doc-footer { margin-top: 8px; padding-top: 4px; font-size: 9px; }
+`;
+
   return renderPage({
     title: ar ? 'مديونية عملاء المندوب' : 'Salesperson customer debt',
     company: settings,
@@ -1372,6 +1418,7 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,
+    extraCss: compactCss,
   });
 }
 
@@ -1670,9 +1717,11 @@ export function expenseCategoryStatementHtml(
 
   const body = `    <section class="meta">
       <div><span class="label">${ar ? 'البند' : 'Category'}</span><span class="value">${escapeHtml(categoryName)}</span></div>
-      <div><span class="label">${ar ? 'عدد المصروفات' : 'Entries'}</span><span class="value">${escapeHtml(report.count)}</span></div>
-      <div><span class="label">${ar ? 'الإجمالي' : 'Total'}</span><span class="value">${money(report.total)}</span></div>
       <div><span class="label">${ar ? 'الفترة' : 'Period'}</span><span class="value">${escapeHtml(formatDate(report.from))} → ${escapeHtml(formatDate(report.to))}</span></div>
+      <div><span class="label">${ar ? 'عدد المصروفات' : 'Entries'}</span><span class="value">${escapeHtml(report.count)}</span></div>
+      <div><span class="label">${ar ? 'الرصيد الافتتاحي' : 'Opening balance'}</span><span class="value">${money(report.openingBalance)}</span></div>
+      <div><span class="label">${ar ? 'إجمالي الفترة' : 'Period total'}</span><span class="value">${money(report.total)}</span></div>
+      <div><span class="label">${ar ? 'الرصيد الختامي' : 'Closing balance'}</span><span class="value">${money(report.closingBalance)}</span></div>
     </section>
     <table class="data">
       <thead>

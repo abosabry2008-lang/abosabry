@@ -7,6 +7,7 @@ import '../../core/formatters.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
 import '../../models/cash_box.dart';
+import '../../models/collection_voucher.dart';
 import '../../models/customer.dart';
 import '../../models/user.dart';
 import '../../state/settings_controller.dart';
@@ -21,7 +22,10 @@ import '../../widgets/section_card.dart';
 /// selected salesperson, searched by name/code/phone, and every row keeps its
 /// own amount. "Collect all balances" fills the whole sheet in one tap.
 class CollectionFormScreen extends StatefulWidget {
-  const CollectionFormScreen({super.key});
+  const CollectionFormScreen({super.key, this.voucher});
+
+  /// Existing receipt to edit; null creates a new one.
+  final CollectionVoucher? voucher;
 
   @override
   State<CollectionFormScreen> createState() => _CollectionFormScreenState();
@@ -49,6 +53,12 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
   @override
   void initState() {
     super.initState();
+    final voucher = widget.voucher;
+    _reference.text = voucher?.reference ?? '';
+    _note.text = voucher?.note ?? '';
+    _boxId = voucher?.cashBoxId;
+    _salespersonId = voucher?.salespersonId;
+    _collectedAt = voucher?.collectedAt ?? DateTime.now();
     _load();
   }
 
@@ -95,6 +105,18 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                 orElse: () => _boxes.first,
               ).id;
       });
+
+      final voucher = widget.voucher;
+      if (voucher != null) {
+        setState(() => _showAll = true);
+        for (final line in voucher.lines) {
+          final customerId = line.customerId;
+          if (customerId == null) continue;
+          final controller = _controllerFor(customerId);
+          final current = double.tryParse(controller.text.trim()) ?? 0;
+          controller.text = (current + line.amount).toStringAsFixed(2);
+        }
+      }
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -222,19 +244,25 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     try {
-      await api.postObject(
-        '/treasury/collections',
-        body: <String, dynamic>{
-          'cashBoxId': _boxId,
-          'salespersonId': _salespersonId,
-          'collectedAt': _collectedAt.toUtc().toIso8601String(),
-          'reference': _reference.text.trim().isEmpty
-              ? null
-              : _reference.text.trim(),
-          'note': _note.text.trim().isEmpty ? null : _note.text.trim(),
-          'lines': lines,
-        },
-      );
+      final body = <String, dynamic>{
+        'cashBoxId': _boxId,
+        'salespersonId': _salespersonId,
+        'collectedAt': _collectedAt.toUtc().toIso8601String(),
+        'reference': _reference.text.trim().isEmpty
+            ? null
+            : _reference.text.trim(),
+        'note': _note.text.trim().isEmpty ? null : _note.text.trim(),
+        'lines': lines,
+      };
+      final voucher = widget.voucher;
+      if (voucher == null) {
+        await api.postObject('/treasury/collections', body: body);
+      } else {
+        await api.patchObject(
+          '/treasury/collections/${voucher.id}',
+          body: body,
+        );
+      }
       messenger.showSnackBar(SnackBar(content: Text(s.collectionSaved)));
       navigator.pop(true);
     } on ApiException catch (error) {
@@ -274,7 +302,9 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
               padding: const EdgeInsets.all(16),
               children: <Widget>[
                 SectionCard(
-                  title: s.newCollection,
+                  title: widget.voucher == null
+                      ? s.newCollection
+                      : s.editCollection,
                   child: Column(
                     children: <Widget>[
                       AppSelectField<String>(
@@ -449,7 +479,13 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
                         child: FilledButton.icon(
                           onPressed: _saving ? null : _submit,
                           icon: const Icon(Icons.check),
-                          label: Text(_saving ? s.saving : s.save),
+                          label: Text(
+                      _saving
+                          ? s.saving
+                          : widget.voucher == null
+                              ? s.save
+                              : s.saveChanges,
+                    ),
                         ),
                       ),
                     ],

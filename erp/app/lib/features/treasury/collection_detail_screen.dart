@@ -10,6 +10,8 @@ import '../../widgets/confirm_dialog.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
+import '../shell/navigation.dart';
+import 'collection_form_screen.dart';
 
 /// Read-only collection receipt with a cancel action for admins.
 class CollectionDetailScreen extends StatefulWidget {
@@ -248,6 +250,19 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
             ),
           ),
           if (canCancel) ...<Widget>[
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: () async {
+                await pushScreen<void>(
+                  context,
+                  '${s.edit} ${voucher.number}',
+                  CollectionFormScreen(voucher: voucher),
+                );
+                if (mounted) await _load();
+              },
+              icon: const Icon(Icons.edit_outlined),
+              label: Text(s.edit),
+            ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: _cancel,

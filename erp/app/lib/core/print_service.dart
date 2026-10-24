@@ -26,6 +26,8 @@ class PrintService {
   static Uri invoiceUrl(String invoiceId, String? token) =>
       _uri('/print/invoices/$invoiceId', <String, String?>{
         'token': token,
+        // Sales invoices print on A5 so more item lines fit per page.
+        'size': 'a5',
       });
 
   static Uri customerStatementUrl(
