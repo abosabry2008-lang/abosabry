@@ -26,6 +26,10 @@ import {
   updateInvoice,
   voidInvoice,
 } from './invoices.service';
+import {
+  createPaymentTx,
+  ensureDefaultCashBoxTx,
+} from '../payments/payments.service';
 
 const router = Router();
 router.use(authenticate);
@@ -87,6 +91,38 @@ const serializeInvoice = <T extends InvoiceMoney>(invoice: T) => ({
   balance: Number(invoice.balance),
   exchangeRate: Number(invoice.exchangeRate),
 });
+
+/**
+ * A walk-in invoice (no customer) is a cash sale: its full total is collected
+ * into the default cash box as soon as it is issued.
+ */
+async function collectWalkInCashSale(invoiceId: string, userId: string) {
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    select: {
+      id: true,
+      number: true,
+      customerId: true,
+      total: true,
+      status: true,
+    },
+  });
+  if (!invoice || invoice.customerId || invoice.status !== 'ISSUED') return;
+  await prisma.$transaction(async (tx) => {
+    const box = await ensureDefaultCashBoxTx(tx);
+    await createPaymentTx(tx, {
+      direction: 'INBOUND',
+      invoiceId: invoice.id,
+      customerId: null,
+      cashBoxId: box.id,
+      method: 'CASH',
+      amount: Number(invoice.total),
+      paidAt: new Date(),
+      note: `Cash sale ${invoice.number}`,
+      userId,
+    });
+  });
+}
 
 router.get(
   '/',
@@ -242,7 +278,14 @@ router.post(
     await assertCustomerAccess(user, req.body.customerId);
     if (req.body.salesOrderId) await assertSalesOrderAccess(user, req.body.salesOrderId);
     const invoice = await createInvoice({ ...req.body, userId: user.id });
-    created(res, serializeInvoice(invoice));
+    if (req.body.issue) {
+      await collectWalkInCashSale(invoice.id, user.id);
+    }
+    const fresh = await prisma.invoice.findUniqueOrThrow({
+      where: { id: invoice.id },
+      include: invoiceInclude,
+    });
+    created(res, serializeInvoice(fresh));
   }),
 );
 
@@ -252,7 +295,12 @@ router.post(
   asyncHandler(async (req, res) => {
     await assertInvoiceAccess(currentUser(req), req.params.id);
     const invoice = await issueInvoice(req.params.id, currentUser(req).id);
-    ok(res, serializeInvoice(invoice));
+    await collectWalkInCashSale(invoice.id, currentUser(req).id);
+    const fresh = await prisma.invoice.findUniqueOrThrow({
+      where: { id: invoice.id },
+      include: invoiceInclude,
+    });
+    ok(res, serializeInvoice(fresh));
   }),
 );
 

@@ -392,25 +392,25 @@ ${lineRows || `        <tr><td colspan="5" class="muted center">${escapeHtml(t('
   const a5 = options.size === 'a5';
   const a5Css = a5
     ? `
-  @page { size: A5; margin: 7mm; }
-  body { padding: 0; background: #ffffff; font-size: 10.5px; line-height: 1.35; }
+  @page { size: A5; margin: 5mm; }
+  body { padding: 0; background: #ffffff; font-size: 11.5px; line-height: 1.35; }
   .page { max-width: none; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0; }
   .doc-header { padding-bottom: 8px; margin-bottom: 10px; gap: 12px; }
-  .company h1 { font-size: 16px; }
-  .company .muted { font-size: 9px; }
-  .doc-title h2 { font-size: 14px; }
+  .company h1 { font-size: 17px; }
+  .company .muted { font-size: 9.5px; }
+  .doc-title h2 { font-size: 15px; }
   section.panel { padding: 8px 10px; margin-bottom: 10px; }
   .invoice-info .info-row { gap: 4px 12px; }
   .invoice-info .info-row + .info-row { margin-top: 5px; padding-top: 5px; }
   .invoice-info .label { min-width: 68px; }
   table.data { margin-bottom: 10px; }
-  table.data th, table.data td { padding: 4px 5px; font-size: 9.5px; }
-  table.data thead th { padding: 4px 5px; font-size: 9px; }
+  table.data th, table.data td { padding: 4px 5px; font-size: 10.5px; }
+  table.data thead th { padding: 4px 5px; font-size: 10px; }
   table.data tr { page-break-inside: avoid; break-inside: avoid; }
   table.data thead { display: table-header-group; }
   .totals-wrap { margin-bottom: 10px; }
-  table.totals th, table.totals td { padding: 3px 8px; font-size: 10px; }
-  .doc-footer { margin-top: 10px; padding-top: 6px; font-size: 9px; }
+  table.totals th, table.totals td { padding: 3px 8px; font-size: 11px; }
+  .doc-footer { margin-top: 10px; padding-top: 6px; font-size: 9.5px; }
 `
     : '';
 
@@ -492,19 +492,19 @@ export function salespersonInvoicesHtml(
     .join('\n');
 
   const extra = `
-  @page { size: A5; margin: 8mm; }
-  body { background: #fff; padding: 0; font-size: 11px; }
+  @page { size: A5; margin: 5mm; }
+  body { background: #fff; padding: 0; font-size: 12px; }
   .a5 { page-break-after: always; break-after: page; padding: 0; margin: 0; }
   .a5:last-child { page-break-after: auto; break-after: auto; }
-  .a5-head { display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 8px; }
+  .a5-head { display: flex; justify-content: space-between; gap: 10px; border-bottom: 2px solid #0f172a; padding-bottom: 5px; margin-bottom: 6px; }
   .a5-head h2 { margin: 0; font-size: 15px; }
   .a5-title { text-align: ${ar ? 'left' : 'right'}; }
-  .a5-customer { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; padding: 6px 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
-  .a5-table th, .a5-table td { padding: 4px 6px; font-size: 10.5px; }
-  .a5-table { margin-bottom: 8px; }
-  .a5-totals { margin-${ar ? 'right' : 'left'}: auto; margin-bottom: 8px; min-width: 240px; }
-  .a5-totals th, .a5-totals td { padding: 3px 8px; }
-  .a5-sign { display: flex; justify-content: space-between; gap: 16px; margin-top: 10px; font-size: 10px; color: #475569; }
+  .a5-customer { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 6px; padding: 4px 7px; background: #f8fafc; border: 1px solid #e2e8f0; }
+  .a5-table th, .a5-table td { padding: 3px 5px; font-size: 11.5px; }
+  .a5-table { margin-bottom: 6px; }
+  .a5-totals { margin-${ar ? 'right' : 'left'}: auto; margin-bottom: 6px; min-width: 240px; }
+  .a5-totals th, .a5-totals td { padding: 2px 8px; }
+  .a5-sign { display: flex; justify-content: space-between; gap: 16px; margin-top: 8px; font-size: 10px; color: #475569; }
   @media print { body { padding: 0; } .a5 { padding: 0; } }
   `;
 
@@ -1705,42 +1705,53 @@ export function expenseCategoryStatementHtml(
   lang = 'en',
 ): string {
   const ar = isArabic(lang);
+  let running = round2(report.openingBalance);
   const rows = report.expenses
-    .map(
-      (expense) => `      <tr>
+    .map((expense) => {
+      const amount = round2(Number(expense.amount));
+      running = round2(running + amount);
+      const description = [expense.payee, expense.note ?? expense.reference]
+        .filter((value): value is string => Boolean(value))
+        .join(' — ') || expense.number;
+      return `      <tr>
         <td>${escapeHtml(formatDate(expense.spentAt))}</td>
         <td>${escapeHtml(expense.number)}</td>
-        <td>${escapeHtml(expense.payee ?? '—')}</td>
-        <td>${escapeHtml(expense.cashBox?.name ?? '—')}</td>
-        <td>${escapeHtml(expense.note ?? expense.reference ?? '—')}</td>
-        <td class="num">${money(expense.amount)}</td>
-      </tr>`,
-    )
+        <td>${escapeHtml(description)}</td>
+        <td class="num">${money(amount)}</td>
+        <td class="num">${money(0)}</td>
+        <td class="num">${money(running)}</td>
+      </tr>`;
+    })
     .join('\n');
   const empty = ar ? 'لا توجد مصروفات في هذه الفترة' : 'No expenses in this period';
 
   const body = `    <section class="meta">
       <div><span class="label">${ar ? 'البند' : 'Category'}</span><span class="value">${escapeHtml(categoryName)}</span></div>
       <div><span class="label">${ar ? 'الفترة' : 'Period'}</span><span class="value">${escapeHtml(formatDate(report.from))} → ${escapeHtml(formatDate(report.to))}</span></div>
-      <div><span class="label">${ar ? 'عدد المصروفات' : 'Entries'}</span><span class="value">${escapeHtml(report.count)}</span></div>
-      <div><span class="label">${ar ? 'الرصيد الافتتاحي' : 'Opening balance'}</span><span class="value">${money(report.openingBalance)}</span></div>
-      <div><span class="label">${ar ? 'إجمالي الفترة' : 'Period total'}</span><span class="value">${money(report.total)}</span></div>
-      <div><span class="label">${ar ? 'الرصيد الختامي' : 'Closing balance'}</span><span class="value">${money(report.closingBalance)}</span></div>
     </section>
     <table class="data">
       <thead>
         <tr>
           <th>${ar ? 'التاريخ' : 'Date'}</th>
           <th>${ar ? 'الرقم' : 'Number'}</th>
-          <th>${ar ? 'المستفيد' : 'Payee'}</th>
-          <th>${ar ? 'الخزنة' : 'Cash box'}</th>
-          <th>${ar ? 'ملاحظات' : 'Notes'}</th>
-          <th class="num">${ar ? 'المبلغ' : 'Amount'}</th>
+          <th>${ar ? 'البيان' : 'Description'}</th>
+          <th class="num">${ar ? 'مدين' : 'Debit'}</th>
+          <th class="num">${ar ? 'دائن' : 'Credit'}</th>
+          <th class="num">${ar ? 'الرصيد' : 'Balance'}</th>
         </tr>
       </thead>
       <tbody>
+        <tr class="muted">
+          <td colspan="5">${ar ? 'رصيد افتتاحي' : 'Opening balance'}</td>
+          <td class="num">${money(report.openingBalance)}</td>
+        </tr>
 ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
-        <tr class="total"><td colspan="5">${ar ? 'الإجمالي' : 'Total'}</td><td class="num">${money(report.total)}</td></tr>
+        <tr class="total">
+          <td colspan="3">${ar ? 'الإجمالي' : 'Total'}</td>
+          <td class="num">${money(report.total)}</td>
+          <td class="num">${money(0)}</td>
+          <td class="num">${money(report.closingBalance)}</td>
+        </tr>
       </tbody>
     </table>`;
 

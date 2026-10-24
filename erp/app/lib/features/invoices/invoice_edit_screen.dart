@@ -202,13 +202,22 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
                         )
                         .toList(),
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
+                      if ((value == null || value.isEmpty) &&
+                          widget.invoice != null) {
                         return s.customerRequired;
                       }
                       return null;
                     },
                     onChanged: (value) => setState(() => _customerId = value),
                   ),
+                  if (invoice == null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        s.walkInCashHint,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
                   if (invoice == null) ...<Widget>[
                     const SizedBox(height: 14),
                     AppSelectField<String>(

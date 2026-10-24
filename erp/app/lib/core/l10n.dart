@@ -277,6 +277,10 @@ class AppStrings {
   String get details => _t('Details', 'التفاصيل');
   String get warehouseRequired => _t('Warehouse *', 'المستودع *');
   String get selectWarehouse => _t('Select a warehouse', 'اختر المستودع');
+  String get walkInCashHint => _t(
+        'Leave the customer empty for a cash sale — the full amount is collected into the cash box immediately.',
+        'اترك العميل فارغاً لفاتورة نقدية — تُحصَّل قيمتها كاملة في الخزنة فوراً.',
+      );
   String get customer => _t('Customer', 'العميل');
   String get walkInCustomer => _t('Walk-in customer', 'عميل نقدي');
   String get paymentMethod => _t('Payment method', 'طريقة الدفع');
