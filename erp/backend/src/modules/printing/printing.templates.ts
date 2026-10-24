@@ -329,8 +329,7 @@ ${lineRows || `        <tr><td colspan="5" class="muted center">${escapeHtml(t('
         <tbody>
           <tr><th>${escapeHtml(t('Subtotal', 'الإجمالي الفرعي'))}</th><td class="num">${money(invoice.subtotal)}</td></tr>
           <tr class="grand"><th>${escapeHtml(t('Total', 'الإجمالي'))}</th><td class="num">${money(invoice.total)}</td></tr>
-          <tr><th>${escapeHtml(t('Paid', 'المدفوع'))}</th><td class="num">${money(invoice.amountPaid)}</td></tr>
-          <tr class="grand"><th>${escapeHtml(t('Balance due', 'المستحق'))}</th><td class="num">${money(invoice.balance)}</td></tr>${
+          <tr><th>${escapeHtml(t('Paid', 'المدفوع'))}</th><td class="num">${money(invoice.amountPaid)}</td></tr>${
             customer
               ? `
           <tr><th>${escapeHtml(t('Previous balance', 'الرصيد السابق'))}</th><td class="num">${money(previousBalance)}</td></tr>
@@ -419,7 +418,6 @@ export function salespersonInvoicesHtml(
         <tr><th>${escapeHtml(t('Subtotal', 'الإجمالي الفرعي'))}</th><td class="num">${money(invoice.subtotal)}</td></tr>
         <tr class="grand"><th>${escapeHtml(t('Total', 'الإجمالي'))}</th><td class="num">${money(invoice.total)}</td></tr>
         <tr><th>${escapeHtml(t('Paid', 'المدفوع'))}</th><td class="num">${money(invoice.amountPaid)}</td></tr>
-        <tr class="grand"><th>${escapeHtml(t('Balance', 'المستحق'))}</th><td class="num">${money(invoice.balance)}</td></tr>
       </tbody>
     </table>
     <div class="a5-sign">
