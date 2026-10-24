@@ -781,6 +781,14 @@ class AppStrings {
   String get method => _t('Method', 'الطريقة');
   String get amount => _t('Amount', 'المبلغ');
   String get paid => _t('Paid', 'المدفوع');
+  String get paymentOnOrderHint => _t(
+        'Amount collected now. It is posted to the chosen cash box when the invoice is issued.',
+        'المبلغ المحصل الآن. يُسجّل في الخزنة المختارة عند إصدار الفاتورة.',
+      );
+  String get paidAmountInvalid => _t(
+        'The paid amount must be between zero and the order total.',
+        'المبلغ المدفوع يجب أن يكون بين صفر وإجمالي الأمر.',
+      );
   String get paidOn => _t('Paid on', 'تاريخ الدفع');
   String get noInvoice => _t('No invoice', 'بدون فاتورة');
   String get chooseSupplier => _t('Choose a supplier', 'اختر موردًا');

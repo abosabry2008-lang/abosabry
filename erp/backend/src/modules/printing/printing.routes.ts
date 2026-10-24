@@ -240,7 +240,7 @@ router.get(
     const lang = asString(req.query.lang) ?? 'en';
     const salesperson = await prisma.user.findUnique({
       where: { id: req.params.id },
-      select: { name: true },
+      select: { name: true, phone: true },
     });
     const invoices = await prisma.invoice.findMany({
       where: {
@@ -264,7 +264,13 @@ router.get(
     const settings = await getSettings();
     sendHtml(
       res,
-      salespersonInvoicesHtml(invoices, settings, lang, salesperson?.name),
+      salespersonInvoicesHtml(
+        invoices,
+        settings,
+        lang,
+        salesperson?.name,
+        salesperson?.phone,
+      ),
     );
   }),
 );

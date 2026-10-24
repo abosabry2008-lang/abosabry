@@ -7,7 +7,17 @@ import { getSettings, isTaxEnabled } from '../../lib/settings';
 import { ACCOUNT, postJournal, reverseJournalBySource, type JournalLineInput } from '../accounting/accounting.service';
 
 export const invoiceInclude = {
-  customer: { select: { id: true, name: true, email: true, phone: true, address: true, balance: true } },
+  customer: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      address: true,
+      balance: true,
+      salesperson: { select: { name: true, phone: true } },
+    },
+  },
   currency: { select: { id: true, code: true, symbol: true } },
   salesOrder: { select: { id: true, number: true } },
   lines: {

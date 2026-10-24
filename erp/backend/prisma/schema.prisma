@@ -469,6 +469,10 @@ model SalesOrder {
   discountTotal Decimal          @default(0) @db.Decimal(14, 2)
   taxTotal      Decimal          @default(0) @db.Decimal(14, 2)
   total         Decimal          @default(0) @db.Decimal(14, 2)
+  /// Amount the customer pays with the order; collected when the invoice is issued.
+  paidAmount    Decimal          @default(0) @db.Decimal(14, 2)
+  paymentCashBoxId String?
+  paymentMethod PaymentMethod    @default(CASH)
   notes         String?
   userId        String?
   createdAt     DateTime         @default(now())
@@ -478,6 +482,7 @@ model SalesOrder {
   warehouse Warehouse        @relation(fields: [warehouseId], references: [id])
   currency  Currency?        @relation(fields: [currencyId], references: [id], onDelete: SetNull)
   user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  paymentCashBox CashBox?    @relation(fields: [paymentCashBoxId], references: [id], onDelete: SetNull)
   lines     SalesOrderLine[]
   invoices  Invoice[]
 
@@ -733,6 +738,7 @@ model CashBox {
   collections    CollectionVoucher[]
   collectionLine CollectionLine[]
   expenses       Expense[]
+  salesOrders    SalesOrder[]
 }
 
 model CashTransfer {

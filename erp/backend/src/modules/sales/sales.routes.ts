@@ -1,4 +1,4 @@
-import { Prisma, SalesOrderStatus } from '@prisma/client';
+import { PaymentMethod, Prisma, SalesOrderStatus } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
 import { ApiError } from '../../lib/api-error';
@@ -57,6 +57,9 @@ const createSchema = z.object({
   warehouseId: z.string().min(1),
   currencyId: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  paidAmount: z.number().min(0).optional(),
+  paymentCashBoxId: z.string().nullable().optional(),
+  paymentMethod: z.nativeEnum(PaymentMethod).optional(),
   lines: z.array(lineSchema).min(1),
 });
 
@@ -64,6 +67,9 @@ const updateSchema = z.object({
   customerId: z.string().nullable().optional(),
   currencyId: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  paidAmount: z.number().min(0).optional(),
+  paymentCashBoxId: z.string().nullable().optional(),
+  paymentMethod: z.nativeEnum(PaymentMethod).optional(),
   lines: z.array(lineSchema).min(1).optional(),
 });
 
@@ -253,19 +259,27 @@ router.post(
         userId: user.id,
       });
       const invoice = await issueInvoiceTx(tx, draft.id, user.id);
-      // A walk-in order has no customer account to owe the money, so it is a
-      // cash sale: collect the full amount into the default box immediately.
-      if (!order.customerId) {
-        const box = await ensureDefaultCashBoxTx(tx);
+      // Amount recorded on the sales order is collected now. A walk-in order
+      // has no customer account, so it is always settled in full in cash.
+      const paid = !order.customerId
+        ? Number(invoice.total)
+        : Math.min(Number(order.paidAmount), Number(invoice.total));
+      if (paid > 0) {
+        const cashBox = order.paymentCashBoxId
+          ? await tx.cashBox.findFirst({
+              where: { id: order.paymentCashBoxId, active: true },
+            })
+          : null;
+        const box = cashBox ?? (await ensureDefaultCashBoxTx(tx));
         await createPaymentTx(tx, {
           direction: 'INBOUND',
           invoiceId: invoice.id,
-          customerId: null,
+          customerId: order.customerId,
           cashBoxId: box.id,
-          method: 'CASH',
-          amount: Number(invoice.total),
+          method: order.paymentMethod,
+          amount: paid,
           paidAt: new Date(),
-          note: `Cash sale ${order.number}`,
+          note: `Paid with sales order ${order.number}`,
           userId: user.id,
         });
       }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_exception.dart';
 import '../../core/l10n.dart';
 import '../../core/session.dart';
+import '../../models/cash_box.dart';
 import '../../models/sales_order.dart';
 import '../../models/warehouse.dart';
 import '../../state/customers_controller.dart';
@@ -35,9 +36,15 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
   final List<OrderLineDraft> _lines = <OrderLineDraft>[];
 
   List<Warehouse> _warehouses = <Warehouse>[];
+  List<CashBox> _boxes = <CashBox>[];
   String? _customerId;
   String? _salespersonId;
   String? _warehouseId;
+  String? _paymentCashBoxId;
+  String _paymentMethod = 'CASH';
+  late final TextEditingController _paidAmount = TextEditingController(
+    text: (widget.order?.paidAmount ?? 0).toString(),
+  );
   final TextEditingController _notes = TextEditingController();
   bool _saving = false;
   bool _linesDirty = false;
@@ -53,6 +60,8 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
       _customerId = order.customerId;
       _warehouseId = order.warehouseId;
       _notes.text = order.notes ?? '';
+      _paymentCashBoxId = order.paymentCashBoxId;
+      _paymentMethod = order.paymentMethod;
       for (final line in order.lines) {
         _lines.add(
           OrderLineDraft(
@@ -70,6 +79,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
       context.read<CustomersController>().ensureCatalogLoaded();
       context.read<SalespeopleController>().ensureLoaded();
       await _loadWarehouses();
+      await _loadBoxes();
       if (!mounted) return;
       // Resolve the products of an edited order so its lines stay valid.
       final catalog = context.read<ProductCatalog>();
@@ -91,6 +101,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
       line.dispose();
     }
     _notes.dispose();
+    _paidAmount.dispose();
     super.dispose();
   }
 
@@ -116,6 +127,29 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
     }
   }
 
+  Future<void> _loadBoxes() async {
+    try {
+      final rows = await context.read<Session>().api.getList('/treasury/boxes');
+      if (!mounted) return;
+      final boxes = rows
+          .map(CashBox.fromJson)
+          .where((box) => box.active)
+          .toList();
+      setState(() {
+        _boxes = boxes;
+        _paymentCashBoxId ??= boxes.isEmpty
+            ? null
+            : boxes
+                .where((box) => box.isDefault)
+                .map((box) => box.id)
+                .firstOrNull ??
+                boxes.first.id;
+      });
+    } on ApiException {
+      // Payment is optional; the default box is used server-side.
+    }
+  }
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_warehouseId == null) {
@@ -125,6 +159,15 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
     final validLines = _lines.where((line) => line.isValid).toList();
     if (validLines.isEmpty) {
       _snack(context.s.addAtLeastOneCompleteLine);
+      return;
+    }
+    final orderTotal = validLines.fold<double>(
+      0,
+      (sum, line) => sum + line.lineTotal,
+    );
+    final paid = double.tryParse(_paidAmount.text.trim()) ?? 0;
+    if (paid < 0 || paid > orderTotal + 0.009) {
+      _snack(context.s.paidAmountInvalid);
       return;
     }
     // لا يُسمح بالبيع بسعر أقل من التكلفة.
@@ -154,6 +197,9 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
           body: <String, dynamic>{
             'customerId': _customerId,
             'warehouseId': _warehouseId,
+            'paidAmount': paid,
+            'paymentCashBoxId': _paymentCashBoxId,
+            'paymentMethod': _paymentMethod,
             'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
             'lines': _linesJson(validLines),
           },
@@ -164,6 +210,9 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
       } else {
         final body = <String, dynamic>{
           'customerId': _customerId,
+          'paidAmount': paid,
+          'paymentCashBoxId': _paymentCashBoxId,
+          'paymentMethod': _paymentMethod,
           'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
         };
         if (_linesDirty) body['lines'] = _linesJson(validLines);
@@ -315,6 +364,62 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                     maxLines: 2,
                     prefixIcon: Icons.notes_outlined,
                     textCapitalization: TextCapitalization.sentences,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SectionCard(
+              title: s.payment,
+              subtitle: s.paymentOnOrderHint,
+              child: Column(
+                children: <Widget>[
+                  AppSelectField<String?>(
+                    label: s.cashBox,
+                    value: _paymentCashBoxId,
+                    hint: s.chooseBox,
+                    prefixIcon: Icons.account_balance_wallet_outlined,
+                    options: _boxes
+                        .map(
+                          (box) => SelectOption<String?>(
+                            box.id,
+                            box.name,
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) =>
+                        setState(() => _paymentCashBoxId = value),
+                  ),
+                  const SizedBox(height: 14),
+                  AppNumberField(
+                    label: s.paid,
+                    controller: _paidAmount,
+                    prefixIcon: Icons.payments_outlined,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 14),
+                  AppSelectField<String>(
+                    label: s.paymentMethod,
+                    value: _paymentMethod,
+                    prefixIcon: Icons.credit_card_outlined,
+                    options: const <String>[
+                      'CASH',
+                      'CARD',
+                      'BANK_TRANSFER',
+                      'MOBILE_MONEY',
+                      'CHEQUE',
+                      'OTHER',
+                    ]
+                        .map(
+                          (method) => SelectOption<String>(
+                            method,
+                            s.status(method),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) => setState(
+                      () => _paymentMethod = value ?? 'CASH',
+                    ),
                   ),
                 ],
               ),

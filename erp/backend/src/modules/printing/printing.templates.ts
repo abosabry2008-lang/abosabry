@@ -267,20 +267,12 @@ export function invoiceHtml(
 
   const lineRows = invoice.lines
     .map((line, index) => {
-      const totals = lineTotals({
-        quantity: line.quantity,
-        unitPrice: Number(line.unitPrice),
-        discount: Number(line.discount),
-        taxRate: Number(line.taxRate),
-      });
       return `      <tr>
         <td class="num">${index + 1}</td>
         <td>${escapeHtml(line.product?.sku ?? '—')}</td>
         <td>${escapeHtml(line.description)}</td>
         <td class="num">${escapeHtml(line.quantity)}</td>
         <td class="num">${money(line.unitPrice)}</td>
-        <td class="num">${money(line.discount)}</td>
-        <td class="num">${money(totals.tax)}</td>
         <td class="num">${money(line.total)}</td>
       </tr>`;
     })
@@ -293,6 +285,9 @@ export function invoiceHtml(
         customer.address ? `<div class="muted">${escapeHtml(customer.address)}</div>` : '',
         customer.email ? `<div class="muted">${escapeHtml(customer.email)}</div>` : '',
         customer.phone ? `<div class="muted">${escapeHtml(customer.phone)}</div>` : '',
+        customer.salesperson
+          ? `<div class="muted">${escapeHtml(t('Salesperson', 'المندوب'))}: ${escapeHtml(customer.salesperson.name)}${customer.salesperson.phone ? ` · ${escapeHtml(customer.salesperson.phone)}` : ''}</div>`
+          : '',
       ].join('\n    ')
     : `<div class="muted">${escapeHtml(t('Walk-in customer', 'عميل نقدي'))}</div>`;
 
@@ -313,21 +308,17 @@ export function invoiceHtml(
           <th>${escapeHtml(t('Description', 'الوصف'))}</th>
           <th class="num">${escapeHtml(t('Qty', 'الكمية'))}</th>
           <th class="num">${escapeHtml(t('Unit price', 'سعر الوحدة'))}</th>
-          <th class="num">${escapeHtml(t('Discount', 'الخصم'))}</th>
-          <th class="num">${escapeHtml(t('Tax', 'الضريبة'))}</th>
           <th class="num">${escapeHtml(t('Line total', 'إجمالي السطر'))}</th>
         </tr>
       </thead>
       <tbody>
-${lineRows || `        <tr><td colspan="8" class="muted center">${escapeHtml(t('No lines', 'لا توجد أصناف'))}</td></tr>`}
+${lineRows || `        <tr><td colspan="6" class="muted center">${escapeHtml(t('No lines', 'لا توجد أصناف'))}</td></tr>`}
       </tbody>
     </table>
     <div class="totals-wrap">
       <table class="totals">
         <tbody>
           <tr><th>${escapeHtml(t('Subtotal', 'الإجمالي الفرعي'))}</th><td class="num">${money(invoice.subtotal)}</td></tr>
-          <tr><th>${escapeHtml(t('Discount', 'الخصم'))}</th><td class="num">${money(invoice.discountTotal)}</td></tr>
-          <tr><th>${escapeHtml(t('Tax', 'الضريبة'))}</th><td class="num">${money(invoice.taxTotal)}</td></tr>
           <tr class="grand"><th>${escapeHtml(t('Total', 'الإجمالي'))}</th><td class="num">${money(invoice.total)}</td></tr>
           <tr><th>${escapeHtml(t('Paid', 'المدفوع'))}</th><td class="num">${money(invoice.amountPaid)}</td></tr>
           <tr class="grand"><th>${escapeHtml(t('Balance due', 'المستحق'))}</th><td class="num">${money(invoice.balance)}</td></tr>${
@@ -367,6 +358,7 @@ export function salespersonInvoicesHtml(
   settings: AppSettings,
   lang = 'en',
   salespersonName?: string | null,
+  salespersonPhone?: string | null,
 ): string {
   const ar = isArabic(lang);
   const t = (en: string, arabic: string) => (ar ? arabic : en);
@@ -401,7 +393,7 @@ export function salespersonInvoicesHtml(
       <span>${escapeHtml(t('Customer', 'العميل'))}:</span>
       <strong>${escapeHtml(customer?.name ?? t('Walk-in customer', 'عميل نقدي'))}</strong>
       ${customer?.phone ? `<span class="muted">${escapeHtml(customer.phone)}</span>` : ''}
-      ${salespersonName ? `<span class="muted">${escapeHtml(t('Salesperson', 'المندوب'))}: ${escapeHtml(salespersonName)}</span>` : ''}
+      ${salespersonName ? `<span class="muted">${escapeHtml(t('Salesperson', 'المندوب'))}: ${escapeHtml(salespersonName)}${salespersonPhone ? ` · ${escapeHtml(salespersonPhone)}` : ''}</span>` : ''}
     </div>
     <table class="data a5-table">
       <thead><tr>
@@ -416,8 +408,6 @@ export function salespersonInvoicesHtml(
     <table class="totals a5-totals">
       <tbody>
         <tr><th>${escapeHtml(t('Subtotal', 'الإجمالي الفرعي'))}</th><td class="num">${money(invoice.subtotal)}</td></tr>
-        <tr><th>${escapeHtml(t('Discount', 'الخصم'))}</th><td class="num">${money(invoice.discountTotal)}</td></tr>
-        <tr><th>${escapeHtml(t('Tax', 'الضريبة'))}</th><td class="num">${money(invoice.taxTotal)}</td></tr>
         <tr class="grand"><th>${escapeHtml(t('Total', 'الإجمالي'))}</th><td class="num">${money(invoice.total)}</td></tr>
         <tr><th>${escapeHtml(t('Paid', 'المدفوع'))}</th><td class="num">${money(invoice.amountPaid)}</td></tr>
         <tr class="grand"><th>${escapeHtml(t('Balance', 'المستحق'))}</th><td class="num">${money(invoice.balance)}</td></tr>

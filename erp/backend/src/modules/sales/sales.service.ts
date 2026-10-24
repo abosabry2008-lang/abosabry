@@ -1,4 +1,4 @@
-import { Prisma, SalesChannel } from '@prisma/client';
+import { PaymentMethod, Prisma, SalesChannel } from '@prisma/client';
 import { ApiError } from '../../lib/api-error';
 import { documentTotals, round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
@@ -13,6 +13,7 @@ export const salesOrderInclude = {
   warehouse: { select: { id: true, code: true, name: true } },
   currency: { select: { id: true, code: true, symbol: true } },
   user: { select: { id: true, name: true } },
+  paymentCashBox: { select: { id: true, code: true, name: true } },
   lines: {
     include: {
       product: {
@@ -144,6 +145,9 @@ export interface CreateSalesOrderInput {
   channel?: SalesChannel;
   notes?: string | null;
   userId?: string;
+  paidAmount?: number;
+  paymentCashBoxId?: string | null;
+  paymentMethod?: PaymentMethod;
   lines: SalesLineInput[];
 }
 
@@ -151,6 +155,13 @@ export async function createSalesOrderTx(tx: Tx, input: CreateSalesOrderInput) {
   const settings = await getSettings(tx);
   const lines = await resolveLines(tx, input.lines, settings.taxEnabled);
   const totals = totalsOf(lines);
+  const paidAmount = round2(Number(input.paidAmount ?? 0));
+  if (paidAmount < 0 || paidAmount > round2(totals.total)) {
+    throw ApiError.badRequest(
+      'The paid amount must be between zero and the order total',
+      'INVALID_PAID_AMOUNT',
+    );
+  }
   const now = new Date();
   const number = await nextNumber(
     tx,
@@ -174,6 +185,9 @@ export async function createSalesOrderTx(tx: Tx, input: CreateSalesOrderInput) {
       discountTotal: totals.discountTotal,
       taxTotal: totals.taxTotal,
       total: totals.total,
+      paidAmount,
+      paymentCashBoxId: input.paymentCashBoxId ?? null,
+      paymentMethod: input.paymentMethod ?? 'CASH',
       lines: {
         create: lines.map((line) => ({
           productId: line.productId,
@@ -452,6 +466,9 @@ export async function updateSalesOrder(
     customerId?: string | null;
     currencyId?: string | null;
     notes?: string | null;
+    paidAmount?: number;
+    paymentCashBoxId?: string | null;
+    paymentMethod?: PaymentMethod;
     lines?: SalesLineInput[];
   },
   options: UpdateSalesOrderOptions = {},
@@ -499,6 +516,21 @@ export async function updateSalesOrder(
       data.currency = input.currencyId ? { connect: { id: input.currencyId } } : { disconnect: true };
     }
     if (input.notes !== undefined) data.notes = input.notes;
+    if (input.paidAmount !== undefined) {
+      const paid = round2(Number(input.paidAmount));
+      if (paid < 0) {
+        throw ApiError.badRequest('The paid amount cannot be negative', 'INVALID_PAID_AMOUNT');
+      }
+      data.paidAmount = paid;
+    }
+    if (input.paymentCashBoxId !== undefined) {
+      data.paymentCashBox = input.paymentCashBoxId
+        ? { connect: { id: input.paymentCashBoxId } }
+        : { disconnect: true };
+    }
+    if (input.paymentMethod !== undefined) {
+      data.paymentMethod = input.paymentMethod;
+    }
 
     if (input.lines) {
       const settings = await getSettings(tx);
@@ -526,6 +558,19 @@ export async function updateSalesOrder(
         data.status = 'CONFIRMED';
         data.fulfilledAt = null;
       }
+    }
+
+    const effectiveTotal = input.lines
+      ? Number(data.total ?? 0)
+      : Number(existing.total);
+    if (
+      data.paidAmount !== undefined &&
+      Number(data.paidAmount) > round2(effectiveTotal)
+    ) {
+      throw ApiError.badRequest(
+        'The paid amount cannot exceed the order total',
+        'INVALID_PAID_AMOUNT',
+      );
     }
 
     const updated = await tx.salesOrder.update({ where: { id }, data, include: salesOrderInclude });

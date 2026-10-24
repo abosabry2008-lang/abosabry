@@ -77,6 +77,10 @@ class SalesOrder {
     this.discountTotal = 0,
     this.taxTotal = 0,
     this.total = 0,
+    this.paidAmount = 0,
+    this.paymentCashBoxId,
+    this.paymentCashBoxName,
+    this.paymentMethod = 'CASH',
     this.notes,
     this.customerName,
     this.warehouseName,
@@ -97,6 +101,10 @@ class SalesOrder {
   final double discountTotal;
   final double taxTotal;
   final double total;
+  final double paidAmount;
+  final String? paymentCashBoxId;
+  final String? paymentCashBoxName;
+  final String paymentMethod;
   final String? notes;
   final String? customerName;
   final String? warehouseName;
@@ -125,6 +133,11 @@ class SalesOrder {
       discountTotal: asDouble(json['discountTotal']),
       taxTotal: asDouble(json['taxTotal']),
       total: asDouble(json['total']),
+      paidAmount: asDouble(json['paidAmount']),
+      paymentCashBoxId: asStringOrNull(json['paymentCashBoxId']),
+      paymentCashBoxName:
+          asStringOrNull(asMap(json['paymentCashBox'])['name']),
+      paymentMethod: asString(json['paymentMethod'], fallback: 'CASH'),
       notes: asStringOrNull(json['notes']),
       customerName: asStringOrNull(customer['name']) ??
           asStringOrNull(json['customerName']),
@@ -145,6 +158,9 @@ class SalesOrder {
         'status': status,
         'channel': channel,
         'orderDate': orderDate?.toIso8601String(),
+        'paidAmount': paidAmount,
+        'paymentCashBoxId': paymentCashBoxId,
+        'paymentMethod': paymentMethod,
         'notes': notes,
         'lines': lines.map((line) => line.toJson()).toList(),
       };
