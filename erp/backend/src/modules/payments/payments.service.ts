@@ -203,11 +203,18 @@ async function postPaymentJournalTx(
     paidAt: Date;
     userId?: string;
     memo?: string;
+    /** Overrides the AR/AP contra account (used for walk-in cash sales). */
+    contraAccount?: string;
+    cashSale?: boolean;
   },
 ): Promise<void> {
   const cashAccount = input.method === 'CASH' ? ACCOUNT.CASH : ACCOUNT.BANK;
+  const contra = input.cashSale
+    ? ACCOUNT.REVENUE
+    : input.contraAccount ??
+      (input.direction === 'INBOUND' ? ACCOUNT.RECEIVABLE : ACCOUNT.PAYABLE);
   await postJournal(tx, {
-    memo: input.memo ?? `Payment ${input.number}`,
+    memo: input.memo ?? (input.cashSale ? `Cash sale ${input.number}` : `Payment ${input.number}`),
     reference: input.number,
     sourceType: 'PAYMENT',
     sourceId: input.paymentId,
@@ -216,15 +223,23 @@ async function postPaymentJournalTx(
     lines:
       input.direction === 'INBOUND'
         ? [
-            { accountCode: cashAccount, debit: input.amount, description: `Funds received (${input.number})` },
             {
-              accountCode: ACCOUNT.RECEIVABLE,
+              accountCode: cashAccount,
+              debit: input.amount,
+              description: input.cashSale
+                ? `Cash sale (${input.number})`
+                : `Funds received (${input.number})`,
+            },
+            {
+              accountCode: contra,
               credit: input.amount,
-              description: `Receipt (${input.number})`,
+              description: input.cashSale
+                ? `Cash sale revenue (${input.number})`
+                : `Receipt (${input.number})`,
             },
           ]
         : [
-            { accountCode: ACCOUNT.PAYABLE, debit: input.amount, description: `Payable settled (${input.number})` },
+            { accountCode: contra, debit: input.amount, description: `Payable settled (${input.number})` },
             { accountCode: cashAccount, credit: input.amount, description: `Funds paid (${input.number})` },
           ],
   });
@@ -382,6 +397,10 @@ export async function createPaymentTx(tx: Tx, input: CreatePaymentInput) {
     include: paymentInclude,
   });
 
+  // A receipt with no customer or supplier is a walk-in cash sale: the money
+  // goes straight to the cash box and the credit side is revenue, not AR.
+  const cashSale =
+    direction === 'INBOUND' && !input.customerId && !input.supplierId;
   await postPaymentJournalTx(tx, {
     paymentId: payment.id,
     number,
@@ -390,6 +409,7 @@ export async function createPaymentTx(tx: Tx, input: CreatePaymentInput) {
     amount,
     paidAt,
     userId: input.userId,
+    cashSale,
   });
 
   // An on-account receipt changes the customer's balance even though it is not

@@ -57268,9 +57268,9 @@ k=h.y
 j=h.ch
 i=A.V(j).j("O<1,cA>")
 p=A.kk(k!=null,!m,o,r,h.gatn(),A.Y(new A.O(j,new A.aUu(),i),!0,i.j("ab.E")),B.cr,l,g,p)
-l=A.k(a2,B.f,a0)
-r=(l==null?B.e:l).a.gi()==="ar"?"\u0627\u062a\u0631\u0643 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0641\u0627\u0631\u063a\u0629 \u0644\u064a\u064f\u062e\u0635\u0645 \u0627\u0644\u0645\u0628\u0644\u063a \u0645\u0646 \u0631\u0635\u064a\u062f \u0627\u0644\u0639\u0645\u064a\u0644 \u062f\u0648\u0646 \u0631\u0628\u0637\u0647 \u0628\u0641\u0627\u062a\u0648\u0631\u0629.":"Leave the invoice empty to deduct the amount from the customer balance without linking it to an invoice."
-B.b.L(a1,A.a([B.N,new A.ad(s,g,g,A.Q(A.a([p,B.T,A.c(r,g,g,g,g,A.j(a2).p1.Q,g,g,g)],n),B.ad,B.h,B.i),B.p,g)],n))}B.b.L(q,a1)}q.push(B.N)
+if(h.z==null){r=A.k(a2,B.f,a0)
+r=(r==null?B.e:r).a.gi()==="ar"?"\u0628\u062f\u0648\u0646 \u0639\u0645\u064a\u0644: \u0647\u0630\u0647 \u0639\u0645\u0644\u064a\u0629 \u0628\u064a\u0639 \u0646\u0642\u062f\u064a \u0648\u064a\u064f\u0636\u0627\u0641 \u0627\u0644\u0645\u0628\u0644\u063a \u0645\u0628\u0627\u0634\u0631\u0629 \u0625\u0644\u0649 \u0627\u0644\u062e\u0632\u0646\u0629.":"No customer selected: this is a walk-in cash sale and the amount goes straight into the cash box."}else{r=A.k(a2,B.f,a0)
+r=(r==null?B.e:r).a.gi()==="ar"?"\u0627\u062a\u0631\u0643 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629 \u0641\u0627\u0631\u063a\u0629 \u0644\u064a\u064f\u062e\u0635\u0645 \u0627\u0644\u0645\u0628\u0644\u063a \u0645\u0646 \u0631\u0635\u064a\u062f \u0627\u0644\u0639\u0645\u064a\u0644 \u062f\u0648\u0646 \u0631\u0628\u0637\u0647 \u0628\u0641\u0627\u062a\u0648\u0631\u0629.":"Leave the invoice empty to deduct the amount from the customer balance without linking it to an invoice."}B.b.L(a1,A.a([B.N,new A.ad(s,g,g,A.Q(A.a([p,B.T,A.c(r,g,g,g,g,A.j(a2).p1.Q,g,g,g)],n),B.ad,B.h,B.i),B.p,g)],n))}B.b.L(q,a1)}q.push(B.N)
 a1=A.k(a2,B.f,a0)
 a1=(a1==null?B.e:a1).a.gi()==="ar"?f:"Details"
 s=A.k(a2,B.f,a0)

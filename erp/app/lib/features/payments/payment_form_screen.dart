@@ -429,7 +429,9 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        context.s.onAccountHint,
+                        _customerId == null
+                            ? context.s.cashSaleHint
+                            : context.s.onAccountHint,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],

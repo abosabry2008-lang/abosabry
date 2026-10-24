@@ -810,6 +810,10 @@ class AppStrings {
         'Leave the invoice empty to deduct the amount from the customer balance without linking it to an invoice.',
         'اترك الفاتورة فارغة ليُخصم المبلغ من رصيد العميل دون ربطه بفاتورة.',
       );
+  String get cashSaleHint => _t(
+        'No customer selected: this is a walk-in cash sale and the amount goes straight into the cash box.',
+        'بدون عميل: هذه عملية بيع نقدي ويُضاف المبلغ مباشرة إلى الخزنة.',
+      );
   String get chooseSupplier => _t('Choose a supplier', 'اختر موردًا');
   String get selectSupplier => _t('Select a supplier', 'اختر موردًا');
   String get selectCustomer => _t('Select a customer', 'اختر عميلًا');
