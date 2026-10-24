@@ -146,8 +146,9 @@ const STYLES = `
   table.data thead th {
     background: #0f172a;
     color: #ffffff;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
+    padding: 6px 9px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     text-align: start;
