@@ -75,6 +75,8 @@ router.use(authenticateToken);
 
 function sendHtml(res: Response, html: string): void {
   res.set('Content-Type', 'text/html; charset=utf-8');
+  // Printed documents must never come from a stale browser/Vercel cache.
+  res.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
   res.send(html);
 }
 

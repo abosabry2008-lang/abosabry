@@ -147,7 +147,7 @@ const STYLES = `
     background: #0f172a;
     color: #ffffff;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     text-align: start;
