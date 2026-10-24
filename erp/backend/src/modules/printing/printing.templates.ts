@@ -269,7 +269,6 @@ export function invoiceHtml(
     .map((line, index) => {
       return `      <tr>
         <td class="num">${index + 1}</td>
-        <td>${escapeHtml(line.product?.sku ?? '—')}</td>
         <td>${escapeHtml(line.description)}</td>
         <td class="num">${escapeHtml(line.quantity)}</td>
         <td class="num">${money(line.unitPrice)}</td>
@@ -313,7 +312,6 @@ export function invoiceHtml(
       <thead>
         <tr>
           <th class="num">#</th>
-          <th>${escapeHtml(t('SKU', 'كود الصنف'))}</th>
           <th>${escapeHtml(t('Description', 'الوصف'))}</th>
           <th class="num">${escapeHtml(t('Qty', 'الكمية'))}</th>
           <th class="num">${escapeHtml(t('Unit price', 'سعر الوحدة'))}</th>
@@ -321,7 +319,7 @@ export function invoiceHtml(
         </tr>
       </thead>
       <tbody>
-${lineRows || `        <tr><td colspan="6" class="muted center">${escapeHtml(t('No lines', 'لا توجد أصناف'))}</td></tr>`}
+${lineRows || `        <tr><td colspan="5" class="muted center">${escapeHtml(t('No lines', 'لا توجد أصناف'))}</td></tr>`}
       </tbody>
     </table>
     <div class="totals-wrap">
