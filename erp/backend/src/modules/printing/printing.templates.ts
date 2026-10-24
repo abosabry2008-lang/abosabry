@@ -187,6 +187,22 @@ const STYLES = `
   @page { margin: 14mm; }
 `;
 
+/** Tight table layout so long name lists fit more rows per printed page. */
+const COMPACT_TABLE_CSS = `
+  @page { margin: 8mm; }
+  body { padding: 0; background: #ffffff; font-size: 12px; line-height: 1.25; }
+  .page { max-width: none; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0; }
+  .doc-header { padding-bottom: 6px; margin-bottom: 8px; }
+  .doc-title h2 { font-size: 15px; }
+  section.meta { gap: 4px 14px; margin-bottom: 8px; padding: 6px 10px; font-size: 11px; }
+  table.data { margin-bottom: 6px; }
+  table.data th, table.data td { padding: 2px 6px; font-size: 13px; line-height: 1.2; }
+  table.data thead th { padding: 3px 6px; font-size: 10px; }
+  table.data tr { page-break-inside: avoid; break-inside: avoid; }
+  table.data thead { display: table-header-group; }
+  .doc-footer { margin-top: 8px; padding-top: 4px; font-size: 9px; }
+`;
+
 export interface PageOptions {
   title: string;
   company: AppSettings;
@@ -824,6 +840,7 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
     body,
     dir: ar ? 'rtl' : 'ltr',
     lang,
+    extraCss: COMPACT_TABLE_CSS,
   });
 }
 
@@ -1396,20 +1413,7 @@ ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
       </tbody>
     </table>`;
 
-  const compactCss = `
-  @page { margin: 8mm; }
-  body { padding: 0; background: #ffffff; font-size: 12px; line-height: 1.25; }
-  .page { max-width: none; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0; }
-  .doc-header { padding-bottom: 6px; margin-bottom: 8px; }
-  .doc-title h2 { font-size: 15px; }
-  section.meta { gap: 4px 14px; margin-bottom: 8px; padding: 6px 10px; font-size: 11px; }
-  table.data { margin-bottom: 6px; }
-  table.data th, table.data td { padding: 2px 6px; font-size: 13px; line-height: 1.2; }
-  table.data thead th { padding: 3px 6px; font-size: 10px; }
-  table.data tr { page-break-inside: avoid; break-inside: avoid; }
-  table.data thead { display: table-header-group; }
-  .doc-footer { margin-top: 8px; padding-top: 4px; font-size: 9px; }
-`;
+  const compactCss = COMPACT_TABLE_CSS;
 
   return renderPage({
     title: ar ? 'مديونية عملاء المندوب' : 'Salesperson customer debt',
