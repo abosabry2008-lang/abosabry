@@ -19,7 +19,15 @@ export const invoiceInclude = {
     },
   },
   currency: { select: { id: true, code: true, symbol: true } },
-  salesOrder: { select: { id: true, number: true } },
+  salesOrder: {
+    select: {
+      id: true,
+      number: true,
+      // Fallback salesperson for invoices whose customer has no assigned rep
+      // (walk-in sales, or reps who are not linked to the customer yet).
+      user: { select: { name: true, phone: true, role: true } },
+    },
+  },
   lines: {
     include: {
       product: {

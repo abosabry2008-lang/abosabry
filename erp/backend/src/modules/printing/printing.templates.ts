@@ -279,17 +279,26 @@ export function invoiceHtml(
     .join('\n');
 
   const customer = invoice.customer;
+  // The customer's assigned rep wins; otherwise the sales user who issued the
+  // invoice is shown so walk-in invoices still carry the salesperson details.
+  const orderUser = invoice.salesOrder?.user;
+  const salesperson =
+    customer?.salesperson ?? (orderUser?.role === 'SALES' ? orderUser : null);
+  const salespersonLine = salesperson
+    ? `<div class="muted">${escapeHtml(t('Salesperson', 'المندوب'))}: ${escapeHtml(salesperson.name)}${salesperson.phone ? ` · ${escapeHtml(salesperson.phone)}` : ''}</div>`
+    : '';
   const customerLines = customer
     ? [
         `<div>${escapeHtml(customer.name)}</div>`,
         customer.address ? `<div class="muted">${escapeHtml(customer.address)}</div>` : '',
         customer.email ? `<div class="muted">${escapeHtml(customer.email)}</div>` : '',
         customer.phone ? `<div class="muted">${escapeHtml(customer.phone)}</div>` : '',
-        customer.salesperson
-          ? `<div class="muted">${escapeHtml(t('Salesperson', 'المندوب'))}: ${escapeHtml(customer.salesperson.name)}${customer.salesperson.phone ? ` · ${escapeHtml(customer.salesperson.phone)}` : ''}</div>`
-          : '',
+        salespersonLine,
       ].join('\n    ')
-    : `<div class="muted">${escapeHtml(t('Walk-in customer', 'عميل نقدي'))}</div>`;
+    : [
+        `<div class="muted">${escapeHtml(t('Walk-in customer', 'عميل نقدي'))}</div>`,
+        salespersonLine,
+      ].join('\n    ');
 
   const body = `    <section class="meta">
       <div><span class="label">${escapeHtml(t('Invoice', 'فاتورة'))}</span><span class="value">${escapeHtml(invoice.number)}</span></div>
