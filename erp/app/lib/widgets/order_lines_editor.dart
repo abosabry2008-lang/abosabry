@@ -218,6 +218,7 @@ class OrderLinesEditor extends StatelessWidget {
     this.preferSalePrice = false,
     this.enforceSalePriceFloor = false,
     this.customerId,
+    this.supplierId,
     this.showProfit = false,
   });
 
@@ -239,6 +240,10 @@ class OrderLinesEditor extends StatelessWidget {
   /// Customer of a sales document. When set, each item shows what this
   /// customer last paid and the price starts at that amount.
   final String? customerId;
+
+  /// Supplier of a purchase/return document. When set, each item shows the
+  /// price this supplier last charged and starts at that amount.
+  final String? supplierId;
 
   /// Admin-only: show revenue, cost and profit for the document being entered.
   final bool showProfit;
@@ -267,24 +272,37 @@ class OrderLinesEditor extends StatelessWidget {
     _prefillLastPrice(context, line, product);
   }
 
-  /// Starts the line at the price this customer paid last time, when known.
+  /// Starts the line at the price this customer paid or this supplier charged
+  /// last time, when known.
   Future<void> _prefillLastPrice(
     BuildContext context,
     OrderLineDraft line,
     Product product,
   ) async {
     final customer = customerId;
-    if (customer == null) return;
+    final supplier = supplierId;
     try {
-      final last = await fetchLastSalePrice(
-        context.read<Session>().api,
-        customerId: customer,
-        productId: product.id,
-      );
-      if (!context.mounted || last == null) return;
-      if (!lines.contains(line) || line.product?.id != product.id) return;
-      line.priceController.text = OrderLineDraft._format(last.unitPrice);
-      onChanged();
+      if (customer != null) {
+        final last = await fetchLastSalePrice(
+          context.read<Session>().api,
+          customerId: customer,
+          productId: product.id,
+        );
+        if (!context.mounted || last == null) return;
+        if (!lines.contains(line) || line.product?.id != product.id) return;
+        line.priceController.text = OrderLineDraft._format(last.unitPrice);
+        onChanged();
+      } else if (supplier != null) {
+        final last = await fetchLastSupplierPrice(
+          context.read<Session>().api,
+          supplierId: supplier,
+          productId: product.id,
+        );
+        if (!context.mounted || last == null) return;
+        if (!lines.contains(line) || line.product?.id != product.id) return;
+        line.priceController.text = OrderLineDraft._format(last.unitPrice);
+        onChanged();
+      }
     } on ApiException {
       // The history is optional; the list price stays in place.
     }
@@ -336,6 +354,9 @@ class OrderLinesEditor extends StatelessWidget {
                 showTax: showTax,
                 enforceSalePriceFloor: enforceSalePriceFloor,
                 customerId: customerId,
+                supplierId: supplierId,
+                onProductPicked: (product, target) =>
+                    _prefillLastPrice(context, target, product),
                 onChanged: onChanged,
                 onRemove: () {
                   lines.removeAt(index).dispose();
@@ -400,6 +421,8 @@ class _OrderLineRow extends StatefulWidget {
     required this.showTax,
     required this.enforceSalePriceFloor,
     this.customerId,
+    this.supplierId,
+    this.onProductPicked,
     required this.onChanged,
     required this.onRemove,
   });
@@ -412,6 +435,8 @@ class _OrderLineRow extends StatefulWidget {
   final bool showTax;
   final bool enforceSalePriceFloor;
   final String? customerId;
+  final String? supplierId;
+  final void Function(Product product, OrderLineDraft line)? onProductPicked;
   final VoidCallback onChanged;
   final VoidCallback onRemove;
 
@@ -451,6 +476,7 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                           onChanged: (value) {
                             line.setProduct(value, preferSalePrice: widget.preferSalePrice);
                             widget.onChanged();
+                            widget.onProductPicked?.call(value, line);
                           },
                         )
                       : Text(
@@ -544,8 +570,17 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                 ),
               ],
             ),
-            if (widget.customerId != null && product != null) ...<Widget>[
-              LastSalePriceLoader(customerId: widget.customerId!, product: product),
+            if (product != null) ...<Widget>[
+              if (widget.customerId != null)
+                LastSalePriceLoader(
+                  customerId: widget.customerId!,
+                  product: product,
+                )
+              else if (widget.supplierId != null)
+                LastSupplierPriceLoader(
+                  supplierId: widget.supplierId!,
+                  product: product,
+                ),
               StockOnHandHint(
                 product: product,
                 requestedQuantity: line.quantity,
@@ -589,7 +624,8 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                     ),
                 ],
               ),
-              if (widget.customerId == null) LastPurchasePriceHint(product: product),
+              if (widget.customerId == null && widget.supplierId == null)
+                LastPurchasePriceHint(product: product),
             ],
           ],
         ),

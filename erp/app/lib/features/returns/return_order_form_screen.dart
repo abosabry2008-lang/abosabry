@@ -342,6 +342,8 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
                 lines: _lines,
                 enabled: !_saving,
                 preferSalePrice: _isCustomerReturn,
+                customerId: _isCustomerReturn ? _customerId : null,
+                supplierId: _isCustomerReturn ? null : _supplierId,
                 onChanged: () => setState(() {}),
               ),
             ),

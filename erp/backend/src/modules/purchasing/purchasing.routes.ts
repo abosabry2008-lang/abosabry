@@ -105,6 +105,42 @@ router.get(
 );
 
 router.get(
+  '/last-price',
+  requirePermission('purchasing.read'),
+  asyncHandler(async (req, res) => {
+    const supplierId = asString(req.query.supplierId);
+    const productId = asString(req.query.productId);
+    if (!supplierId || !productId) {
+      throw ApiError.badRequest('supplierId and productId are required');
+    }
+    const line = await prisma.purchaseOrderLine.findFirst({
+      where: {
+        productId,
+        purchaseOrder: {
+          supplierId,
+          status: { in: ['PARTIALLY_RECEIVED', 'RECEIVED'] },
+        },
+      },
+      orderBy: { purchaseOrder: { orderDate: 'desc' } },
+      select: {
+        unitCost: true,
+        purchaseOrder: { select: { number: true, orderDate: true } },
+      },
+    });
+    ok(
+      res,
+      line
+        ? {
+            unitPrice: Number(line.unitCost),
+            orderNumber: line.purchaseOrder.number,
+            orderDate: line.purchaseOrder.orderDate,
+          }
+        : null,
+    );
+  }),
+);
+
+router.get(
   '/:id',
   requirePermission('purchasing.read'),
   asyncHandler(async (req, res) => {
