@@ -24,6 +24,16 @@ class SalesOrdersController extends PagedListController<SalesOrder> {
     if (dayFilter.select(value)) refresh();
   }
 
+  /// Refreshes whenever the list screen is reopened so new orders appear.
+  @override
+  Future<void> ensureLoaded() async {
+    if (isInitialised) {
+      await refresh();
+      return;
+    }
+    await super.ensureLoaded();
+  }
+
   void filterByStatus(String? value) {
     if (value == _status) return;
     _status = value;

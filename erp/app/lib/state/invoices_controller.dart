@@ -24,6 +24,17 @@ class InvoicesController extends PagedListController<Invoice> {
     if (dayFilter.select(value)) refresh();
   }
 
+  /// Refreshes whenever the list screen is reopened so documents created in
+  /// another screen (or after midnight) appear without pressing search.
+  @override
+  Future<void> ensureLoaded() async {
+    if (isInitialised) {
+      await refresh();
+      return;
+    }
+    await super.ensureLoaded();
+  }
+
   void filterByStatus(String? value) {
     if (value == _status) return;
     _status = value;

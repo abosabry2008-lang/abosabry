@@ -24,6 +24,16 @@ class PaymentsController extends PagedListController<Payment> {
     if (dayFilter.select(value)) refresh();
   }
 
+  /// Refreshes whenever the list screen is reopened so new payments appear.
+  @override
+  Future<void> ensureLoaded() async {
+    if (isInitialised) {
+      await refresh();
+      return;
+    }
+    await super.ensureLoaded();
+  }
+
   void filterByDirection(String? value) {
     if (value == _direction) return;
     _direction = value;

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/l10n.dart';
 import '../../core/session.dart';
+import '../../state/reports_controller.dart';
 import '../../state/settings_controller.dart';
 import '../accounting/accounts_screen.dart';
 import '../accounting/journal_screen.dart';
@@ -259,14 +260,29 @@ class AppShell extends StatefulWidget {
 /// Width of the collapsed navigation rail (icon-only, labels below icons).
 const double _railCollapsedWidth = 76;
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _index = 0;
   bool _bootstrapped = false;
   final ScrollController _railScrollController = ScrollController();
   final ScrollController _drawerScrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // A PWA left open overnight would otherwise keep yesterday's "sales today".
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<ReportsController>().loadDashboard();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _railScrollController.dispose();
     _drawerScrollController.dispose();
     super.dispose();

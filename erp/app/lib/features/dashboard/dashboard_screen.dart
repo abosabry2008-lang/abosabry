@@ -31,9 +31,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final controller = context.read<ReportsController>();
-      if (controller.dashboard == null) {
-        controller.loadDashboard();
-      }
+      // Always reload: invoices created on another screen (or after midnight)
+      // must be reflected in "sales today" as soon as the dashboard opens.
+      controller.loadDashboard();
       final settings = context.read<SettingsController>();
       if (settings.settings == null && !settings.loading) {
         settings.load();
