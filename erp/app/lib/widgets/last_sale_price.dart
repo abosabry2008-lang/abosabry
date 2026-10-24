@@ -128,7 +128,8 @@ class LastSalePriceHint extends StatelessWidget {
           Expanded(
             child: Text(
               '${s.lastSalePriceToCustomer}: '
-              '${Formatters.money(price.unitPrice)}$unit · ${price.invoiceNumber}',
+              '${Formatters.money(price.unitPrice)}$unit · ${price.invoiceNumber}'
+              '${price.issueDate == null ? '' : ' · ${Formatters.date(price.issueDate)}'}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.tertiary,
                 fontWeight: FontWeight.w600,

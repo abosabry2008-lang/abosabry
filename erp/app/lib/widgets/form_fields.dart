@@ -96,6 +96,7 @@ class AppNumberField extends StatelessWidget {
     this.focusNode,
     this.onSubmitted,
     this.textInputAction,
+    this.dense = false,
   });
 
   final String label;
@@ -114,6 +115,8 @@ class AppNumberField extends StatelessWidget {
   final FocusNode? focusNode;
   final ValueChanged<String>? onSubmitted;
   final TextInputAction? textInputAction;
+  /// Tight layout for dense list rows.
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -147,6 +150,10 @@ class AppNumberField extends StatelessWidget {
         helperText: helperText,
         prefixIcon: prefixIcon == null ? null : Icon(prefixIcon),
         suffixIcon: suffix,
+        isDense: dense ? true : null,
+        contentPadding: dense
+            ? const EdgeInsets.symmetric(horizontal: 10, vertical: 10)
+            : null,
       ),
     );
   }

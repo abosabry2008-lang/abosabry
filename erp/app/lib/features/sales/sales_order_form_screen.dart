@@ -45,7 +45,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
   late final TextEditingController _paidAmount = TextEditingController(
     text: (widget.order?.paidAmount ?? 0).toString(),
   );
-  final TextEditingController _notes = TextEditingController();
+  DateTime _orderDate = DateTime.now();
   bool _saving = false;
   bool _linesDirty = false;
   bool _showProfit = false;
@@ -66,7 +66,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
     if (order != null) {
       _customerId = order.customerId;
       _warehouseId = order.warehouseId;
-      _notes.text = order.notes ?? '';
+      _orderDate = order.orderDate ?? DateTime.now();
       _paymentCashBoxId = order.paymentCashBoxId;
       _paymentMethod = order.paymentMethod;
       for (final line in order.lines) {
@@ -107,7 +107,6 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
     for (final line in _lines) {
       line.dispose();
     }
-    _notes.dispose();
     _paidAmount.dispose();
     super.dispose();
   }
@@ -207,7 +206,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
             'paidAmount': paid,
             'paymentCashBoxId': _paymentCashBoxId,
             'paymentMethod': _paymentMethod,
-            'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+            'orderDate': _orderDate.toUtc().toIso8601String(),
             'lines': _linesJson(validLines),
           },
         );
@@ -220,7 +219,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
           'paidAmount': paid,
           'paymentCashBoxId': _paymentCashBoxId,
           'paymentMethod': _paymentMethod,
-          'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+          'orderDate': _orderDate.toUtc().toIso8601String(),
         };
         if (_linesDirty) body['lines'] = _linesJson(validLines);
         await controller.api.patchObject('/sales-orders/${order.id}', body: body);
@@ -395,6 +394,18 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                               onChanged: (_) => setState(() {}),
                             ),
                           ),
+                          field(
+                            AppDateField(
+                              label: s.orderDate,
+                              value: _orderDate,
+                              enabled: !_saving,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _orderDate = value);
+                                }
+                              },
+                            ),
+                          ),
                         ],
                       ),
                       if (_paymentLocked) ...<Widget>[
@@ -430,14 +441,6 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                         ),
                       ],
                       const SizedBox(height: 14),
-                      AppTextField(
-                        label: s.notes,
-                        controller: _notes,
-                        enabled: !_saving,
-                        maxLines: 2,
-                        prefixIcon: Icons.notes_outlined,
-                        textCapitalization: TextCapitalization.sentences,
-                      ),
                     ],
                   );
                 },

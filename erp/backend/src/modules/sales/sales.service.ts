@@ -143,6 +143,7 @@ export interface CreateSalesOrderInput {
   warehouseId: string;
   currencyId?: string | null;
   channel?: SalesChannel;
+  orderDate?: Date;
   notes?: string | null;
   userId?: string;
   paidAmount?: number;
@@ -163,11 +164,12 @@ export async function createSalesOrderTx(tx: Tx, input: CreateSalesOrderInput) {
     );
   }
   const now = new Date();
+  const orderDate = input.orderDate ?? now;
   const number = await nextNumber(
     tx,
     'salesOrder',
     settings.salesOrderPrefix,
-    now,
+    orderDate,
     async (candidate) => (await tx.salesOrder.count({ where: { number: candidate } })) > 0,
   );
 
@@ -179,6 +181,7 @@ export async function createSalesOrderTx(tx: Tx, input: CreateSalesOrderInput) {
       currencyId: input.currencyId ?? null,
       channel: input.channel ?? 'MANUAL',
       status: 'DRAFT',
+      orderDate,
       notes: input.notes ?? null,
       userId: input.userId ?? null,
       subtotal: totals.subtotal,
@@ -465,6 +468,7 @@ export async function updateSalesOrder(
   input: {
     customerId?: string | null;
     currencyId?: string | null;
+    orderDate?: Date;
     notes?: string | null;
     paidAmount?: number;
     paymentCashBoxId?: string | null;
@@ -537,6 +541,7 @@ export async function updateSalesOrder(
       data.currency = input.currencyId ? { connect: { id: input.currencyId } } : { disconnect: true };
     }
     if (input.notes !== undefined) data.notes = input.notes;
+    if (input.orderDate !== undefined) data.orderDate = input.orderDate;
     if (input.paidAmount !== undefined) {
       const paid = round2(Number(input.paidAmount));
       if (paid < 0) {

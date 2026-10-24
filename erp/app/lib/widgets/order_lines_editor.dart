@@ -437,7 +437,7 @@ class _OrderLineRowState extends State<_OrderLineRow> {
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 4, 10),
+        padding: const EdgeInsets.fromLTRB(8, 2, 2, 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -457,16 +457,22 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                           '${product.name} (${product.sku})',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyLarge,
+                          style: theme.textTheme.bodyMedium,
                         ),
                 ),
                 Text(
                   Formatters.money(line.lineTotal),
-                  style: theme.textTheme.titleMedium,
+                  style: theme.textTheme.titleSmall,
                 ),
                 IconButton(
                   tooltip: s.edit,
                   visualDensity: VisualDensity.compact,
+                  iconSize: 18,
+                  constraints: const BoxConstraints(
+                    minWidth: 30,
+                    minHeight: 30,
+                  ),
+                  padding: EdgeInsets.zero,
                   onPressed: widget.enabled
                       ? () => setState(() => _expanded = !_expanded)
                       : null,
@@ -475,6 +481,12 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                 IconButton(
                   tooltip: s.removeLine,
                   visualDensity: VisualDensity.compact,
+                  iconSize: 18,
+                  constraints: const BoxConstraints(
+                    minWidth: 30,
+                    minHeight: 30,
+                  ),
+                  padding: EdgeInsets.zero,
                   onPressed: widget.enabled ? widget.onRemove : null,
                   icon: const Icon(Icons.delete_outline),
                 ),
@@ -484,12 +496,14 @@ class _OrderLineRowState extends State<_OrderLineRow> {
               children: <Widget>[
                 if (line.hasPackaging) ...<Widget>[
                   SizedBox(
-                    width: 104,
+                    width: 96,
                     child: DropdownButtonFormField<String>(
                       value: line.sellUnit == 'carton' ? 'carton' : 'box',
-                      decoration: InputDecoration(
-                        labelText: s.unit,
+                      decoration: const InputDecoration(
+                        labelText: null,
                         isDense: true,
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                       ),
                       items: const [
                         DropdownMenuItem(value: 'box', child: Text('علبة')),
@@ -505,7 +519,7 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                           : null,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                 ],
                 Expanded(
                   child: AppNumberField(
@@ -513,16 +527,18 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                     controller: line.quantityController,
                     enabled: widget.enabled,
                     decimal: false,
+                    dense: true,
                     onChanged: (_) => widget.onChanged(),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(
                   flex: 2,
                   child: AppNumberField(
                     label: widget.priceLabel ?? s.unitPrice,
                     controller: line.priceController,
                     enabled: widget.enabled,
+                    dense: true,
                     onChanged: (_) => widget.onChanged(),
                   ),
                 ),
@@ -555,6 +571,7 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                         label: s.discountWord,
                         controller: line.discountController,
                         enabled: widget.enabled,
+                        dense: true,
                         onChanged: (_) => widget.onChanged(),
                       ),
                     ),
@@ -566,6 +583,7 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                         label: s.taxRatePercent,
                         controller: line.taxController,
                         enabled: widget.enabled,
+                        dense: true,
                         onChanged: (_) => widget.onChanged(),
                       ),
                     ),

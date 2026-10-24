@@ -56,6 +56,7 @@ const createSchema = z.object({
   customerId: z.string().nullable().optional(),
   warehouseId: z.string().min(1),
   currencyId: z.string().nullable().optional(),
+  orderDate: z.coerce.date().optional(),
   notes: z.string().nullable().optional(),
   paidAmount: z.number().min(0).optional(),
   paymentCashBoxId: z.string().nullable().optional(),
@@ -66,6 +67,7 @@ const createSchema = z.object({
 const updateSchema = z.object({
   customerId: z.string().nullable().optional(),
   currencyId: z.string().nullable().optional(),
+  orderDate: z.coerce.date().optional(),
   notes: z.string().nullable().optional(),
   paidAmount: z.number().min(0).optional(),
   paymentCashBoxId: z.string().nullable().optional(),
