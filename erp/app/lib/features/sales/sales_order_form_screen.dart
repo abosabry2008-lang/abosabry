@@ -271,169 +271,176 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
           children: <Widget>[
             SectionCard(
               title: s.orderDetails,
-              child: Column(
-                children: <Widget>[
-                  if (!session.isSalesperson)
-                    SearchablePickerField(
-                    label: s.salesperson,
-                    value: _salespersonId,
-                    hint: s.chooseSalesperson,
-                    enabled: !_saving,
-                    prefixIcon: Icons.badge_outlined,
-                    searchHint: s.searchHint,
-                    clearable: true,
-                    options: salespeople.salespeople
-                        .map((p) => PickerOption(value: p.id, label: p.name))
-                        .toList(),
-                    onChanged: (value) => setState(() {
-                      _salespersonId =
-                          (value == null || value.isEmpty) ? null : value;
-                      // If current customer doesn't belong to selected salesperson, clear it
-                      if (_salespersonId != null && _customerId != null) {
-                        final cust = customers.catalog
-                            .where((c) => c.id == _customerId)
-                            .firstOrNull;
-                        if (cust == null || cust.salespersonId != _salespersonId) {
-                          _customerId = null;
-                        }
-                      }
-                    }),
-                  ),
-                  const SizedBox(height: 14),
-                  SearchablePickerField(
-                    label: s.customer,
-                    value: _customerId,
-                    enabled: !_saving,
-                    hint: s.walkInCustomer,
-                    prefixIcon: Icons.person_outline,
-                    searchHint: s.searchCustomersHint,
-                    clearable: true,
-                    options: filteredCustomers
-                        .map(
-                          (customer) => customerPickerOption(
-                            id: customer.id,
-                            name: customer.name,
-                            code: customer.code,
-                            balance: customer.balance,
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) => setState(() => _customerId = value),
-                  ),
-                  if (selectedCustomer != null) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final twoColumns = constraints.maxWidth >= 640;
+                  final width = twoColumns
+                      ? (constraints.maxWidth - 14) / 2
+                      : constraints.maxWidth;
+                  Widget field(Widget child) =>
+                      SizedBox(width: width, child: child);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Wrap(
+                        spacing: 14,
+                        runSpacing: 14,
                         children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              '${s.previousBalanceLabel}: ${selectedCustomer.name}',
+                          if (!session.isSalesperson)
+                            field(
+                              SearchablePickerField(
+                                label: s.salesperson,
+                                value: _salespersonId,
+                                hint: s.chooseSalesperson,
+                                enabled: !_saving,
+                                prefixIcon: Icons.badge_outlined,
+                                searchHint: s.searchHint,
+                                clearable: true,
+                                options: salespeople.salespeople
+                                    .map(
+                                      (p) => PickerOption(
+                                        value: p.id,
+                                        label: p.name,
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) => setState(() {
+                                  _salespersonId =
+                                      (value == null || value.isEmpty)
+                                          ? null
+                                          : value;
+                                  if (_salespersonId != null &&
+                                      _customerId != null) {
+                                    final cust = customers.catalog
+                                        .where((c) => c.id == _customerId)
+                                        .firstOrNull;
+                                    if (cust == null ||
+                                        cust.salespersonId != _salespersonId) {
+                                      _customerId = null;
+                                    }
+                                  }
+                                }),
+                              ),
+                            ),
+                          field(
+                            SearchablePickerField(
+                              label: s.customer,
+                              value: _customerId,
+                              enabled: !_saving,
+                              hint: s.walkInCustomer,
+                              prefixIcon: Icons.person_outline,
+                              searchHint: s.searchCustomersHint,
+                              clearable: true,
+                              options: filteredCustomers
+                                  .map(
+                                    (customer) => customerPickerOption(
+                                      id: customer.id,
+                                      name: customer.name,
+                                      code: customer.code,
+                                      balance: customer.balance,
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) =>
+                                  setState(() => _customerId = value),
                             ),
                           ),
-                          MoneyText(selectedCustomer.balance),
+                          field(
+                            AppSelectField<String>(
+                              label: s.warehouseRequired,
+                              value: _warehouseId,
+                              enabled: !_saving,
+                              prefixIcon: Icons.warehouse_outlined,
+                              options: _warehouses
+                                  .map(
+                                    (warehouse) => SelectOption<String>(
+                                      warehouse.id,
+                                      '${warehouse.code} — ${warehouse.name}',
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) =>
+                                  setState(() => _warehouseId = value),
+                              validator: (value) =>
+                                  value == null ? s.warehouseIsRequired : null,
+                            ),
+                          ),
+                          field(
+                            AppSelectField<String?>(
+                              label: s.cashBox,
+                              value: _paymentCashBoxId,
+                              hint: s.chooseBox,
+                              enabled: !_paymentLocked,
+                              prefixIcon:
+                                  Icons.account_balance_wallet_outlined,
+                              options: _boxes
+                                  .map(
+                                    (box) => SelectOption<String?>(
+                                      box.id,
+                                      box.name,
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) => setState(
+                                () => _paymentCashBoxId = value,
+                              ),
+                            ),
+                          ),
+                          field(
+                            AppNumberField(
+                              label: s.paid,
+                              controller: _paidAmount,
+                              enabled: !_paymentLocked,
+                              prefixIcon: Icons.payments_outlined,
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  AppSelectField<String>(
-                    label: s.warehouseRequired,
-                    value: _warehouseId,
-                    enabled: !_saving,
-                    prefixIcon: Icons.warehouse_outlined,
-                    options: _warehouses
-                        .map(
-                          (warehouse) => SelectOption<String>(
-                            warehouse.id,
-                            '${warehouse.code} — ${warehouse.name}',
+                      if (_paymentLocked) ...<Widget>[
+                        const SizedBox(height: 8),
+                        Text(
+                          s.paymentLockedHint,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                      if (selectedCustomer != null) ...<Widget>[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                        )
-                        .toList(),
-                    onChanged: (value) => setState(() => _warehouseId = value),
-                    validator: (value) =>
-                        value == null ? s.warehouseIsRequired : null,
-                  ),
-                  const SizedBox(height: 14),
-                  AppTextField(
-                    label: s.notes,
-                    controller: _notes,
-                    enabled: !_saving,
-                    maxLines: 2,
-                    prefixIcon: Icons.notes_outlined,
-                    textCapitalization: TextCapitalization.sentences,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            SectionCard(
-              title: s.payment,
-              subtitle: _paymentLocked
-                  ? s.paymentLockedHint
-                  : s.paymentOnOrderHint,
-              child: Column(
-                children: <Widget>[
-                  AppSelectField<String?>(
-                    label: s.cashBox,
-                    value: _paymentCashBoxId,
-                    hint: s.chooseBox,
-                    enabled: !_paymentLocked,
-                    prefixIcon: Icons.account_balance_wallet_outlined,
-                    options: _boxes
-                        .map(
-                          (box) => SelectOption<String?>(
-                            box.id,
-                            box.name,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                        )
-                        .toList(),
-                    onChanged: (value) =>
-                        setState(() => _paymentCashBoxId = value),
-                  ),
-                  const SizedBox(height: 14),
-                  AppNumberField(
-                    label: s.paid,
-                    controller: _paidAmount,
-                    enabled: !_paymentLocked,
-                    prefixIcon: Icons.payments_outlined,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 14),
-                  AppSelectField<String>(
-                    label: s.paymentMethod,
-                    value: _paymentMethod,
-                    enabled: !_paymentLocked,
-                    prefixIcon: Icons.credit_card_outlined,
-                    options: const <String>[
-                      'CASH',
-                      'CARD',
-                      'BANK_TRANSFER',
-                      'MOBILE_MONEY',
-                      'CHEQUE',
-                      'OTHER',
-                    ]
-                        .map(
-                          (method) => SelectOption<String>(
-                            method,
-                            s.status(method),
+                          child: Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  '${s.previousBalanceLabel}: ${selectedCustomer.name}',
+                                ),
+                              ),
+                              MoneyText(selectedCustomer.balance),
+                            ],
                           ),
-                        )
-                        .toList(),
-                    onChanged: (value) => setState(
-                      () => _paymentMethod = value ?? 'CASH',
-                    ),
-                  ),
-                ],
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        label: s.notes,
+                        controller: _notes,
+                        enabled: !_saving,
+                        maxLines: 2,
+                        prefixIcon: Icons.notes_outlined,
+                        textCapitalization: TextCapitalization.sentences,
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 16),

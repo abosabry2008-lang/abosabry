@@ -202,11 +202,26 @@ class _ProductPickerSheetState extends State<_ProductPickerSheet> {
                         '${product.sku}'
                         '${product.barcode == null ? '' : ' · ${product.barcode}'}',
                       ),
-                      trailing: Text(
-                        Formatters.money(
-                          product.salePrice,
-                          currencyCode: product.currencyCode,
-                        ),
+                      trailing: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: <Widget>[
+                          Text(
+                            Formatters.money(
+                              product.salePrice,
+                              currencyCode: product.currencyCode,
+                            ),
+                          ),
+                          Text(
+                            '${s.onHand}: '
+                            '${Formatters.integer(product.quantityOnHand ?? 0)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: (product.quantityOnHand ?? 0) <= 0
+                                  ? theme.colorScheme.error
+                                  : theme.colorScheme.outline,
+                            ),
+                          ),
+                        ],
                       ),
                       onTap: () => Navigator.of(context).pop(product),
                     );
