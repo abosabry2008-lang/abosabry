@@ -63,11 +63,11 @@ class Formatters {
 
   /// Short date, e.g. `Oct 16, 2026`.
   static String date(DateTime? value) =>
-      value == null ? '—' : DateFormat.yMMMd().format(value);
+      value == null ? '-' : DateFormat.yMMMd().format(value.toLocal());
 
   /// Date and time, e.g. `Oct 16, 2026 14:05`.
   static String dateTime(DateTime? value) =>
-      value == null ? '—' : DateFormat.yMMMd().add_Hm().format(value);
+      value == null ? '-' : DateFormat.yMMMd().add_Hm().format(value.toLocal());
 
   /// ISO date used by API query parameters.
   static String isoDate(DateTime value) =>
