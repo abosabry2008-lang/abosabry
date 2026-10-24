@@ -789,6 +789,10 @@ class AppStrings {
         'The paid amount must be between zero and the order total.',
         'المبلغ المدفوع يجب أن يكون بين صفر وإجمالي الأمر.',
       );
+  String get paymentLockedHint => _t(
+        'The payment was already posted with the invoice. Record further payments from the invoice screen.',
+        'تم تسجيل الدفعة مع الفاتورة. سجّل أي دفعات إضافية من شاشة الفاتورة.',
+      );
   String get paidOn => _t('Paid on', 'تاريخ الدفع');
   String get noInvoice => _t('No invoice', 'بدون فاتورة');
   String get chooseSupplier => _t('Choose a supplier', 'اختر موردًا');

@@ -489,6 +489,27 @@ export async function updateSalesOrder(
       throw ApiError.badRequest('Only draft sales orders can be edited', 'NOT_EDITABLE');
     }
 
+    // Once the order is invoiced the payment has already been posted, so the
+    // paid amount can only be changed from the invoice (as a new payment).
+    if (
+      input.paidAmount !== undefined &&
+      round2(Number(input.paidAmount)) !== round2(Number(existing.paidAmount))
+    ) {
+      const invoiced = await tx.invoice.findFirst({
+        where: {
+          salesOrderId: id,
+          status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+        },
+        select: { number: true },
+      });
+      if (invoiced) {
+        throw ApiError.badRequest(
+          `Order ${existing.number} is already invoiced (${invoiced.number}); record further payments from the invoice`,
+          'ORDER_ALREADY_INVOICED',
+        );
+      }
+    }
+
     // Editing a fulfilled order changes what should have left the warehouse,
     // so the old fulfilment is rolled back before the new lines are applied.
     const hadFulfilment = existing.lines.some((line) => line.fulfilledQty > 0);

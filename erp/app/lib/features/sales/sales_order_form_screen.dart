@@ -52,6 +52,13 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
 
   bool get _editing => widget.order != null;
 
+  /// The payment is posted when the invoice is issued, so it can no longer be
+  /// changed here once the order has been executed.
+  bool get _paymentLocked {
+    final status = widget.order?.status;
+    return status == 'FULFILLED' || status == 'PARTIALLY_FULFILLED';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -371,13 +378,16 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
             const SizedBox(height: 16),
             SectionCard(
               title: s.payment,
-              subtitle: s.paymentOnOrderHint,
+              subtitle: _paymentLocked
+                  ? s.paymentLockedHint
+                  : s.paymentOnOrderHint,
               child: Column(
                 children: <Widget>[
                   AppSelectField<String?>(
                     label: s.cashBox,
                     value: _paymentCashBoxId,
                     hint: s.chooseBox,
+                    enabled: !_paymentLocked,
                     prefixIcon: Icons.account_balance_wallet_outlined,
                     options: _boxes
                         .map(
@@ -394,6 +404,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                   AppNumberField(
                     label: s.paid,
                     controller: _paidAmount,
+                    enabled: !_paymentLocked,
                     prefixIcon: Icons.payments_outlined,
                     onChanged: (_) => setState(() {}),
                   ),
@@ -401,6 +412,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                   AppSelectField<String>(
                     label: s.paymentMethod,
                     value: _paymentMethod,
+                    enabled: !_paymentLocked,
                     prefixIcon: Icons.credit_card_outlined,
                     options: const <String>[
                       'CASH',
