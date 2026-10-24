@@ -265,6 +265,7 @@ model Warehouse {
   salesOrders    SalesOrder[]
   purchaseOrders PurchaseOrder[]
   returnOrders   ReturnOrder[]
+  invoices       Invoice[]
 }
 
 model Location {
@@ -579,6 +580,8 @@ model Invoice {
   number        String        @unique
   customerId    String?
   salesOrderId  String?
+  /// Warehouse the direct invoice deducts stock from (null for order invoices).
+  warehouseId   String?
   currencyId    String?
   status        InvoiceStatus @default(DRAFT)
   issueDate     DateTime      @default(now())
@@ -596,6 +599,7 @@ model Invoice {
 
   customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   salesOrder      SalesOrder?      @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  warehouse       Warehouse?       @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
   currency        Currency?        @relation(fields: [currencyId], references: [id], onDelete: SetNull)
   lines           InvoiceLine[]
   payments        Payment[]

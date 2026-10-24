@@ -276,6 +276,7 @@ class AppStrings {
   String get cartIsEmpty => _t('The cart is empty.', 'السلة فارغة.');
   String get details => _t('Details', 'التفاصيل');
   String get warehouseRequired => _t('Warehouse *', 'المستودع *');
+  String get selectWarehouse => _t('Select a warehouse', 'اختر المستودع');
   String get customer => _t('Customer', 'العميل');
   String get walkInCustomer => _t('Walk-in customer', 'عميل نقدي');
   String get paymentMethod => _t('Payment method', 'طريقة الدفع');

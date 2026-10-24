@@ -45,6 +45,7 @@ const createSchema = z
   .object({
     salesOrderId: z.string().nullable().optional(),
     customerId: z.string().nullable().optional(),
+    warehouseId: z.string().nullable().optional(),
     currencyId: z.string().nullable().optional(),
     dueDate: z.coerce.date().nullable().optional(),
     notes: z.string().nullable().optional(),

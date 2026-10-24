@@ -5,6 +5,7 @@ import { prisma, type Tx } from '../../lib/prisma';
 import { nextNumber } from '../../lib/sequence';
 import { getSettings, isTaxEnabled } from '../../lib/settings';
 import { ACCOUNT, postJournal, reverseJournalBySource, type JournalLineInput } from '../accounting/accounting.service';
+import { applyMovement, drawFromWarehouse } from '../inventory/inventory.service';
 
 export const invoiceInclude = {
   customer: {
@@ -19,6 +20,7 @@ export const invoiceInclude = {
     },
   },
   currency: { select: { id: true, code: true, symbol: true } },
+  warehouse: { select: { id: true, code: true, name: true } },
   salesOrder: {
     select: {
       id: true,
@@ -67,6 +69,8 @@ export interface CreateInvoiceInput {
   salesOrderId?: string | null;
   customerId?: string | null;
   currencyId?: string | null;
+  /** Warehouse a direct invoice deducts stock from; ignored for order invoices. */
+  warehouseId?: string | null;
   dueDate?: Date | null;
   notes?: string | null;
   lines?: InvoiceLineInput[];
@@ -515,6 +519,7 @@ export async function createInvoiceTx(tx: Tx, input: CreateInvoiceInput) {
       number,
       customerId: built.customerId,
       salesOrderId: input.salesOrderId ?? null,
+      warehouseId: input.salesOrderId ? null : input.warehouseId ?? null,
       currencyId: built.currencyId,
       status: 'DRAFT',
       dueDate: built.dueDate,
@@ -564,6 +569,24 @@ export async function issueInvoiceTx(
   });
 
   await postInvoiceJournalTx(tx, invoice, userId, issuedAt);
+
+  // A direct invoice has no sales order behind it, so issuing it is what
+  // actually takes the goods out of the chosen warehouse.
+  if (!invoice.salesOrderId && invoice.warehouseId) {
+    for (const line of invoice.lines) {
+      if (!line.productId || line.quantity <= 0) continue;
+      await drawFromWarehouse(tx, {
+        warehouseId: invoice.warehouseId,
+        productId: line.productId,
+        quantity: line.quantity,
+        type: 'SALE',
+        unitCost: Number(line.unitCost),
+        reference: invoice.number,
+        note: `Invoice ${invoice.number}`,
+        userId,
+      });
+    }
+  }
 
   if (invoice.customerId) await recalcCustomerBalance(tx, invoice.customerId);
 
@@ -626,6 +649,29 @@ export async function voidInvoiceTx(tx: Tx, id: string, userId?: string) {
   }
 
   if (invoice.customerId) await recalcCustomerBalance(tx, invoice.customerId);
+
+  // Put a direct invoice's goods back into the warehouse it was taken from.
+  if (!invoice.salesOrderId) {
+    const movements = await tx.stockMovement.findMany({
+      where: {
+        reference: invoice.number,
+        type: 'SALE',
+        quantity: { lt: 0 },
+      },
+    });
+    for (const movement of movements) {
+      await applyMovement(tx, {
+        type: 'SALE_RETURN',
+        productId: movement.productId,
+        locationId: movement.locationId,
+        quantity: -movement.quantity,
+        unitCost: Number(movement.unitCost),
+        reference: `VOID-${invoice.number}`,
+        note: `Void invoice ${invoice.number}`,
+        userId,
+      });
+    }
+  }
 
   return updated;
 }

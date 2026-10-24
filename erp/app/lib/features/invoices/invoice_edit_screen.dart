@@ -6,6 +6,7 @@ import '../../core/l10n.dart';
 import '../../core/session.dart';
 import '../../models/customer.dart';
 import '../../models/invoice.dart';
+import '../../models/warehouse.dart';
 import '../../state/customers_controller.dart';
 import '../../state/invoices_controller.dart';
 import '../../state/product_catalog.dart';
@@ -38,6 +39,9 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
           .map(InvoiceLineDraft.fromLine)
           .toList();
 
+  List<Warehouse> _warehouses = <Warehouse>[];
+  String? _warehouseId;
+
   bool _linesDirty = false;
   bool _saving = false;
   bool _showProfit = false;
@@ -47,9 +51,22 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      final api = context.read<Session>().api;
       context.read<CustomersController>().ensureCatalogLoaded();
       final catalog = context.read<ProductCatalog>();
       await catalog.ensureLoaded();
+      if (widget.invoice == null) {
+        final rows = await api.getList('/warehouses');
+        if (!mounted) return;
+        final warehouses = rows.map(Warehouse.fromJson).toList();
+        setState(() {
+          _warehouses = warehouses;
+          _warehouseId ??= warehouses
+              .where((warehouse) => warehouse.active)
+              .map((warehouse) => warehouse.id)
+              .firstOrNull;
+        });
+      }
       if (!mounted) return;
       setState(() {
         for (final line in _lines) {
@@ -78,6 +95,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
   Map<String, dynamic> _body() {
     return <String, dynamic>{
       'customerId': _customerId,
+      'warehouseId': _warehouseId,
       'dueDate': _dueDate?.toUtc().toIso8601String(),
       'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       'lines': _lines.map((line) => line.toJson()).toList(),
@@ -191,6 +209,30 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
                     },
                     onChanged: (value) => setState(() => _customerId = value),
                   ),
+                  if (invoice == null) ...<Widget>[
+                    const SizedBox(height: 14),
+                    AppSelectField<String>(
+                      label: '${s.warehouseRequired} *',
+                      value: _warehouseId,
+                      hint: s.selectWarehouse,
+                      enabled: !_saving,
+                      prefixIcon: Icons.warehouse_outlined,
+                      options: _warehouses
+                          .where((warehouse) => warehouse.active)
+                          .map(
+                            (warehouse) => SelectOption<String>(
+                              warehouse.id,
+                              warehouse.name,
+                            ),
+                          )
+                          .toList(),
+                      validator: (value) => value == null || value.isEmpty
+                          ? s.selectWarehouse
+                          : null,
+                      onChanged: (value) =>
+                          setState(() => _warehouseId = value),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   AppDateField(
                     label: s.dueDate,
