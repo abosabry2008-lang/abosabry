@@ -37,10 +37,73 @@ async function resolveAccountId(accountCode?: string | null): Promise<string | n
   return account.id;
 }
 
+/** Posts opening entries for categories created before opening balances were journalised. */
+export async function syncExpenseCategoryOpenings() {
+  const categories = await prisma.expenseCategory.findMany({
+    where: { openingBalance: { gt: 0 } },
+    include: { account: { select: { code: true } } },
+  });
+  let posted = 0;
+  await prisma.$transaction(async (tx) => {
+    for (const category of categories) {
+      const existing = await tx.journalEntry.findFirst({
+        where: {
+          sourceType: 'EXPENSE_CATEGORY_OPENING',
+          sourceId: category.id,
+        },
+        select: { id: true },
+      });
+      if (existing) continue;
+      await postCategoryOpeningTx(
+        tx,
+        category.id,
+        category.account?.code ?? ACCOUNT.EXPENSE,
+        round2(Number(category.openingBalance)),
+        category.name,
+      );
+      posted += 1;
+    }
+  });
+  return { posted };
+}
+
 export async function listExpenseCategories() {
   return prisma.expenseCategory.findMany({
     include: expenseCategoryInclude,
     orderBy: { name: 'asc' },
+  });
+}
+
+async function postCategoryOpeningTx(
+  tx: Tx,
+  categoryId: string,
+  accountCode: string,
+  amount: number,
+  name: string,
+): Promise<void> {
+  await reverseJournalBySource(tx, {
+    sourceType: 'EXPENSE_CATEGORY_OPENING',
+    sourceId: categoryId,
+    reversalSourceType: 'EXPENSE_CATEGORY_OPENING_REVERSAL',
+    memo: `Expense category opening corrected (${name})`,
+  });
+  if (amount <= 0) return;
+  await postJournal(tx, {
+    memo: `Opening balance for expense category ${name}`,
+    sourceType: 'EXPENSE_CATEGORY_OPENING',
+    sourceId: categoryId,
+    lines: [
+      {
+        accountCode,
+        debit: amount,
+        description: `Opening expense (${name})`,
+      },
+      {
+        accountCode: ACCOUNT.EQUITY,
+        credit: amount,
+        description: `Opening capital (${name})`,
+      },
+    ],
   });
 }
 
@@ -49,19 +112,36 @@ export async function createExpenseCategory(input: ExpenseCategoryInput) {
   const existing = await prisma.expenseCategory.findUnique({ where: { name } });
   if (existing) throw ApiError.conflict('An expense category with this name already exists', 'DUPLICATE_CODE');
   const accountId = await resolveAccountId(input.accountCode);
-  return prisma.expenseCategory.create({
-    data: {
+  const opening = round2(Number(input.openingBalance ?? 0));
+  return prisma.$transaction(async (tx) => {
+    const created = await tx.expenseCategory.create({
+      data: {
+        name,
+        accountId,
+        openingBalance: opening,
+        active: input.active ?? true,
+      },
+      include: expenseCategoryInclude,
+    });
+    await postCategoryOpeningTx(
+      tx,
+      created.id,
+      created.account?.code ?? ACCOUNT.EXPENSE,
+      opening,
       name,
-      accountId,
-      openingBalance: round2(Number(input.openingBalance ?? 0)),
-      active: input.active ?? true,
-    },
-    include: expenseCategoryInclude,
+    );
+    return tx.expenseCategory.findUniqueOrThrow({
+      where: { id: created.id },
+      include: expenseCategoryInclude,
+    });
   });
 }
 
 export async function updateExpenseCategory(id: string, input: Partial<ExpenseCategoryInput>) {
-  const category = await prisma.expenseCategory.findUnique({ where: { id } });
+  const category = await prisma.expenseCategory.findUnique({
+    where: { id },
+    include: { account: { select: { code: true } } },
+  });
   if (!category) throw ApiError.notFound('Expense category not found', 'CATEGORY_NOT_FOUND');
 
   if (input.name !== undefined) {
@@ -74,18 +154,44 @@ export async function updateExpenseCategory(id: string, input: Partial<ExpenseCa
 
   const accountId =
     input.accountCode !== undefined ? await resolveAccountId(input.accountCode) : undefined;
+  const opening = round2(
+    Number(
+      input.openingBalance !== undefined
+        ? input.openingBalance
+        : category.openingBalance,
+    ),
+  );
+  const name =
+    input.name !== undefined ? input.name.trim() : category.name;
 
-  return prisma.expenseCategory.update({
-    where: { id },
-    data: {
-      ...(input.name !== undefined ? { name: input.name.trim() } : {}),
-      ...(accountId !== undefined ? { accountId } : {}),
-      ...(input.openingBalance !== undefined
-        ? { openingBalance: round2(Number(input.openingBalance)) }
-        : {}),
-      ...(input.active !== undefined ? { active: input.active } : {}),
-    },
-    include: expenseCategoryInclude,
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.expenseCategory.update({
+      where: { id },
+      data: {
+        ...(input.name !== undefined ? { name } : {}),
+        ...(accountId !== undefined ? { accountId } : {}),
+        ...(input.openingBalance !== undefined
+          ? { openingBalance: opening }
+          : {}),
+        ...(input.active !== undefined ? { active: input.active } : {}),
+      },
+      include: expenseCategoryInclude,
+    });
+
+    // Re-post the opening entry when its amount or its account changes.
+    if (input.openingBalance !== undefined || input.accountCode !== undefined) {
+      await postCategoryOpeningTx(
+        tx,
+        id,
+        updated.account?.code ?? ACCOUNT.EXPENSE,
+        opening,
+        name,
+      );
+    }
+    return tx.expenseCategory.findUniqueOrThrow({
+      where: { id },
+      include: expenseCategoryInclude,
+    });
   });
 }
 

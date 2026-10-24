@@ -14,6 +14,7 @@ import {
   deleteExpenseCategory,
   listExpenseCategories,
   listExpenses,
+  syncExpenseCategoryOpenings,
   updateExpense,
   updateExpenseCategory,
 } from './expenses.service';
@@ -63,6 +64,15 @@ router.get(
   requirePermission('expenses.read'),
   asyncHandler(async (_req, res) => {
     ok(res, await listExpenseCategories());
+  }),
+);
+
+router.post(
+  '/categories/sync-openings',
+  requirePermission('expenses.write'),
+  requireAdmin(),
+  asyncHandler(async (_req, res) => {
+    ok(res, await syncExpenseCategoryOpenings());
   }),
 );
 
