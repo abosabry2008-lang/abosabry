@@ -142,15 +142,16 @@ const STYLES = `
     color: #64748b;
   }
   table.data { width: 100%; border-collapse: collapse; margin: 0 0 20px; }
-  table.data th, table.data td { border: 1px solid #e2e8f0; padding: 7px 10px; vertical-align: top; }
+  table.data.invoice-lines { table-layout: fixed; }
+  table.data th, table.data td { border: 1px solid #e2e8f0; padding: 7px 6px; vertical-align: top; }
   table.data thead th {
     background: #0f172a;
     color: #ffffff;
     font-size: 10px;
     font-weight: 500;
-    padding: 6px 9px;
+    padding: 6px 5px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
     text-align: start;
   }
   table.data thead th.num { text-align: right; }
@@ -311,7 +312,14 @@ export function invoiceHtml(
       <h3>${escapeHtml(t('Bill to', 'العميل'))}</h3>
       ${customerLines}
     </section>
-    <table class="data">
+    <table class="data invoice-lines">
+      <colgroup>
+        <col style="width: 7%">
+        <col style="width: 32%">
+        <col style="width: 14%">
+        <col style="width: 21%">
+        <col style="width: 26%">
+      </colgroup>
       <thead>
         <tr>
           <th class="num">${escapeHtml(t('No.', 'م'))}</th>
