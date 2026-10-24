@@ -10,6 +10,8 @@ class DashboardSummary {
     this.salesToday = 0,
     this.salesThisMonth = 0,
     this.receivables = 0,
+    this.accountsReceivable = 0,
+    this.accountsPayable = 0,
     this.inventoryValue = 0,
     this.lowStockCount = 0,
     this.productCount = 0,
@@ -27,6 +29,8 @@ class DashboardSummary {
   final double salesToday;
   final double salesThisMonth;
   final double receivables;
+  final double accountsReceivable;
+  final double accountsPayable;
   final double inventoryValue;
   final int lowStockCount;
   final int productCount;
@@ -73,6 +77,14 @@ class DashboardSummary {
         json['outstandingReceivables'],
         sales['receivables'],
         sales['outstanding'],
+      ]),
+      accountsReceivable: pick(<dynamic>[
+        json['accountsReceivable'],
+        json['receivables'],
+      ]),
+      accountsPayable: pick(<dynamic>[
+        json['accountsPayable'],
+        json['payables'],
       ]),
       inventoryValue: pick(<dynamic>[
         json['inventoryValue'],
@@ -123,6 +135,8 @@ class DashboardSummary {
         'salesToday': salesToday,
         'salesThisMonth': salesThisMonth,
         'receivables': receivables,
+        'accountsReceivable': accountsReceivable,
+        'accountsPayable': accountsPayable,
         'inventoryValue': inventoryValue,
         'lowStockCount': lowStockCount,
         'productCount': productCount,

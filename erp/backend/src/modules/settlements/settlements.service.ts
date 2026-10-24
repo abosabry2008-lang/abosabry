@@ -5,6 +5,7 @@ import {
   SettlementTarget,
 } from '@prisma/client';
 import { ApiError } from '../../lib/api-error';
+import { localMonthStart } from '../../lib/local-time';
 import { round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { nextNumber } from '../../lib/sequence';
@@ -423,7 +424,7 @@ const TARGET_LABEL: Record<SettlementTarget, string> = {
 /** Builds the data for a printed settlements statement (كشف التسويات). */
 export async function buildSettlementStatement(filter: { from?: Date; to?: Date }) {
   const now = new Date();
-  const from = filter.from ?? new Date(now.getFullYear(), now.getMonth(), 1);
+  const from = filter.from ?? localMonthStart(now);
   const to = filter.to ?? now;
   const rows = await prisma.accountSettlement.findMany({
     where: {

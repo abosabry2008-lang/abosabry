@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
+import { localYearStart } from '../../lib/local-time';
 import { dayKey } from './reports.service';
 
 // ---------------------------------------------------------------------------
@@ -78,7 +79,7 @@ export async function buildConsolidatedSalesNote(
   salespersonId?: string,
 ): Promise<ConsolidatedSalesNote> {
   const now = new Date();
-  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const from = fromInput ?? localYearStart(now);
   const to = toInput ?? now;
 
   const where: Prisma.InvoiceWhereInput = {
@@ -301,7 +302,7 @@ export async function buildProfitBySalesperson(
   salespersonId?: string,
 ): Promise<SalespersonProfitReport> {
   const now = new Date();
-  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const from = fromInput ?? localYearStart(now);
   const to = toInput ?? now;
 
   const where: Prisma.InvoiceWhereInput = {
@@ -455,7 +456,7 @@ export async function buildCollectionsBySalesperson(
   salespersonId?: string,
 ): Promise<SalespersonCollectionsReport> {
   const now = new Date();
-  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const from = fromInput ?? localYearStart(now);
   const to = toInput ?? now;
 
   const vouchers = await prisma.collectionVoucher.findMany({
@@ -570,7 +571,7 @@ export async function buildSalespersonStatement(
   toInput?: Date,
 ): Promise<SalespersonStatement> {
   const now = new Date();
-  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const from = fromInput ?? localYearStart(now);
   const to = toInput ?? now;
 
   const salesperson = await prisma.user.findUnique({
@@ -736,7 +737,7 @@ export async function buildSalespersonCustomerDebt(
   filter: CustomerDebtFilter = 'all',
 ): Promise<SalespersonCustomerDebt> {
   const now = new Date();
-  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const from = fromInput ?? localYearStart(now);
   const to = toInput ?? now;
   const fromKey = dayKey(from);
   const toKey = dayKey(to);

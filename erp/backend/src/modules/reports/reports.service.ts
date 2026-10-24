@@ -1,5 +1,5 @@
 import { round2 } from '../../lib/money';
-import { localDayKey, localMonthKey } from '../../lib/local-time';
+import { localDayKey, localMonthKey, localYearStart } from '../../lib/local-time';
 import { prisma } from '../../lib/prisma';
 import { salesOrderAccessWhere, type ScopeUser } from '../../lib/salesperson-scope';
 
@@ -40,7 +40,7 @@ export async function buildSalesReport(
   user?: ScopeUser,
 ): Promise<SalesReport> {
   const now = new Date();
-  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const from = fromInput ?? localYearStart(now);
   const to = toInput ?? now;
   const access = user ? salesOrderAccessWhere(user) : null;
 
@@ -254,7 +254,7 @@ export async function buildPurchasesReport(
   groupBy: SalesGroupBy = 'day',
 ): Promise<PurchasesReport> {
   const now = new Date();
-  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const from = fromInput ?? localYearStart(now);
   const to = toInput ?? now;
 
   const orders = await prisma.purchaseOrder.findMany({
@@ -332,7 +332,7 @@ export async function buildProfitReport(
   toInput?: Date,
 ): Promise<ProfitReport> {
   const now = new Date();
-  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const from = fromInput ?? localYearStart(now);
   const to = toInput ?? now;
 
   const invoices = await prisma.invoice.findMany({
@@ -482,7 +482,7 @@ export interface TaxReport {
 /** Output tax charged on invoices minus input tax on purchase orders. */
 export async function buildTaxReport(fromInput?: Date, toInput?: Date): Promise<TaxReport> {
   const now = new Date();
-  const from = fromInput ?? new Date(now.getFullYear(), 0, 1);
+  const from = fromInput ?? localYearStart(now);
   const to = toInput ?? now;
 
   const [invoices, purchaseOrders] = await Promise.all([

@@ -1,3 +1,4 @@
+import { localYearStart } from '../../lib/local-time';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
 import { invoiceAccessWhere, isSalesperson, type ScopeUser } from '../../lib/salesperson-scope';
@@ -10,8 +11,7 @@ import { invoiceAccessWhere, isSalesperson, type ScopeUser } from '../../lib/sal
  */
 
 function startOfYear(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), 0, 1);
+  return localYearStart();
 }
 
 export function resolveRange(fromInput?: Date, toInput?: Date): {

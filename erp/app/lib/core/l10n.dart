@@ -251,6 +251,10 @@ class AppStrings {
   String get salesToday => _t('Sales today', 'مبيعات اليوم');
   String get salesThisMonth => _t('Sales this month', 'مبيعات هذا الشهر');
   String get receivables => _t('Receivables', 'المبالغ المستحقة');
+  /// Accounting name of money owed to us by customers.
+  String get accountsReceivable => _t('Accounts receivable', 'الذمم المدينة');
+  /// Accounting name of money we owe to suppliers.
+  String get accountsPayable => _t('Accounts payable', 'الذمم الدائنة');
   String get inventoryValue => _t('Inventory value', 'قيمة المخزون');
   String get lowStockItems => _t('Low stock items', 'أصناف منخفضة المخزون');
   String get openInvoices => _t('Open invoices', 'الفواتير المفتوحة');

@@ -1,4 +1,5 @@
 import { ApiError } from './api-error';
+import { localYear } from './local-time';
 import type { Tx } from './prisma';
 
 /**
@@ -23,7 +24,7 @@ export async function nextNumber(
   now: Date = new Date(),
   isTaken?: NumberTaken,
 ): Promise<string> {
-  const year = now.getFullYear();
+  const year = localYear(now);
   for (let attempt = 0; attempt < 2000; attempt += 1) {
     const sequence = await tx.sequence.upsert({
       where: { name },
@@ -58,7 +59,7 @@ export async function nextNumbers(
 ): Promise<string[]> {
   if (count <= 0) return [];
 
-  const year = now.getFullYear();
+  const year = localYear(now);
   const sequence = await tx.sequence.upsert({
     where: { name },
     create: { name, value: count },

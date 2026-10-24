@@ -1,5 +1,6 @@
 import { CashBoxType, Prisma } from '@prisma/client';
 import { ApiError } from '../../lib/api-error';
+import { tzOffsetMinutes } from '../../lib/local-time';
 import { round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { nextNumber } from '../../lib/sequence';
@@ -234,18 +235,28 @@ export interface BoxStatement {
   rows: BoxStatementRow[];
 }
 
-/** Extends a date-only bound to the last millisecond of that day. */
+/** Extends a local date-only bound to the last millisecond of that day. */
 export function inclusiveEnd(date: Date): Date {
-  const clone = new Date(date);
+  const offset = tzOffsetMinutes() * 60_000;
+  const local = new Date(date.getTime() + offset);
   if (
-    clone.getUTCHours() === 0 &&
-    clone.getUTCMinutes() === 0 &&
-    clone.getUTCSeconds() === 0 &&
-    clone.getUTCMilliseconds() === 0
+    local.getUTCHours() === 0 &&
+    local.getUTCMinutes() === 0 &&
+    local.getUTCSeconds() === 0 &&
+    local.getUTCMilliseconds() === 0
   ) {
-    clone.setUTCHours(23, 59, 59, 999);
+    const end = Date.UTC(
+      local.getUTCFullYear(),
+      local.getUTCMonth(),
+      local.getUTCDate(),
+      23,
+      59,
+      59,
+      999,
+    );
+    return new Date(end - offset);
   }
-  return clone;
+  return date;
 }
 
 function rangeFilter(from?: Date, to?: Date) {

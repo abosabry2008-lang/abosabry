@@ -113,7 +113,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             )
           else if (summary != null && widgets.contains('kpis')) ...<Widget>[
-            _KpiGrid(summary: summary),
+            _KpiGrid(
+              summary: summary,
+              showPayables: session.can('suppliers'),
+            ),
             const SizedBox(height: 16),
           ],
           if (widgets.contains('quickActions') &&
@@ -204,9 +207,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 /// A compact KPI card used by the dashboard grid.
 class _KpiGrid extends StatelessWidget {
-  const _KpiGrid({required this.summary});
+  const _KpiGrid({required this.summary, required this.showPayables});
 
   final DashboardSummary summary;
+  final bool showPayables;
 
   @override
   Widget build(BuildContext context) {
@@ -226,10 +230,22 @@ class _KpiGrid extends StatelessWidget {
         ),
       ),
       _KpiCard(
-        label: s.receivables,
+        label: s.accountsReceivable,
         icon: Icons.request_quote_outlined,
-        child: MoneyText(summary.receivables, currencyCode: summary.currencyCode),
+        child: MoneyText(
+          summary.accountsReceivable,
+          currencyCode: summary.currencyCode,
+        ),
       ),
+      if (showPayables)
+        _KpiCard(
+          label: s.accountsPayable,
+          icon: Icons.payments_outlined,
+          child: MoneyText(
+            summary.accountsPayable,
+            currencyCode: summary.currencyCode,
+          ),
+        ),
       _KpiCard(
         label: s.inventoryValue,
         icon: Icons.warehouse_outlined,
@@ -252,11 +268,6 @@ class _KpiGrid extends StatelessWidget {
         label: s.customers,
         icon: Icons.people_outline,
         child: Text(Formatters.integer(summary.customerCount)),
-      ),
-      _KpiCard(
-        label: s.openInvoices,
-        icon: Icons.description_outlined,
-        child: Text(Formatters.integer(summary.invoiceCount)),
       ),
     ];
 

@@ -17,7 +17,7 @@ import { authenticateToken } from '../../middleware/authenticate-token';
 import { currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { lowStockProducts } from '../inventory/inventory.service';
-import { postJournal } from '../accounting/accounting.service';
+import { ACCOUNT, accountBalances, postJournal } from '../accounting/accounting.service';
 import {
   buildInventoryValuation,
   buildProfitReport,
@@ -264,6 +264,25 @@ router.get(
       }
     }
 
+    // Control-account balances: what customers still owe us (accounts
+    // receivable) and what we still owe suppliers (accounts payable). These
+    // come from the ledger so the dashboard matches the balance sheet.
+    let accountsReceivable = 0;
+    let accountsPayable = 0;
+    if (own) {
+      const scoped = await prisma.customer.aggregate({
+        where: { active: true, ...(customerAccessWhere(user) ?? {}) },
+        _sum: { balance: true },
+      });
+      accountsReceivable = round2(Number(scoped._sum.balance ?? 0));
+    } else {
+      const ledger = await accountBalances(prisma, undefined, now);
+      const receivable = ledger.find((row) => row.code === ACCOUNT.RECEIVABLE);
+      const payable = ledger.find((row) => row.code === ACCOUNT.PAYABLE);
+      accountsReceivable = round2((receivable?.debit ?? 0) - (receivable?.credit ?? 0));
+      accountsPayable = round2((payable?.credit ?? 0) - (payable?.debit ?? 0));
+    }
+
     ok(res, {
       counts: {
         products: productCount,
@@ -287,6 +306,8 @@ router.get(
       },
       receivables: round2(Number(receivables._sum.balance ?? 0)),
       payables: round2(Number(payables._sum.balance ?? 0)),
+      accountsReceivable,
+      accountsPayable,
       lowStock: lowStock.slice(0, 10).map((row) => ({
         id: row.product.id,
         sku: row.product.sku,

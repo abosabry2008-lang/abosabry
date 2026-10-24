@@ -1,6 +1,7 @@
 import { AccountType } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { ApiError } from '../../lib/api-error';
+import { localYear } from '../../lib/local-time';
 import { round2 } from '../../lib/money';
 import type { Tx } from '../../lib/prisma';
 import { nextNumber, nextNumbers } from '../../lib/sequence';
@@ -187,9 +188,9 @@ export async function postJournalBatch(tx: Tx, inputs: JournalInput[]): Promise<
   // Allocate per calendar year so the `PREFIX-YYYY-00001` shape stays intact.
   const byYear = new Map<number, number[]>();
   prepared.forEach((entry, index) => {
-    const indexes = byYear.get(entry.entryDate.getFullYear()) ?? [];
+    const indexes = byYear.get(localYear(entry.entryDate)) ?? [];
     indexes.push(index);
-    byYear.set(entry.entryDate.getFullYear(), indexes);
+    byYear.set(localYear(entry.entryDate), indexes);
   });
 
   for (const [year, indexes] of byYear) {

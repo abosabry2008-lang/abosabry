@@ -48,3 +48,23 @@ export function localStamp(date: Date): string {
   const d = shifted(date);
   return `${localDayKey(date)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
+
+/** Local calendar year of an instant. */
+export function localYear(date: Date): number {
+  return shifted(date).getUTCFullYear();
+}
+
+/** First instant of the user's local calendar year. */
+export function localYearStart(now: Date = new Date()): Date {
+  const d = shifted(now);
+  return new Date(Date.UTC(d.getUTCFullYear(), 0, 1) - tzOffsetMinutes() * 60_000);
+}
+
+/** First instant of the user's local calendar month. */
+export function localMonthStart(now: Date = new Date()): Date {
+  const d = shifted(now);
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) -
+      tzOffsetMinutes() * 60_000,
+  );
+}
