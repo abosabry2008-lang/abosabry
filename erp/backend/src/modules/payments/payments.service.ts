@@ -392,6 +392,10 @@ export async function createPaymentTx(tx: Tx, input: CreatePaymentInput) {
     userId: input.userId,
   });
 
+  // An on-account receipt changes the customer's balance even though it is not
+  // tied to an invoice, so the stored balance must be refreshed here.
+  if (payment.customerId) await recalcCustomerBalance(tx, payment.customerId);
+
   return payment;
 }
 
@@ -445,6 +449,10 @@ export async function cancelPaymentTx(tx: Tx, paymentId: string, userId?: string
   });
 
   if (payment.invoiceId) await syncInvoicePaidTx(tx, payment.invoiceId);
+
+  if (!payment.invoiceId && payment.customerId) {
+    await recalcCustomerBalance(tx, payment.customerId);
+  }
 
   if (payment.supplierId && payment.direction === 'OUTBOUND' && !payment.invoiceId) {
     await tx.supplier.update({
