@@ -103,7 +103,9 @@ router.get(
     const now = new Date();
     // The browser sends its UTC offset so "today" matches the user's calendar,
     // not the server's timezone.
-    const tzOffsetMinutes = Number(asString(req.query.tzOffset) ?? 0);
+    const tzOffsetMinutes = Number(
+      asString(req.query.tzOffset) ?? req.get('x-tz-offset') ?? 0,
+    );
     const tzOffsetMs = tzOffsetMinutes * 60 * 1000;
     const localNow = new Date(now.getTime() + tzOffsetMs);
     const todayStart = new Date(

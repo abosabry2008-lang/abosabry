@@ -187,7 +187,12 @@ class ReportsController extends ChangeNotifier {
     notifyListeners();
     try {
       dashboard = DashboardSummary.fromJson(
-        await api.getObject('/reports/dashboard'),
+        await api.getObject(
+          '/reports/dashboard',
+          query: <String, dynamic>{
+            'tzOffset': DateTime.now().timeZoneOffset.inMinutes,
+          },
+        ),
       );
     } on ApiException catch (exception) {
       dashboardError = exception.message;

@@ -147,9 +147,10 @@ const STYLES = `
     background: #0f172a;
     color: #ffffff;
     font-size: 11px;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    text-align: left;
+    text-align: start;
   }
   table.data thead th.num { text-align: right; }
   table.data tbody tr:nth-child(even) { background: #f8fafc; }
