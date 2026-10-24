@@ -257,9 +257,6 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-/// Width of the collapsed navigation rail (icon-only, labels below icons).
-const double _railCollapsedWidth = 76;
-
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _index = 0;
   bool _bootstrapped = false;
@@ -364,6 +361,26 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       );
     }
 
+    // The persistent web sidebar uses the same grouped order as the mobile
+    // drawer, so the navigation stays familiar on every screen size.
+    final sidebarTiles = <Widget>[];
+    _NavGroup? lastSidebarGroup;
+    for (var i = 0; i < destinations.length; i++) {
+      final group = _groupFor(destinations[i]);
+      if (group != lastSidebarGroup) {
+        lastSidebarGroup = group;
+        sidebarTiles.add(_DrawerGroupLabel(label: _groupLabel(group, s)));
+      }
+      sidebarTiles.add(
+        _DrawerTile(
+          icon: destinations[i].icon,
+          label: destinations[i].label(s),
+          selected: i == index,
+          onTap: () => setState(() => _index = i),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(destination.label(s)),
@@ -418,7 +435,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
               child: SizedBox(
-                width: isExtraWide ? 236 : _railCollapsedWidth,
+                width: isExtraWide ? 236 : 210,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
@@ -439,43 +456,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(18),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) => Scrollbar(
+                    child: Scrollbar(
+                      controller: _railScrollController,
+                      thumbVisibility: true,
+                      child: ListView(
                         controller: _railScrollController,
-                        thumbVisibility: true,
-                        child: SingleChildScrollView(
-                          controller: _railScrollController,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: constraints.maxHeight,
-                              minWidth: constraints.maxWidth,
-                            ),
-                            child: IntrinsicHeight(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                                child: NavigationRail(
-                                  backgroundColor: Colors.transparent,
-                                  selectedIndex: index,
-                                  extended: isExtraWide,
-                                  labelType: isExtraWide
-                                      ? null
-                                      : NavigationRailLabelType.all,
-                                  onDestinationSelected: (value) =>
-                                      setState(() => _index = value),
-                                  destinations: <NavigationRailDestination>[
-                                    for (final item in destinations)
-                                      NavigationRailDestination(
-                                        icon: Icon(item.icon),
-                                        selectedIcon: Icon(item.icon),
-                                        label: Text(item.label(s)),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        children: sidebarTiles,
                       ),
                     ),
                   ),

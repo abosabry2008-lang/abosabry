@@ -19,6 +19,8 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
+  <meta name="theme-color" content="#f1f5f9">
+  <meta name="color-scheme" content="light only">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -31,6 +33,17 @@
 
   <title>erp_app</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Keep the page around the Flutter view light even when the browser is in
+       dark mode; the app itself controls its own colours. */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #f1f5f9;
+      color-scheme: light;
+    }
+  </style>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

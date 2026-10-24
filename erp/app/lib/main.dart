@@ -181,6 +181,7 @@ class _ErpAppState extends State<ErpApp> {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
+          themeMode: ThemeMode.light,
           locale: localeController.locale,
           supportedLocales: const <Locale>[Locale('en'), Locale('ar')],
           localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
