@@ -164,8 +164,8 @@ class Invoice {
         'salesOrderId': salesOrderId,
         'currencyId': currencyId,
         'status': status,
-        'issueDate': issueDate?.toIso8601String(),
-        'dueDate': dueDate?.toIso8601String(),
+        'issueDate': issueDate?.toUtc().toIso8601String(),
+        'dueDate': dueDate?.toUtc().toIso8601String(),
         'notes': notes,
         'lines': lines.map((line) => line.toJson()).toList(),
       };

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/api_client.dart';
+import '../core/formatters.dart';
 import '../core/api_exception.dart';
 import '../models/cash_box.dart';
 import '../models/dashboard_summary.dart';
@@ -212,8 +213,8 @@ class ReportsController extends ChangeNotifier {
         '/reports/sales',
         <String, dynamic>{
           if (from != null || to != null) 'groupBy': groupBy,
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
         },
         listKey: 'series',
       );
@@ -267,8 +268,8 @@ class ReportsController extends ChangeNotifier {
         '/reports/top-products',
         <String, dynamic>{
           'limit': limit,
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
         },
         listKey: 'rows',
       );
@@ -336,8 +337,8 @@ class ReportsController extends ChangeNotifier {
       final data = await _fetchReport(
         '/reports/receivables-by-salesperson',
         <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
           if (userId != null && userId.isNotEmpty) 'userId': userId,
         },
       );
@@ -362,8 +363,8 @@ class ReportsController extends ChangeNotifier {
       final data = await _fetchReport(
         '/reports/supplier-payables',
         <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
         },
       );
       supplierPayables = asMapList(data['rows']);
@@ -423,8 +424,8 @@ class ReportsController extends ChangeNotifier {
         '/reports/item-movement',
         <String, dynamic>{
           'productId': productId,
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
           if (warehouseId != null && warehouseId.isNotEmpty)
             'warehouseId': warehouseId,
         },
@@ -453,8 +454,8 @@ class ReportsController extends ChangeNotifier {
         path: '/reports/purchases',
         query: <String, dynamic>{
           'groupBy': groupBy,
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
         },
         setStatus: (loading, error) {
           loadingPurchasesReport = loading;
@@ -467,8 +468,8 @@ class ReportsController extends ChangeNotifier {
   Future<void> loadProfitReport({DateTime? from, DateTime? to}) => _loadSection(
         path: '/reports/profit',
         query: <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
         },
         setStatus: (loading, error) {
           loadingProfitReport = loading;
@@ -481,8 +482,8 @@ class ReportsController extends ChangeNotifier {
   Future<void> loadTaxReport({DateTime? from, DateTime? to}) => _loadSection(
         path: '/reports/tax',
         query: <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
         },
         setStatus: (loading, error) {
           loadingTaxReport = loading;
@@ -496,7 +497,7 @@ class ReportsController extends ChangeNotifier {
         path: '/reports/aging',
         query: <String, dynamic>{
           'side': 'receivable',
-          if (asOf != null) 'asOf': asOf.toIso8601String(),
+          if (asOf != null) 'asOf': Formatters.isoRangeEnd(asOf),
         },
         setStatus: (loading, error) {
           loadingReceivablesAging = loading;
@@ -510,7 +511,7 @@ class ReportsController extends ChangeNotifier {
         path: '/reports/aging',
         query: <String, dynamic>{
           'side': 'payable',
-          if (asOf != null) 'asOf': asOf.toIso8601String(),
+          if (asOf != null) 'asOf': Formatters.isoRangeEnd(asOf),
         },
         setStatus: (loading, error) {
           loadingPayablesAging = loading;
@@ -623,8 +624,8 @@ class ReportsController extends ChangeNotifier {
   Future<void> loadExpenseReport({DateTime? from, DateTime? to}) => _loadSection(
         path: '/expenses/report',
         query: <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
         },
         setStatus: (loading, error) {
           loadingExpenseReport = loading;
@@ -648,8 +649,8 @@ class ReportsController extends ChangeNotifier {
       _loadSection(
         path: '/accounting/income-statement',
         query: <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
         },
         setStatus: (loading, error) {
           loadingIncomeStatement = loading;
@@ -662,7 +663,7 @@ class ReportsController extends ChangeNotifier {
   Future<void> loadBalanceSheet({DateTime? asOf}) => _loadSection(
         path: '/accounting/balance-sheet',
         query: <String, dynamic>{
-          if (asOf != null) 'asOf': asOf.toIso8601String(),
+          if (asOf != null) 'asOf': Formatters.isoRangeEnd(asOf),
         },
         setStatus: (loading, error) {
           loadingBalanceSheet = loading;
@@ -682,8 +683,8 @@ class ReportsController extends ChangeNotifier {
       _loadSection(
         path: '/reports/consolidated-sales-note',
         query: <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
           if (salespersonId != null && salespersonId.isNotEmpty)
             'salespersonId': salespersonId,
         },
@@ -703,8 +704,8 @@ class ReportsController extends ChangeNotifier {
       _loadSection(
         path: '/reports/profit-by-salesperson',
         query: <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
           if (salespersonId != null && salespersonId.isNotEmpty)
             'salespersonId': salespersonId,
         },
@@ -724,8 +725,8 @@ class ReportsController extends ChangeNotifier {
       _loadSection(
         path: '/reports/collections-by-salesperson',
         query: <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
           if (salespersonId != null && salespersonId.isNotEmpty)
             'salespersonId': salespersonId,
         },
@@ -745,8 +746,8 @@ class ReportsController extends ChangeNotifier {
       _loadSection(
         path: '/reports/salespeople/$salespersonId/statement',
         query: <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
         },
         setStatus: (loading, error) {
           loadingSalespersonStatement = loading;
@@ -765,8 +766,8 @@ class ReportsController extends ChangeNotifier {
       _loadSection(
         path: '/reports/salespeople/$salespersonId/customers',
         query: <String, dynamic>{
-          if (from != null) 'from': from.toIso8601String(),
-          if (to != null) 'to': to.toIso8601String(),
+          if (from != null) 'from': from.toUtc().toIso8601String(),
+          if (to != null) 'to': Formatters.isoRangeEnd(to),
           'filter': filter,
         },
         setStatus: (loading, error) {

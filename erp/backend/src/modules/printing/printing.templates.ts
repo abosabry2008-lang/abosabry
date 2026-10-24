@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { localDayKey, localStamp } from '../../lib/local-time';
 import { lineTotals, num, round2 } from '../../lib/money';
 import type { AppSettings } from '../../lib/settings';
 import { invoiceInclude } from '../invoices/invoices.service';
@@ -65,16 +66,16 @@ function money(value: unknown): string {
   return formatMoney(value);
 }
 
-/** Formats a Date / date string as YYYY-MM-DD. */
+/** Formats a Date / date string as YYYY-MM-DD in the user's local timezone. */
 export function formatDate(value: unknown): string {
   if (value === null || value === undefined || value === '') return '';
   const date = value instanceof Date ? value : new Date(String(value));
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  return localDayKey(date);
 }
 
 function timestamp(): string {
-  return `${new Date().toISOString().replace('T', ' ').slice(0, 19)} UTC`;
+  return localStamp(new Date());
 }
 
 // ---------------------------------------------------------------------------

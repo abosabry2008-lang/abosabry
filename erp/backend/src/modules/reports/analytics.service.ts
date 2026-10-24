@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { ApiError } from '../../lib/api-error';
+import { localDayKey } from '../../lib/local-time';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
 import {
@@ -142,11 +143,9 @@ export async function buildReceivablesBySalesperson(
   };
 }
 
-/** Local (not UTC) calendar-day key so period boundaries match the date picker. */
+/** Local (browser) calendar-day key so period boundaries match the date picker. */
 function startOfDayKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate(),
-  ).padStart(2, '0')}`;
+  return localDayKey(date);
 }
 
 // ---------------------------------------------------------------------------

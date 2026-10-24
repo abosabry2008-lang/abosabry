@@ -89,7 +89,7 @@ class JournalEntry {
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
         'number': number,
-        'entryDate': entryDate?.toIso8601String(),
+        'entryDate': entryDate?.toUtc().toIso8601String(),
         'memo': memo,
         'reference': reference,
         'lines': lines.map((line) => line.toJson()).toList(),

@@ -76,7 +76,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
   Map<String, dynamic> _body() {
     return <String, dynamic>{
       'customerId': _customerId,
-      'dueDate': _dueDate?.toIso8601String(),
+      'dueDate': _dueDate?.toUtc().toIso8601String(),
       'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       'lines': _lines.map((line) => line.toJson()).toList(),
     };

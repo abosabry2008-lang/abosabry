@@ -80,8 +80,8 @@ class _GeneralLedgerScreenState extends State<GeneralLedgerScreen> {
             '/reports/general-ledger',
             query: <String, dynamic>{
               'accountId': accountId,
-              if (_from != null) 'from': _from!.toIso8601String(),
-              if (_to != null) 'to': _to!.toIso8601String(),
+              if (_from != null) 'from': _from!.toUtc().toIso8601String(),
+              if (_to != null) 'to': Formatters.isoRangeEnd(_to!),
             },
           );
       if (!mounted) return;

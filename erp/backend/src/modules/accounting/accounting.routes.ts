@@ -5,7 +5,7 @@ import { ApiError } from '../../lib/api-error';
 import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
-import { asDate, asString } from '../../lib/query';
+import { asDate, asDateEnd, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
@@ -85,7 +85,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const paging = getPaging(req.query as Record<string, unknown>, 25);
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const search = asString(req.query.search);
 
     const where = {
@@ -357,7 +357,7 @@ router.get(
   requirePermission('accounting.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     ok(res, await buildIncomeStatement(prisma, from, to));
   }),
 );

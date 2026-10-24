@@ -96,8 +96,8 @@ class _ExtraReportScreenState extends State<ExtraReportScreen> {
             query: <String, dynamic>{
               ...widget.extraQuery,
               if (widget.dateRange && _from != null)
-                'from': _from!.toIso8601String(),
-              if (widget.dateRange && _to != null) 'to': _to!.toIso8601String(),
+                'from': _from!.toUtc().toIso8601String(),
+              if (widget.dateRange && _to != null) 'to': Formatters.isoRangeEnd(_to!),
               if (widget.typeFilter && _type.isNotEmpty) 'type': _type,
               if (widget.daysSelector) 'days': _days,
             },

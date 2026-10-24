@@ -148,7 +148,7 @@ class _SettlementFormScreenState extends State<SettlementFormScreen> {
       'reference':
           _reference.text.trim().isEmpty ? null : _reference.text.trim(),
       'note': _note.text.trim().isEmpty ? null : _note.text.trim(),
-      'settledAt': _date.toIso8601String(),
+      'settledAt': _date.toUtc().toIso8601String(),
     };
 
     try {

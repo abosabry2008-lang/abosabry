@@ -134,8 +134,8 @@ class PurchaseOrder {
         'warehouseId': warehouseId,
         'currencyId': currencyId,
         'status': status,
-        'orderDate': orderDate?.toIso8601String(),
-        'expectedDate': expectedDate?.toIso8601String(),
+        'orderDate': orderDate?.toUtc().toIso8601String(),
+        'expectedDate': expectedDate?.toUtc().toIso8601String(),
         'notes': notes,
         'lines': lines.map((line) => line.toJson()).toList(),
       };

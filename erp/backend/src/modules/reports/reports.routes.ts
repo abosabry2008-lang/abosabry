@@ -4,7 +4,7 @@ import { ApiError } from '../../lib/api-error';
 import { asyncHandler, ok } from '../../lib/http';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
-import { asDate, asString } from '../../lib/query';
+import { asDate, asDateEnd, asString } from '../../lib/query';
 import {
   assertCustomerAccess,
   canViewProfit,
@@ -315,7 +315,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const groupBy = asString(req.query.groupBy) === 'month' ? 'month' : 'day';
 
     ok(res, await buildSalesReport(from, to, groupBy, currentUser(req)));
@@ -338,7 +338,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const limit = Number(asString(req.query.limit) ?? 10);
 
     ok(res, await buildTopProducts(from, to, limit, currentUser(req)));
@@ -721,7 +721,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const userId = scopedSalespersonId(currentUser(req), asString(req.query.userId));
     ok(res, await buildReceivablesBySalesperson(from, to, userId));
   }),
@@ -733,7 +733,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     ok(res, await buildSupplierPayables(from, to));
   }),
 );
@@ -744,11 +744,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const rawTo = asDate(req.query.to);
-    // A date-only `to` means the whole day, not midnight.
-    const to = rawTo
-      ? new Date(rawTo.getFullYear(), rawTo.getMonth(), rawTo.getDate(), 23, 59, 59, 999)
-      : undefined;
+    const to = asDateEnd(req.query.to);
     const salespersonId = scopedSalespersonId(currentUser(req), asString(req.query.salespersonId));
     ok(res, await buildConsolidatedSalesNote(from, to, salespersonId));
   }),
@@ -760,7 +756,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     requireProfitAccess(req);
     const salespersonId = scopedSalespersonId(currentUser(req), asString(req.query.salespersonId));
     ok(res, await buildProfitBySalesperson(from, to, salespersonId));
@@ -773,7 +769,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const salespersonId = scopedSalespersonId(currentUser(req), asString(req.query.salespersonId));
     ok(res, await buildCollectionsBySalesperson(from, to, salespersonId));
   }),
@@ -786,7 +782,7 @@ router.get(
   asyncHandler(async (req, res) => {
     requireOwnSalesperson(req);
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     try {
       ok(res, await buildSalespersonStatement(req.params.id, from, to));
     } catch (error) {
@@ -805,7 +801,7 @@ router.get(
   asyncHandler(async (req, res) => {
     requireOwnSalesperson(req);
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const rawFilter = asString(req.query.filter);
     const filter =
       rawFilter === 'debtors' || rawFilter === 'creditors' ? rawFilter : 'all';
@@ -839,7 +835,7 @@ router.get(
     const productId = asString(req.query.productId);
     if (!productId) throw ApiError.badRequest('productId is required', 'PRODUCT_REQUIRED');
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const warehouseId = asString(req.query.warehouseId);
     ok(res, await buildItemMovement(productId, from, to, warehouseId));
   }),
@@ -851,7 +847,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     await assertCustomerAccess(currentUser(req), req.params.id);
     ok(res, await buildCustomerStatement(req.params.id, from, to));
   }),
@@ -863,7 +859,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     ok(res, await buildSupplierStatement(req.params.id, from, to));
   }),
 );
@@ -874,7 +870,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const groupBy = asString(req.query.groupBy) === 'month' ? 'month' : 'day';
     ok(res, await buildPurchasesReport(from, to, groupBy));
   }),
@@ -886,7 +882,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     requireProfitAccess(req);
     ok(res, await buildProfitReport(from, to));
   }),
@@ -898,7 +894,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     ok(res, await buildTaxReport(from, to));
   }),
 );
@@ -959,7 +955,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const report = await buildSalesByCustomer(from, to, currentUser(req));
     ok(
       res,
@@ -976,7 +972,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const report = await buildSalesByCategory(from, to, currentUser(req));
     ok(res, canViewProfit(currentUser(req)) ? report : stripProfit(report, ['cost', 'profit']));
   }),
@@ -988,7 +984,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     ok(res, await buildSalesBySalesperson(from, to, currentUser(req)));
   }),
 );
@@ -999,7 +995,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     ok(res, await buildPurchasesBySupplier(from, to));
   }),
 );
@@ -1010,7 +1006,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const user = currentUser(req);
     // Representatives see only their customers' returns, never supplier returns.
     const type = isSalesperson(user) ? 'CUSTOMER_RETURN' : asString(req.query.type);
@@ -1024,7 +1020,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     ok(res, await buildCashFlowReport(from, to));
   }),
 );
@@ -1045,7 +1041,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     ok(res, await buildPaymentsByMethod(from, to));
   }),
 );
@@ -1058,7 +1054,7 @@ router.get(
     const accountId = asString(req.query.accountId);
     if (!accountId) throw ApiError.badRequest('accountId is required');
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const account = await prisma.account.findUnique({
       where: { id: accountId },
       select: { id: true, code: true, name: true, type: true },

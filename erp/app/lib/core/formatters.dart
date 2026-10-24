@@ -73,6 +73,15 @@ class Formatters {
   static String isoDate(DateTime value) =>
       DateFormat('yyyy-MM-dd').format(value);
 
+  /// ISO instant for the end of the given local calendar day, in UTC.
+  ///
+  /// Date pickers return midnight, so a range ending on that raw value would
+  /// drop everything that happened during the selected day.
+  static String isoRangeEnd(DateTime value) =>
+      DateTime(value.year, value.month, value.day, 23, 59, 59, 999)
+          .toUtc()
+          .toIso8601String();
+
   /// Converts `PARTIALLY_RECEIVED` into `Partially received`.
   static String label(String? raw) {
     if (raw == null || raw.trim().isEmpty) return '—';

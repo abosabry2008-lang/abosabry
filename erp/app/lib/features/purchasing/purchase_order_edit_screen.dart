@@ -88,7 +88,7 @@ class _PurchaseOrderEditScreenState extends State<PurchaseOrderEditScreen> {
       await controller.api.patch(
         '/purchase-orders/${widget.order.id}',
         body: <String, dynamic>{
-          'expectedDate': _expectedDate?.toIso8601String(),
+          'expectedDate': _expectedDate?.toUtc().toIso8601String(),
           'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           if (_linesDirty)
             'lines': _lines

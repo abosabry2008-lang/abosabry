@@ -1,12 +1,13 @@
 import { round2 } from '../../lib/money';
+import { localDayKey, localMonthKey } from '../../lib/local-time';
 import { prisma } from '../../lib/prisma';
 import { salesOrderAccessWhere, type ScopeUser } from '../../lib/salesperson-scope';
 
 export type SalesGroupBy = 'day' | 'month';
 
-export const dayKey = (date: Date): string => date.toISOString().slice(0, 10);
+export const dayKey = (date: Date): string => localDayKey(date);
 
-export const monthKey = (date: Date): string => date.toISOString().slice(0, 7);
+export const monthKey = (date: Date): string => localMonthKey(date);
 
 export interface SalesReportBucket {
   period: string;

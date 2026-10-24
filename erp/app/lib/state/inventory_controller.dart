@@ -1,3 +1,4 @@
+import '../core/formatters.dart';
 import '../models/stock_level.dart';
 import '../models/stock_movement.dart';
 import 'paged_list_controller.dart';
@@ -146,8 +147,8 @@ class MovementsController extends PagedListController<StockMovement> {
           'warehouseId': _warehouseId,
         if (_productId != null && _productId!.isNotEmpty) 'productId': _productId,
         if (_type != null && _type!.isNotEmpty) 'type': _type,
-        if (_from != null) 'from': _from!.toIso8601String(),
-        if (_to != null) 'to': _to!.toIso8601String(),
+        if (_from != null) 'from': _from!.toUtc().toIso8601String(),
+        if (_to != null) 'to': Formatters.isoRangeEnd(_to!),
       };
 
   void filterByWarehouse(String? value) {

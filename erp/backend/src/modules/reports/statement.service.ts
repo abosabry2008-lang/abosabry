@@ -1,4 +1,5 @@
 import { ApiError } from '../../lib/api-error';
+import { localDayKey } from '../../lib/local-time';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
 
@@ -78,7 +79,7 @@ interface RawRow {
 }
 
 const isoDay = (value: Date | undefined): string | null =>
-  value ? value.toISOString().slice(0, 10) : null;
+  value ? localDayKey(value) : null;
 
 /** Chronological order, ties broken by creation time, documents before payments. */
 function compareRawRows(a: RawRow, b: RawRow): number {

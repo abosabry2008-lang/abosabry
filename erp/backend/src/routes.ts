@@ -25,8 +25,20 @@ import suppliersRoutes from './modules/suppliers/suppliers.routes';
 import treasuryRoutes from './modules/treasury/treasury.routes';
 import usersRoutes from './modules/users/users.routes';
 import { locationsRouter, warehousesRouter } from './modules/warehouses/warehouses.routes';
+import { runWithTzOffset } from './lib/local-time';
 
 const api = Router();
+
+// Every request carries the browser's UTC offset so printed documents and
+// report groupings use the user's calendar day instead of the server's.
+api.use((req, _res, next) => {
+  const queryOffset = req.query.tzOffset;
+  const raw = Array.isArray(queryOffset)
+    ? queryOffset[0]
+    : (queryOffset ?? req.header('x-tz-offset'));
+  const offset = Number(typeof raw === 'string' ? raw : '');
+  runWithTzOffset(Number.isFinite(offset) ? offset : 0, () => next());
+});
 
 api.get('/health', (_req, res) => {
   res.json({ status: 'ok', version: '1.0.0' });

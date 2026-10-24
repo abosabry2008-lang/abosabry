@@ -122,7 +122,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       'reference':
           _reference.text.trim().isEmpty ? null : _reference.text.trim(),
       'note': _note.text.trim().isEmpty ? null : _note.text.trim(),
-      'spentAt': _date.toIso8601String(),
+      'spentAt': _date.toUtc().toIso8601String(),
     };
     try {
       if (_editing) {

@@ -146,7 +146,7 @@ class _JournalEntryFormScreenState extends State<JournalEntryFormScreen> {
       await api.postObject(
         '/accounting/journal',
         body: <String, dynamic>{
-          'entryDate': _entryDate.toIso8601String(),
+          'entryDate': _entryDate.toUtc().toIso8601String(),
           'memo': _memo.text.trim().isEmpty ? null : _memo.text.trim(),
           'reference':
               _reference.text.trim().isEmpty ? null : _reference.text.trim(),

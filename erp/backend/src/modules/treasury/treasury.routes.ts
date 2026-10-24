@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { ApiError } from '../../lib/api-error';
 import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http';
 import { prisma } from '../../lib/prisma';
-import { asBool, asDate, asString } from '../../lib/query';
+import { asBool, asDate, asDateEnd, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
@@ -180,7 +180,7 @@ router.get(
   requirePermission('treasury.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const statement = await buildCashBoxStatement(req.params.id, from, to);
     ok(res, statement);
   }),

@@ -149,6 +149,8 @@ class ApiClient {
     final uri = _buildUri(path, query);
     final headers = <String, String>{
       'Accept': 'application/json',
+      // Lets the API format dates and group reports by the user's day.
+      'X-Tz-Offset': DateTime.now().timeZoneOffset.inMinutes.toString(),
       if (body != null) 'Content-Type': 'application/json',
       if (accessToken != null && accessToken!.isNotEmpty)
         'Authorization': 'Bearer $accessToken',

@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { ApiError } from '../../lib/api-error';
 import { asyncHandler } from '../../lib/http';
 import { prisma } from '../../lib/prisma';
-import { asDate, asString } from '../../lib/query';
+import { asDate, asDateEnd, asString } from '../../lib/query';
 import { round2 } from '../../lib/money';
 import { getSettings } from '../../lib/settings';
 import { buildCashBoxStatement } from '../treasury/treasury.service';
@@ -113,7 +113,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const [statement, settings] = await Promise.all([
       buildCustomerStatement(req.params.id, from, to),
       getSettings(),
@@ -128,7 +128,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const [statement, settings] = await Promise.all([
       buildSupplierStatement(req.params.id, from, to),
       getSettings(),
@@ -143,7 +143,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const groupBy: SalesGroupBy = asString(req.query.groupBy) === 'month' ? 'month' : 'day';
     const [report, settings] = await Promise.all([buildSalesReport(from, to, groupBy), getSettings()]);
     sendHtml(res, salesReportHtml(report, settings));
@@ -170,7 +170,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const limit = Number(asString(req.query.limit) ?? 10);
     const [report, settings] = await Promise.all([buildTopProducts(from, to, limit), getSettings()]);
     sendHtml(res, topProductsHtml(report, settings));
@@ -183,7 +183,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const userId = asString(req.query.userId);
     const lang = asString(req.query.lang) ?? 'en';
     const [report, settings] = await Promise.all([
@@ -200,7 +200,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const lang = asString(req.query.lang) ?? 'en';
     const [report, settings] = await Promise.all([buildSupplierPayables(from, to), getSettings()]);
     sendHtml(res, supplierPayablesHtml(report, settings, lang));
@@ -233,10 +233,7 @@ router.get(
       throw ApiError.forbidden('You can only print your own invoices');
     }
     const from = asDate(req.query.from);
-    const rawTo = asDate(req.query.to);
-    const to = rawTo
-      ? new Date(rawTo.getFullYear(), rawTo.getMonth(), rawTo.getDate(), 23, 59, 59, 999)
-      : undefined;
+    const to = asDateEnd(req.query.to);
     const lang = asString(req.query.lang) ?? 'en';
     const salesperson = await prisma.user.findUnique({
       where: { id: req.params.id },
@@ -281,7 +278,7 @@ router.get(
   requirePermission('treasury.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const lang = asString(req.query.lang) ?? 'en';
     const [statement, settings] = await Promise.all([
       buildCashBoxStatement(req.params.id, from, to),
@@ -412,7 +409,7 @@ router.get(
     const productId = asString(req.query.productId);
     if (!productId) throw ApiError.badRequest('productId is required', 'PRODUCT_REQUIRED');
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const warehouseId = asString(req.query.warehouseId);
     const lang = asString(req.query.lang) ?? 'en';
     const [report, settings] = await Promise.all([
@@ -429,10 +426,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const rawTo = asDate(req.query.to);
-    const to = rawTo
-      ? new Date(rawTo.getFullYear(), rawTo.getMonth(), rawTo.getDate(), 23, 59, 59, 999)
-      : undefined;
+    const to = asDateEnd(req.query.to);
     const salespersonId = asString(req.query.salespersonId);
     const lang = asString(req.query.lang) ?? 'en';
     const [report, settings] = await Promise.all([
@@ -449,7 +443,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const salespersonId = asString(req.query.salespersonId);
     const lang = asString(req.query.lang) ?? 'en';
     const [report, settings] = await Promise.all([
@@ -466,7 +460,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const salespersonId = asString(req.query.salespersonId);
     const lang = asString(req.query.lang) ?? 'en';
     const [report, settings] = await Promise.all([
@@ -483,7 +477,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const lang = asString(req.query.lang) ?? 'en';
     const [statement, settings] = await Promise.all([
       buildSalespersonStatement(req.params.id, from, to),
@@ -514,7 +508,7 @@ router.get(
   requirePermission('reports.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const lang = asString(req.query.lang) ?? 'en';
     const rawFilter = asString(req.query.filter);
     const filter =
@@ -533,7 +527,7 @@ router.get(
   requirePermission('payments.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const cashBoxId = asString(req.query.cashBoxId);
     const lang = asString(req.query.lang) ?? 'en';
     const [report, settings] = await Promise.all([
@@ -550,7 +544,7 @@ router.get(
   requirePermission('expenses.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const lang = asString(req.query.lang) ?? 'en';
     const category = await prisma.expenseCategory.findUnique({
       where: { id: req.params.id },
@@ -588,7 +582,7 @@ router.get(
   requirePermission('treasury.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const lang = asString(req.query.lang) ?? 'en';
     const [report, settings] = await Promise.all([
       buildSettlementStatement({ from, to }),
@@ -604,7 +598,7 @@ router.get(
   requirePermission('expenses.read'),
   asyncHandler(async (req, res) => {
     const from = asDate(req.query.from);
-    const to = asDate(req.query.to);
+    const to = asDateEnd(req.query.to);
     const lang = asString(req.query.lang) ?? 'en';
     const [report, settings] = await Promise.all([
       buildExpenseReport({ from, to }),

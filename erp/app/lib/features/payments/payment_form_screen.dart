@@ -209,7 +209,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
           'reference':
               _reference.text.trim().isEmpty ? null : _reference.text.trim(),
           'note': _note.text.trim().isEmpty ? null : _note.text.trim(),
-          'paidAt': _paidAt.toIso8601String(),
+          'paidAt': _paidAt.toUtc().toIso8601String(),
         },
       );
       if (!mounted) return;

@@ -157,7 +157,7 @@ class SalesOrder {
         'currencyId': currencyId,
         'status': status,
         'channel': channel,
-        'orderDate': orderDate?.toIso8601String(),
+        'orderDate': orderDate?.toUtc().toIso8601String(),
         'paidAmount': paidAmount,
         'paymentCashBoxId': paymentCashBoxId,
         'paymentMethod': paymentMethod,

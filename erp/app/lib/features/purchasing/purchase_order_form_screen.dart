@@ -86,7 +86,7 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
         body: <String, dynamic>{
           'supplierId': _supplierId,
           'warehouseId': _warehouseId,
-          'expectedDate': _expectedDate?.toIso8601String(),
+          'expectedDate': _expectedDate?.toUtc().toIso8601String(),
           'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           'lines': validLines
               .map(

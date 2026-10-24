@@ -102,6 +102,6 @@ class Payment {
         'amount': amount,
         'reference': reference,
         'note': note,
-        'paidAt': paidAt?.toIso8601String(),
+        'paidAt': paidAt?.toUtc().toIso8601String(),
       };
 }

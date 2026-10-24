@@ -112,7 +112,7 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
           '/treasury/transfers/${widget.transfer!.id}',
           body: <String, dynamic>{
             'amount': double.tryParse(_amount.text.trim()) ?? 0,
-            'transferDate': _date.toIso8601String(),
+            'transferDate': _date.toUtc().toIso8601String(),
             'reference':
                 _reference.text.trim().isEmpty ? null : _reference.text.trim(),
             'note': _note.text.trim().isEmpty ? null : _note.text.trim(),
@@ -126,7 +126,7 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
             'fromBoxId': _fromId,
             'toBoxId': _toId,
             'amount': double.tryParse(_amount.text.trim()) ?? 0,
-            'transferDate': _date.toIso8601String(),
+            'transferDate': _date.toUtc().toIso8601String(),
             'reference':
                 _reference.text.trim().isEmpty ? null : _reference.text.trim(),
             'note': _note.text.trim().isEmpty ? null : _note.text.trim(),

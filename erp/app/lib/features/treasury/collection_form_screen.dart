@@ -227,7 +227,7 @@ class _CollectionFormScreenState extends State<CollectionFormScreen> {
         body: <String, dynamic>{
           'cashBoxId': _boxId,
           'salespersonId': _salespersonId,
-          'collectedAt': _collectedAt.toIso8601String(),
+          'collectedAt': _collectedAt.toUtc().toIso8601String(),
           'reference': _reference.text.trim().isEmpty
               ? null
               : _reference.text.trim(),

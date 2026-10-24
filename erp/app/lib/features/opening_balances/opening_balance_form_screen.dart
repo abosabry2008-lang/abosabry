@@ -160,7 +160,7 @@ class _OpeningBalanceFormScreenState extends State<OpeningBalanceFormScreen> {
     final navigator = Navigator.of(context);
     try {
       final body = <String, dynamic>{
-        'asOfDate': _asOfDate.toIso8601String(),
+        'asOfDate': _asOfDate.toUtc().toIso8601String(),
         'note': _note.text.trim().isEmpty ? null : _note.text.trim(),
         'customers': validCustomers
             .map((line) => <String, dynamic>{

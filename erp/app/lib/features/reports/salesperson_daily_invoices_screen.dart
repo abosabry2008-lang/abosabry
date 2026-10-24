@@ -66,8 +66,8 @@ class _SalespersonDailyInvoicesScreenState
       final rows = await context.read<Session>().api.getList(
             '/invoices',
             query: <String, dynamic>{
-              'from': start.toIso8601String(),
-              'to': end.toIso8601String(),
+              'from': start.toUtc().toIso8601String(),
+              'to': end.toUtc().toIso8601String(),
               'salespersonId': id,
               'pageSize': 100,
             },

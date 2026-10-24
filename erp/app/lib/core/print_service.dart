@@ -146,8 +146,8 @@ class PrintService {
   }) =>
       _uri('/print/salespeople/$salespersonId/invoices', <String, String?>{
         'token': token,
-        if (from != null) 'from': from.toIso8601String(),
-        if (to != null) 'to': to.toIso8601String(),
+        if (from != null) 'from': from.toUtc().toIso8601String(),
+        if (to != null) 'to': to.toUtc().toIso8601String(),
       });
 
   static Uri customerBalancesUrl(String? token, {String? salespersonId}) =>
@@ -607,8 +607,8 @@ class PrintService {
   }) =>
       _uri('/print/reports/settlements', <String, String?>{
         'token': token,
-        if (from != null) 'from': from.toIso8601String(),
-        if (to != null) 'to': to.toIso8601String(),
+        if (from != null) 'from': from.toUtc().toIso8601String(),
+        if (to != null) 'to': Formatters.isoRangeEnd(to),
       });
 
   static Future<bool> printSettlementsStatement(
@@ -672,7 +672,11 @@ class PrintService {
     });
     // Printable pages accept a `lang` parameter; send the active app language so
     // invoices, statements and reports are rendered in Arabic when selected.
-    if (path.startsWith('/print/')) params['lang'] = lang;
+    if (path.startsWith('/print/')) {
+      params['lang'] = lang;
+      // Printed documents must show the user's calendar day, not the server's.
+      params['tzOffset'] = DateTime.now().timeZoneOffset.inMinutes.toString();
+    }
     if (params.isEmpty) return uri;
     return uri.replace(queryParameters: params);
   }
