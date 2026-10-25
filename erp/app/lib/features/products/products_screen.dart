@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_exception.dart';
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
 import '../../core/print_service.dart';
@@ -212,9 +213,29 @@ class _ProductTile extends StatelessWidget {
 
   final Product product;
 
+  Future<void> _changeCategory(
+    BuildContext context,
+    String? categoryId,
+  ) async {
+    final api = context.read<Session>().api;
+    final controller = context.read<ProductsController>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await api.patchObject(
+        '/products/${product.id}',
+        body: <String, dynamic>{'categoryId': categoryId},
+      );
+      await controller.refresh();
+    } on ApiException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final categories = context.watch<CategoriesController>().items;
+    final canWrite = context.watch<Session>().can('products');
     return SectionCard(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: InkWell(
@@ -268,6 +289,49 @@ class _ProductTile extends StatelessWidget {
                       ' · ${product.unit}',
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: theme.colorScheme.outline),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.category_outlined,
+                          size: 15,
+                          color: theme.colorScheme.outline,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String?>(
+                              value: categories.any(
+                                (category) => category.id == product.categoryId,
+                              )
+                                  ? product.categoryId
+                                  : null,
+                              isDense: true,
+                              isExpanded: true,
+                              hint: Text(context.s.category),
+                              items: <DropdownMenuItem<String?>>[
+                                DropdownMenuItem<String?>(
+                                  value: null,
+                                  child: Text(context.s.uncategorized),
+                                ),
+                                for (final category in categories)
+                                  DropdownMenuItem<String?>(
+                                    value: category.id,
+                                    child: Text(
+                                      category.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                              ],
+                              onChanged: canWrite
+                                  ? (value) =>
+                                      _changeCategory(context, value)
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

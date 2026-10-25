@@ -16,6 +16,7 @@ import '../../state/transfers_controller.dart';
 import '../../widgets/async_list_view.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/date_range_button.dart';
+import '../../widgets/day_search_row.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/form_fields.dart';
@@ -616,9 +617,20 @@ class _CollectionsTabState extends State<_CollectionsTab>
     final theme = Theme.of(context);
     final controller = context.watch<CollectionVouchersController>();
 
-    return Stack(
+    return Column(
       children: <Widget>[
-        AsyncListView<CollectionVoucher>(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: DaySearchRow(
+            day: controller.dayFilter.day,
+            onDayChanged: controller.filterByDay,
+            onSearch: () => controller.refresh(),
+          ),
+        ),
+        Expanded(
+          child: Stack(
+            children: <Widget>[
+              AsyncListView<CollectionVoucher>(
           controller: controller,
           emptyIcon: Icons.receipt_long_outlined,
           emptyTitle: s.noCollections,
@@ -707,6 +719,9 @@ class _CollectionsTabState extends State<_CollectionsTab>
             onPressed: _printByBox,
             icon: const Icon(Icons.print_outlined),
             label: Text(s.printCollectionsByBox),
+          ),
+        ),
+            ],
           ),
         ),
       ],
