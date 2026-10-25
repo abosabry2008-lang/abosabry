@@ -38,6 +38,7 @@ export interface ConsolidatedLine {
   productId: string;
   sku: string;
   name: string;
+  category: string | null;
   unit: string;
   quantity: number;
   net: number;
@@ -117,7 +118,7 @@ export async function buildConsolidatedSalesNote(
           quantity: true,
           unitPrice: true,
           discount: true,
-          product: { select: { sku: true, name: true, unit: true } },
+          product: { select: { sku: true, name: true, unit: true, category: { select: { name: true } } } },
         },
       },
     },
@@ -168,6 +169,7 @@ export async function buildConsolidatedSalesNote(
           productId: line.productId,
           sku: line.product?.sku ?? '',
           name: line.product?.name ?? '',
+          category: line.product?.category?.name ?? null,
           unit: line.product?.unit ?? '',
           quantity: 0,
           net: 0,

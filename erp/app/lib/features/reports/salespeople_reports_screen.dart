@@ -197,6 +197,7 @@ class _SalespersonSection extends StatelessWidget {
                 asString(line['name'], fallback: asString(line['sku'])),
               ),
               subtitle: Text(
+                '${asStringOrNull(line['category']) == null ? '' : '${s.category}: ${asString(line['category'])} · '}'
                 '${asString(line['sku'])} · ${s.quantity}: '
                 '${Formatters.integer(asDouble(line['quantity']))} '
                 '${asString(line['unit'])}',

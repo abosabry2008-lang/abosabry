@@ -1045,6 +1045,7 @@ export function consolidatedSalesNoteHtml(
           (line) => `      <tr>
         <td>${escapeHtml(line.sku)}</td>
         <td>${escapeHtml(line.name)}</td>
+        <td>${escapeHtml(line.category ?? '—')}</td>
         <td>${escapeHtml(line.unit)}</td>
         <td class="num">${escapeHtml(line.quantity)}</td>
         <td class="num">${money(line.net)}</td>
@@ -1057,6 +1058,7 @@ export function consolidatedSalesNoteHtml(
         <tr>
           <th>${ar ? 'الكود' : 'SKU'}</th>
           <th>${ar ? 'الصنف' : 'Product'}</th>
+          <th>${ar ? 'التصنيف' : 'Category'}</th>
           <th>${ar ? 'الوحدة' : 'Unit'}</th>
           <th class="num">${ar ? 'الكمية' : 'Quantity'}</th>
           <th class="num">${ar ? 'صافي المبيعات' : 'Net sales'}</th>
@@ -1064,7 +1066,7 @@ export function consolidatedSalesNoteHtml(
       </thead>
       <tbody>
 ${rows}
-        <tr class="total"><td colspan="3">${ar ? 'إجمالي المندوب' : 'Salesperson total'}</td><td class="num">${escapeHtml(rep.quantity)}</td><td class="num">${money(rep.net)}</td></tr>
+        <tr class="total"><td colspan="4">${ar ? 'إجمالي المندوب' : 'Salesperson total'}</td><td class="num">${escapeHtml(rep.quantity)}</td><td class="num">${money(rep.net)}</td></tr>
       </tbody>
     </table>`;
     })
@@ -1328,9 +1330,6 @@ export function shortagesHtml(
       (row) => `      <tr>
         <td>${escapeHtml(row.sku)}</td>
         <td>${escapeHtml(row.name)}</td>
-        <td>${escapeHtml(row.category ?? '—')}</td>
-        <td class="num">${escapeHtml(row.required)}</td>
-        <td class="num">${escapeHtml(row.onHand)}</td>
         <td class="num">${escapeHtml(row.shortage)}</td>
         <td class="num">${money(row.unitCost)}</td>
         <td class="num">${money(row.purchaseValue)}</td>
@@ -1349,17 +1348,14 @@ export function shortagesHtml(
         <tr>
           <th>${ar ? 'الكود' : 'SKU'}</th>
           <th>${ar ? 'الصنف' : 'Product'}</th>
-          <th>${ar ? 'التصنيف' : 'Category'}</th>
-          <th class="num">${ar ? 'المطلوب' : 'Required'}</th>
-          <th class="num">${ar ? 'المتوفر' : 'On hand'}</th>
           <th class="num">${ar ? 'الناقص' : 'Shortage'}</th>
           <th class="num">${ar ? 'تكلفة الوحدة' : 'Unit cost'}</th>
           <th class="num">${ar ? 'قيمة الشراء' : 'Purchase value'}</th>
         </tr>
       </thead>
       <tbody>
-${rows || `        <tr><td colspan="8" class="muted center">${empty}</td></tr>`}
-        <tr class="total"><td colspan="3">${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${escapeHtml(report.totals.required)}</td><td class="num">${escapeHtml(report.totals.onHand)}</td><td class="num">${escapeHtml(report.totals.shortage)}</td><td></td><td class="num">${money(report.totals.purchaseValue)}</td></tr>
+${rows || `        <tr><td colspan="5" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td colspan="2">${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${escapeHtml(report.totals.shortage)}</td><td></td><td class="num">${money(report.totals.purchaseValue)}</td></tr>
       </tbody>
     </table>`;
 
