@@ -23,6 +23,41 @@ export interface ReturnLineInput {
   /** سعر المرتجع: سعر البيع للعميل، أو السعر المتفق عليه مع المورد. */
   unitPrice?: number;
   taxRate?: number;
+  /** unit | box | carton. Carton quantities are converted to base boxes. */
+  sellUnit?: 'unit' | 'box' | 'carton';
+}
+
+/** Converts a return line to base boxes and a per-box price. */
+function resolveReturnLine(
+  product: {
+    boxesPerCarton: number;
+    boxPrice: unknown;
+    cartonPrice: unknown;
+    salePrice: unknown;
+    costPrice: unknown;
+  },
+  type: ReturnType,
+  line: ReturnLineInput,
+  taxEnabled: boolean,
+) {
+  const sellUnit = line.sellUnit ?? 'unit';
+  const boxesPerCarton = Number(product.boxesPerCarton ?? 0);
+  const factor =
+    sellUnit === 'carton' && boxesPerCarton > 0 ? boxesPerCarton : 1;
+  const baseDefault =
+    type === 'CUSTOMER_RETURN'
+      ? Number(product.boxPrice ?? product.salePrice)
+      : Number(product.costPrice);
+  const unitPrice =
+    line.unitPrice != null ? line.unitPrice / factor : baseDefault;
+  return {
+    productId: line.productId,
+    quantity: line.quantity * factor,
+    unitPrice: round2(unitPrice),
+    unitCost: Number(product.costPrice),
+    taxRate: taxEnabled ? line.taxRate ?? 0 : 0,
+    sellUnit,
+  };
 }
 
 export interface CreateReturnOrderInput {
@@ -57,16 +92,7 @@ export async function createReturnOrderTx(tx: Tx, input: CreateReturnOrderInput)
   const lines = input.lines.map((line) => {
     const product = byId.get(line.productId);
     if (!product) throw ApiError.badRequest(`Product ${line.productId} not found`, 'PRODUCT_NOT_FOUND');
-    return {
-      productId: line.productId,
-      quantity: line.quantity,
-      // سعر المرتجع الافتراضي = سعر البيع للعميل، وسعر البيع أو التكلفة للمورد.
-      unitPrice:
-        line.unitPrice ??
-        (input.type === 'CUSTOMER_RETURN' ? Number(product.salePrice) : Number(product.costPrice)),
-      unitCost: Number(product.costPrice),
-      taxRate: taxEnabled ? line.taxRate ?? 0 : 0,
-    };
+    return resolveReturnLine(product, input.type, line, taxEnabled);
   });
 
   const totals = documentTotals(
@@ -149,15 +175,7 @@ export async function updateReturnOrderTx(
     newLines = input.lines.map((line) => {
       const product = byId.get(line.productId);
       if (!product) throw ApiError.badRequest(`Product ${line.productId} not found`, 'PRODUCT_NOT_FOUND');
-      return {
-        productId: line.productId,
-        quantity: line.quantity,
-        unitPrice:
-          line.unitPrice ??
-          (existing.type === 'CUSTOMER_RETURN' ? Number(product.salePrice) : Number(product.costPrice)),
-        unitCost: Number(product.costPrice),
-        taxRate: taxEnabled ? line.taxRate ?? 0 : 0,
-      };
+      return resolveReturnLine(product, existing.type, line, taxEnabled);
     });
 
     newTotals = documentTotals(

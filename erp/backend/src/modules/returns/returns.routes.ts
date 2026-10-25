@@ -39,6 +39,7 @@ const lineSchema = z.object({
   quantity: z.number().int().positive(),
   unitPrice: z.number().min(0).optional(),
   taxRate: z.number().min(0).max(100).optional(),
+  sellUnit: z.enum(['unit', 'box', 'carton']).optional(),
 });
 
 const createSchema = z.object({
