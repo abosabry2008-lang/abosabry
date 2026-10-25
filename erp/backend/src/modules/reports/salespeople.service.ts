@@ -238,7 +238,13 @@ export async function buildConsolidatedSalesNote(
   const rows = [...byRep.values()]
     .map((row) => ({
       ...row,
-      lines: row.lines.sort((a, b) => b.quantity - a.quantity),
+      // Group lines by category (uncategorized last), then by product name.
+      lines: row.lines.sort((a, b) => {
+        const aKey = a.category ?? '\uffff';
+        const bKey = b.category ?? '\uffff';
+        const byCategory = aKey.localeCompare(bKey);
+        return byCategory !== 0 ? byCategory : a.name.localeCompare(b.name);
+      }),
     }))
     .sort((a, b) => (a.salesperson ?? '').localeCompare(b.salesperson ?? ''));
 

@@ -1040,17 +1040,36 @@ export function consolidatedSalesNoteHtml(
 
   const sections = report.rows
     .map((rep) => {
-      const rows = rep.lines
-        .map(
-          (line) => `      <tr>
+      const uncategorized = ar ? 'غير مصنف' : 'Uncategorized';
+      // One heading per category; items follow until the category changes.
+      const grouped = new Map<string, typeof rep.lines>();
+      for (const line of rep.lines) {
+        const key = line.category?.trim() ? line.category : uncategorized;
+        const bucket = grouped.get(key) ?? [];
+        bucket.push(line);
+        grouped.set(key, bucket);
+      }
+      const categoryKeys = [...grouped.keys()].sort((a, b) => {
+        if (a === uncategorized) return 1;
+        if (b === uncategorized) return -1;
+        return a.localeCompare(b);
+      });
+      const rows = categoryKeys
+        .map((category) => {
+          const items = (grouped.get(category) ?? [])
+            .map(
+              (line) => `      <tr>
         <td>${escapeHtml(line.sku)}</td>
         <td>${escapeHtml(line.name)}</td>
-        <td>${escapeHtml(line.category ?? '—')}</td>
         <td>${escapeHtml(line.unit)}</td>
         <td class="num">${escapeHtml(line.quantity)}</td>
         <td class="num">${money(line.net)}</td>
       </tr>`,
-        )
+            )
+            .join('\n');
+          const heading = `      <tr><td colspan="5" style="background:#eef2f7;font-weight:700">${escapeHtml(category)}</td></tr>`;
+          return `${heading}\n${items}`;
+        })
         .join('\n');
       return `    <h3>${escapeHtml(rep.salesperson ?? unassigned)}</h3>
     <table class="data">
@@ -1058,7 +1077,6 @@ export function consolidatedSalesNoteHtml(
         <tr>
           <th>${ar ? 'الكود' : 'SKU'}</th>
           <th>${ar ? 'الصنف' : 'Product'}</th>
-          <th>${ar ? 'التصنيف' : 'Category'}</th>
           <th>${ar ? 'الوحدة' : 'Unit'}</th>
           <th class="num">${ar ? 'الكمية' : 'Quantity'}</th>
           <th class="num">${ar ? 'صافي المبيعات' : 'Net sales'}</th>
@@ -1066,7 +1084,7 @@ export function consolidatedSalesNoteHtml(
       </thead>
       <tbody>
 ${rows}
-        <tr class="total"><td colspan="4">${ar ? 'إجمالي المندوب' : 'Salesperson total'}</td><td class="num">${escapeHtml(rep.quantity)}</td><td class="num">${money(rep.net)}</td></tr>
+        <tr class="total"><td colspan="3">${ar ? 'إجمالي المندوب' : 'Salesperson total'}</td><td class="num">${escapeHtml(rep.quantity)}</td><td class="num">${money(rep.net)}</td></tr>
       </tbody>
     </table>`;
     })

@@ -184,26 +184,51 @@ class _SalespersonSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.s;
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final line in lines) {
+      final key = asStringOrNull(line['category']) ?? s.uncategorized;
+      groups.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(line);
+    }
+    final categoryKeys = groups.keys.toList()
+      ..sort((a, b) {
+        if (a == s.uncategorized) return 1;
+        if (b == s.uncategorized) return -1;
+        return a.compareTo(b);
+      });
     return SectionCard(
       title: title,
       subtitle: subtitle,
       child: Column(
         children: <Widget>[
-          for (final line in lines)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                asString(line['name'], fallback: asString(line['sku'])),
+          for (final category in categoryKeys) ...<Widget>[
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  category,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
               ),
-              subtitle: Text(
-                '${asStringOrNull(line['category']) == null ? '' : '${s.category}: ${asString(line['category'])} · '}'
-                '${asString(line['sku'])} · ${s.quantity}: '
-                '${Formatters.integer(asDouble(line['quantity']))} '
-                '${asString(line['unit'])}',
-              ),
-              trailing: MoneyText(asDouble(line['net'])),
             ),
+            for (final line in groups[category]!)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  asString(line['name'], fallback: asString(line['sku'])),
+                ),
+                subtitle: Text(
+                  '${asString(line['sku'])} · ${s.quantity}: '
+                  '${Formatters.integer(asDouble(line['quantity']))} '
+                  '${asString(line['unit'])}',
+                ),
+                trailing: MoneyText(asDouble(line['net'])),
+              ),
+          ],
         ],
       ),
     );
