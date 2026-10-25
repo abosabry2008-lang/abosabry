@@ -267,7 +267,8 @@ class OrderLinesEditor extends StatelessWidget {
 
   void _addProduct(BuildContext context, Product product) {
     final line = OrderLineDraft()..setProduct(product, preferSalePrice: preferSalePrice);
-    lines.add(line);
+    // Newest line first so the item just added is immediately visible at the top.
+    lines.insert(0, line);
     onChanged();
     _prefillLastPrice(context, line, product);
   }
