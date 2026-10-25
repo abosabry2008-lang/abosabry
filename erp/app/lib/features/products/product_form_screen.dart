@@ -76,23 +76,45 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     setState(() {});
   }
 
+  /// Keeps the carton price in step with the box price.
+  void _syncCartonFromBox() {
+    final box = double.tryParse(_salePrice.text.trim());
+    if (box == null) return;
+    _boxPrice.text = _fmt(box);
+    if (_boxes > 0) {
+      _cartonPrice.text = _fmt(box * _boxes);
+    }
+    setState(() {});
+  }
+
   void _syncCostFromCarton(double carton) {
     if (_boxes <= 0) return;
     _costPrice.text = (carton / _boxes).toStringAsFixed(2);
     setState(() {});
   }
 
+  /// Keeps the carton cost in step with the box cost.
+  void _syncCartonCostFromBox() {
+    final box = double.tryParse(_costPrice.text.trim());
+    if (box == null || _boxes <= 0) return;
+    _cartonCost.text = (box * _boxes).toStringAsFixed(2);
+    setState(() {});
+  }
+
   void _recalculateFromBoxes() {
-    if (_boxes <= 0) return;
-    final cartonPrice = double.tryParse(_cartonPrice.text.trim());
-    if (cartonPrice != null) {
-      final box = cartonPrice / _boxes;
-      _salePrice.text = _fmt(box);
-      _boxPrice.text = _fmt(box);
+    if (_boxes <= 0) {
+      setState(() {});
+      return;
     }
-    final cartonCost = double.tryParse(_cartonCost.text.trim());
-    if (cartonCost != null) {
-      _costPrice.text = (cartonCost / _boxes).toStringAsFixed(2);
+    // The box is the base unit: keep its price/cost and derive the carton.
+    final boxPrice = double.tryParse(_salePrice.text.trim());
+    if (boxPrice != null) {
+      _boxPrice.text = _fmt(boxPrice);
+      _cartonPrice.text = _fmt(boxPrice * _boxes);
+    }
+    final boxCost = double.tryParse(_costPrice.text.trim());
+    if (boxCost != null) {
+      _cartonCost.text = (boxCost * _boxes).toStringAsFixed(2);
     }
     setState(() {});
   }
@@ -148,10 +170,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       'costPrice': double.tryParse(_costPrice.text.trim()) ?? 0,
       'salePrice': double.tryParse(_salePrice.text.trim()) ?? 0,
       'boxesPerCarton': boxesPerCarton,
-      if (boxPriceText.isNotEmpty) 'boxPrice': double.tryParse(boxPriceText),
-      if (cartonPriceText.isNotEmpty) 'cartonPrice': double.tryParse(cartonPriceText),
-      if (boxPriceText.isEmpty) 'boxPrice': null,
-      if (cartonPriceText.isEmpty) 'cartonPrice': null,
+      'boxPrice': boxesPerCarton > 0
+          ? (double.tryParse(boxPriceText) ??
+              double.tryParse(_salePrice.text.trim()))
+          : null,
+      'cartonPrice': boxesPerCarton > 0 && cartonPriceText.isNotEmpty
+          ? double.tryParse(cartonPriceText)
+          : null,
       'taxRate': double.tryParse(_taxRate.text.trim()) ?? 0,
       'reorderLevel': int.tryParse(_reorderLevel.text.trim()) ?? 0,
       'trackInventory': _trackInventory,
@@ -278,6 +303,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                           label: s.costPrice,
                           controller: _costPrice,
                           enabled: !_saving,
+                          onChanged: (_) => _syncCartonCostFromBox(),
                           prefixIcon: Icons.attach_money,
                         ),
                       ),
@@ -287,6 +313,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                           label: s.salePrice,
                           controller: _salePrice,
                           enabled: !_saving,
+                          onChanged: (_) => _syncCartonFromBox(),
                           prefixIcon: Icons.sell_outlined,
                         ),
                       ),
@@ -305,11 +332,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: AppNumberField(
+                        child: AppTextField(
                           label: s.unit,
                           controller: _unit,
                           enabled: !_saving,
-                          decimal: false,
                           prefixIcon: Icons.straighten,
                         ),
                       ),
