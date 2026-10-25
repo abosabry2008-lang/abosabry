@@ -342,6 +342,25 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     final isExtraWide = width >= 1280;
 
     final drawerTiles = <Widget>[_DrawerHeader(session: session)];
+    if (!isWide) {
+      // The mobile app bar is too narrow for the search action next to the
+      // drawer button, so search lives at the top of the drawer instead.
+      drawerTiles.add(
+        _DrawerTile(
+          icon: Icons.search,
+          label: s.globalSearch,
+          selected: false,
+          onTap: () {
+            Navigator.of(context).pop();
+            pushScreen(
+              context,
+              s.globalSearch,
+              const GlobalSearchScreen(),
+            );
+          },
+        ),
+      );
+    }
     _NavGroup? lastGroup;
     for (var i = 0; i < destinations.length; i++) {
       final group = _groupFor(destinations[i]);
@@ -387,7 +406,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         title: Text(destination.label(s)),
         surfaceTintColor: Colors.transparent,
         actions: <Widget>[
-          const _GlobalSearchButton(),
+          if (isWide) const _GlobalSearchButton(),
           if (session.can('settings')) const _SettingsButton(),
           const _ThemeButton(),
           const _LanguageButton(),
