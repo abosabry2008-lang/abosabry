@@ -827,6 +827,14 @@ export async function updateInvoiceTx(
         'HAS_PAYMENTS',
       );
     }
+    // An order-backed invoice mirrors a fulfilled sales order; its stock lives
+    // on the order, so line changes must be made there.
+    if (invoice.salesOrderId && input.lines && input.lines.length > 0) {
+      throw ApiError.badRequest(
+        'This invoice belongs to a sales order — edit the sales order instead so stock stays correct',
+        'ORDER_INVOICE_LOCKED',
+      );
+    }
   }
 
   const built = input.lines && input.lines.length > 0
@@ -868,6 +876,26 @@ export async function updateInvoiceTx(
   if (input.dueDate !== undefined) data.dueDate = input.dueDate;
   data.exchangeRate = exchangeRate;
 
+  // Direct invoices hold their own stock movements; editing their lines must
+  // put the old quantities back before the new ones are taken out.
+  if (isPosted && !invoice.salesOrderId && built.lines.length > 0) {
+    const movements = await tx.stockMovement.findMany({
+      where: { reference: invoice.number, type: 'SALE', quantity: { lt: 0 } },
+    });
+    for (const movement of movements) {
+      await applyMovement(tx, {
+        type: 'SALE_RETURN',
+        productId: movement.productId,
+        locationId: movement.locationId,
+        quantity: -movement.quantity,
+        unitCost: Number(movement.unitCost),
+        reference: `EDIT-${invoice.number}`,
+        note: `Invoice ${invoice.number} edited`,
+        userId: options.userId,
+      });
+    }
+  }
+
   if (built.lines.length > 0) {
     await tx.invoiceLine.deleteMany({ where: { invoiceId: id } });
     data.subtotal = built.totals.subtotal;
@@ -885,6 +913,7 @@ export async function updateInvoiceTx(
         description: line.description,
         quantity: line.quantity,
         unitPrice: line.unitPrice,
+        unitCost: (line as any).unitCost ?? 0,
         discount: line.discount,
         taxRate: line.taxRate,
         total: line.total,
@@ -894,6 +923,28 @@ export async function updateInvoiceTx(
   }
 
   const updated = await tx.invoice.update({ where: { id }, data, include: invoiceInclude });
+
+  // Re-take the new direct-invoice quantities from its warehouse.
+  if (
+    isPosted &&
+    !invoice.salesOrderId &&
+    built.lines.length > 0 &&
+    invoice.warehouseId
+  ) {
+    for (const line of built.lines) {
+      if (!line.productId || line.quantity <= 0) continue;
+      await drawFromWarehouse(tx, {
+        warehouseId: invoice.warehouseId,
+        productId: line.productId,
+        quantity: line.quantity,
+        type: 'SALE',
+        unitCost: Number((line as any).unitCost ?? 0),
+        reference: invoice.number,
+        note: `Invoice ${invoice.number}`,
+        userId: options.userId,
+      });
+    }
+  }
 
   // Editing quantities/prices of a posted invoice re-posts its ledger entry so
   // revenue, tax and COGS match the new lines.
