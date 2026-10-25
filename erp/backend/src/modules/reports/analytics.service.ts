@@ -381,7 +381,14 @@ export interface ItemMovementRow {
 }
 
 export interface ItemMovementReport {
-  product: { id: string; sku: string; name: string; unit: string; unitCost: number };
+  product: {
+    id: string;
+    sku: string;
+    name: string;
+    category: string | null;
+    unit: string;
+    unitCost: number;
+  };
   warehouseId: string | null;
   from: string | null;
   to: string | null;
@@ -409,7 +416,14 @@ export async function buildItemMovement(
 ): Promise<ItemMovementReport> {
   const product = await prisma.product.findUnique({
     where: { id: productId },
-    select: { id: true, sku: true, name: true, unit: true, costPrice: true },
+    select: {
+      id: true,
+      sku: true,
+      name: true,
+      unit: true,
+      costPrice: true,
+      category: { select: { name: true } },
+    },
   });
   if (!product) throw ApiError.notFound('Product not found');
 
@@ -560,6 +574,7 @@ export async function buildItemMovement(
       id: product.id,
       sku: product.sku,
       name: product.name,
+      category: product.category?.name ?? null,
       unit: product.unit,
       unitCost: Number(product.costPrice),
     },
@@ -761,6 +776,7 @@ export interface ShortageRow {
   productId: string;
   sku: string;
   name: string;
+  category: string | null;
   unit: string;
   /** Units on hand across all warehouses (respecting reserved). */
   onHand: number;
@@ -827,6 +843,7 @@ export async function buildShortagesReport(
           unit: true,
           costPrice: true,
           deletedAt: true,
+          category: { select: { name: true } },
         },
       },
     },
@@ -853,6 +870,7 @@ export async function buildShortagesReport(
         productId: line.productId,
         sku: line.product.sku,
         name: line.product.name,
+        category: line.product.category?.name ?? null,
         unit: line.product.unit,
         onHand: onHandById.get(line.productId) ?? 0,
         required: 0,

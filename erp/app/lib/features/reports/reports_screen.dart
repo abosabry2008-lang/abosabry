@@ -865,10 +865,11 @@ class _ValuationTab extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   title: Text('${row['name'] ?? row['sku'] ?? s.itemLower}'),
                   subtitle: Text(
-                    s.lineWithQty(
-                      '${row['sku'] ?? ''}',
+                    '${s.lineWithQty(
+                      asString(row['sku']),
                       Formatters.integer(asDouble(row['quantity'])),
-                    ),
+                    )}'
+                    '${asStringOrNull(row['category']) == null ? '' : ' · ${asString(row['category'])}'}',
                   ),
                   trailing: MoneyText(asDouble(row['costValue'])),
                 ),

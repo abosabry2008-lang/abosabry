@@ -92,6 +92,7 @@ export interface InventoryValuationRow {
   productId: string;
   sku: string;
   name: string;
+  category: string | null;
   unit: string;
   warehouse: { id: string; code: string; name: string };
   location: { id: string; code: string; name: string | null };
@@ -118,7 +119,7 @@ export async function buildInventoryValuation(warehouseId?: string): Promise<Inv
     where: warehouseId ? { warehouseId } : {},
     orderBy: [{ warehouseId: 'asc' }, { productId: 'asc' }],
     include: {
-      product: { select: { id: true, sku: true, name: true, unit: true, costPrice: true, salePrice: true } },
+      product: { select: { id: true, sku: true, name: true, unit: true, costPrice: true, salePrice: true, category: { select: { name: true } } } },
       warehouse: { select: { id: true, code: true, name: true } },
       location: { select: { id: true, code: true, name: true } },
     },
@@ -133,6 +134,7 @@ export async function buildInventoryValuation(warehouseId?: string): Promise<Inv
         productId: level.product.id,
         sku: level.product.sku,
         name: level.product.name,
+        category: level.product.category?.name ?? null,
         unit: level.product.unit,
         warehouse: level.warehouse,
         location: level.location,
@@ -159,6 +161,7 @@ export interface TopProductRow {
   productId: string;
   sku: string;
   name: string;
+  category: string | null;
   quantitySold: number;
   revenue: number;
   orders: number;
@@ -208,7 +211,7 @@ export async function buildTopProducts(
   const products = ranked.length
     ? await prisma.product.findMany({
         where: { id: { in: ranked.map(([id]) => id) } },
-        select: { id: true, sku: true, name: true },
+        select: { id: true, sku: true, name: true, category: { select: { name: true } } },
       })
     : [];
   const byId = new Map(products.map((product) => [product.id, product]));
@@ -220,6 +223,7 @@ export async function buildTopProducts(
       productId,
       sku: byId.get(productId)?.sku ?? '',
       name: byId.get(productId)?.name ?? '',
+      category: byId.get(productId)?.category?.name ?? null,
       quantitySold: stats.quantity,
       revenue: round2(stats.revenue),
       orders: stats.orders.size,

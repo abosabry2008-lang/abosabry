@@ -711,6 +711,7 @@ export function inventoryValuationHtml(report: InventoryValuationReport, setting
       (row) => `      <tr>
         <td>${escapeHtml(row.sku)}</td>
         <td>${escapeHtml(row.name)}</td>
+        <td>${escapeHtml(row.category ?? '—')}</td>
         <td>${escapeHtml(row.warehouse.name)}</td>
         <td>${escapeHtml(row.location.name ?? row.location.code)}</td>
         <td class="num">${escapeHtml(row.quantity)}</td>
@@ -727,6 +728,7 @@ export function inventoryValuationHtml(report: InventoryValuationReport, setting
         <tr>
           <th>SKU</th>
           <th>Product</th>
+          <th>Category</th>
           <th>Warehouse</th>
           <th>Location</th>
           <th class="num">Qty</th>
@@ -737,8 +739,8 @@ export function inventoryValuationHtml(report: InventoryValuationReport, setting
         </tr>
       </thead>
       <tbody>
-${rows || '        <tr><td colspan="9" class="muted center">No stock on hand</td></tr>'}
-        <tr class="total"><td colspan="4">Totals</td><td class="num">${escapeHtml(report.totals.units)}</td><td></td><td class="num">${money(report.totals.costValue)}</td><td></td><td class="num">${money(report.totals.retailValue)}</td></tr>
+${rows || '        <tr><td colspan="10" class="muted center">No stock on hand</td></tr>'}
+        <tr class="total"><td colspan="5">Totals</td><td class="num">${escapeHtml(report.totals.units)}</td><td></td><td class="num">${money(report.totals.costValue)}</td><td></td><td class="num">${money(report.totals.retailValue)}</td></tr>
       </tbody>
     </table>`;
 
@@ -752,6 +754,7 @@ export function topProductsHtml(report: TopProductsReport, settings: AppSettings
         <td class="num">${index + 1}</td>
         <td>${escapeHtml(row.sku)}</td>
         <td>${escapeHtml(row.name)}</td>
+        <td>${escapeHtml(row.category ?? '—')}</td>
         <td class="num">${escapeHtml(row.quantitySold)}</td>
         <td class="num">${escapeHtml(row.orders)}</td>
         <td class="num">${money(row.revenue)}</td>
@@ -769,13 +772,14 @@ export function topProductsHtml(report: TopProductsReport, settings: AppSettings
           <th class="num">#</th>
           <th>SKU</th>
           <th>Product</th>
+          <th>Category</th>
           <th class="num">Qty sold</th>
           <th class="num">Orders</th>
           <th class="num">Revenue</th>
         </tr>
       </thead>
       <tbody>
-${rows || '        <tr><td colspan="6" class="muted center">No sales in this period</td></tr>'}
+${rows || '        <tr><td colspan="7" class="muted center">No sales in this period</td></tr>'}
       </tbody>
     </table>`;
 
@@ -986,6 +990,7 @@ export function itemMovementHtml(
 
   const body = `    <section class="meta">
       <div><span class="label">${ar ? 'الصنف' : 'Product'}</span><span class="value">${escapeHtml(report.product.name)} (${escapeHtml(report.product.sku)})</span></div>
+      <div><span class="label">${ar ? 'التصنيف' : 'Category'}</span><span class="value">${escapeHtml(report.product.category ?? '—')}</span></div>
       <div><span class="label">${ar ? 'الرصيد الافتتاحي' : 'Opening'}</span><span class="value">${escapeHtml(report.opening.quantity)} · ${money(report.opening.value)}</span></div>
     </table>
     <table class="data">
@@ -1323,6 +1328,7 @@ export function shortagesHtml(
       (row) => `      <tr>
         <td>${escapeHtml(row.sku)}</td>
         <td>${escapeHtml(row.name)}</td>
+        <td>${escapeHtml(row.category ?? '—')}</td>
         <td class="num">${escapeHtml(row.required)}</td>
         <td class="num">${escapeHtml(row.onHand)}</td>
         <td class="num">${escapeHtml(row.shortage)}</td>
@@ -1343,6 +1349,7 @@ export function shortagesHtml(
         <tr>
           <th>${ar ? 'الكود' : 'SKU'}</th>
           <th>${ar ? 'الصنف' : 'Product'}</th>
+          <th>${ar ? 'التصنيف' : 'Category'}</th>
           <th class="num">${ar ? 'المطلوب' : 'Required'}</th>
           <th class="num">${ar ? 'المتوفر' : 'On hand'}</th>
           <th class="num">${ar ? 'الناقص' : 'Shortage'}</th>
@@ -1351,8 +1358,8 @@ export function shortagesHtml(
         </tr>
       </thead>
       <tbody>
-${rows || `        <tr><td colspan="7" class="muted center">${empty}</td></tr>`}
-        <tr class="total"><td colspan="2">${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${escapeHtml(report.totals.required)}</td><td class="num">${escapeHtml(report.totals.onHand)}</td><td class="num">${escapeHtml(report.totals.shortage)}</td><td></td><td class="num">${money(report.totals.purchaseValue)}</td></tr>
+${rows || `        <tr><td colspan="8" class="muted center">${empty}</td></tr>`}
+        <tr class="total"><td colspan="3">${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${escapeHtml(report.totals.required)}</td><td class="num">${escapeHtml(report.totals.onHand)}</td><td class="num">${escapeHtml(report.totals.shortage)}</td><td></td><td class="num">${money(report.totals.purchaseValue)}</td></tr>
       </tbody>
     </table>`;
 

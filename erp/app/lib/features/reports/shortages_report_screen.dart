@@ -112,6 +112,12 @@ class _ShortageTile extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
+              if ((asStringOrNull(row['category']) ?? '').isNotEmpty)
+                Text(
+                  '${s.category}: ${asString(row['category'])}',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.outline),
+                ),
               Text(
                 '${s.requiredQty}: ${Formatters.integer(asDouble(row['required']))} · '
                 '${s.onHandQty}: ${Formatters.integer(asDouble(row['onHand']))} · '
