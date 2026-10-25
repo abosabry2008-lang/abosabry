@@ -102,6 +102,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   }
 
   void _recalculateFromBoxes() {
+    if (_boxes > 0) {
+      // Packaged products are primarily sold by the carton.
+      final unit = _unit.text.trim().toLowerCase();
+      if (unit.isEmpty || unit == 'pc' || unit == 'unit') {
+        _unit.text = 'carton';
+      }
+    }
     if (_boxes <= 0) {
       setState(() {});
       return;

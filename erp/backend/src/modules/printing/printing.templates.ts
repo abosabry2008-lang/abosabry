@@ -303,11 +303,25 @@ export function invoiceHtml(
 
   const lineRows = invoice.lines
     .map((line, index) => {
+      const boxesPerCarton = Number(line.product?.boxesPerCarton ?? 0);
+      const isCarton = line.sellUnit === 'carton' && boxesPerCarton > 0;
+      const quantity = isCarton
+        ? line.quantity / boxesPerCarton
+        : Number(line.quantity);
+      const quantityText = Number.isInteger(quantity)
+        ? String(quantity)
+        : String(round2(quantity));
+      const unitPrice = isCarton
+        ? Number(line.unitPrice) * boxesPerCarton
+        : Number(line.unitPrice);
+      const description = isCarton
+        ? `${line.description} (${t('Carton', 'كرتونة')})`
+        : line.description;
       return `      <tr>
         <td class="num">${index + 1}</td>
-        <td>${escapeHtml(line.description)}</td>
-        <td class="num">${escapeHtml(line.quantity)}</td>
-        <td class="num">${money(line.unitPrice)}</td>
+        <td>${escapeHtml(description)}</td>
+        <td class="num">${escapeHtml(quantityText)}</td>
+        <td class="num">${money(unitPrice)}</td>
         <td class="num">${money(line.total)}</td>
       </tr>`;
     })
@@ -439,15 +453,29 @@ export function salespersonInvoicesHtml(
   const pages = invoices
     .map((invoice) => {
       const rows = invoice.lines
-        .map(
-          (line, index) => `      <tr>
+        .map((line, index) => {
+          const boxesPerCarton = Number(line.product?.boxesPerCarton ?? 0);
+          const isCarton = line.sellUnit === 'carton' && boxesPerCarton > 0;
+          const quantity = isCarton
+            ? line.quantity / boxesPerCarton
+            : Number(line.quantity);
+          const quantityText = Number.isInteger(quantity)
+            ? String(quantity)
+            : String(round2(quantity));
+          const unitPrice = isCarton
+            ? Number(line.unitPrice) * boxesPerCarton
+            : Number(line.unitPrice);
+          const description = isCarton
+            ? `${line.description} (${t('Carton', 'كرتونة')})`
+            : line.description;
+          return `      <tr>
         <td class="num">${index + 1}</td>
-        <td>${escapeHtml(line.description)}</td>
-        <td class="num">${escapeHtml(line.quantity)}</td>
-        <td class="num">${money(line.unitPrice)}</td>
+        <td>${escapeHtml(description)}</td>
+        <td class="num">${escapeHtml(quantityText)}</td>
+        <td class="num">${money(unitPrice)}</td>
         <td class="num">${money(line.total)}</td>
-      </tr>`,
-        )
+      </tr>`;
+        })
         .join('\n');
       const customer = invoice.customer;
       return `  <section class="a5">

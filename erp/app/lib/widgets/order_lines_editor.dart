@@ -87,6 +87,7 @@ class OrderLineDraft {
       }
       return;
     }
+    if (sellUnit == 'unit') sellUnit = 'carton';
     if (sellUnit == 'box') {
       if (preferSalePrice) {
         if (p.boxPrice != null && p.boxPrice! > 0) {
@@ -132,7 +133,7 @@ class OrderLineDraft {
         }
       }
     } else {
-      sellUnit = 'box';
+      sellUnit = bpc > 0 ? 'carton' : 'unit';
       if (preferSalePrice) {
         if (p.boxPrice != null && p.boxPrice! > 0) {
           priceController.text = _format(p.boxPrice!);
@@ -176,7 +177,8 @@ class OrderLineDraft {
     product = value;
     final bpc = value.boxesPerCarton;
     if (bpc > 0 && sellUnit == 'unit') {
-      sellUnit = 'box';
+      // The carton is the primary selling unit for packaged products.
+      sellUnit = 'carton';
     } else if (bpc <= 0) {
       sellUnit = 'unit';
     }
@@ -584,7 +586,10 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                 ),
               StockOnHandHint(
                 product: product,
-                requestedQuantity: line.quantity,
+                requestedQuantity:
+                    product.boxesPerCarton > 0 && line.sellUnit == 'carton'
+                        ? line.quantity * product.boxesPerCarton
+                        : line.quantity,
               ),
             ],
             if (widget.enforceSalePriceFloor && line.priceBelowCost)

@@ -308,9 +308,16 @@ class _ProductTile extends StatelessWidget {
                   ),
                   if (product.quantityOnHand != null)
                     Text(
-                      context.s.onHandCount(
-                        Formatters.integer(product.quantityOnHand),
-                      ),
+                      product.boxesPerCarton > 0
+                          ? context.s.packStock(
+                              product.quantityOnHand! ~/
+                                  product.boxesPerCarton,
+                              product.quantityOnHand! %
+                                  product.boxesPerCarton,
+                            )
+                          : context.s.onHandCount(
+                              Formatters.integer(product.quantityOnHand),
+                            ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: product.isLowStock
                             ? theme.colorScheme.error

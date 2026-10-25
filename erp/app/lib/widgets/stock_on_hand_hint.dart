@@ -32,11 +32,15 @@ class StockOnHandHint extends StatelessWidget {
     final onHand = value.quantityOnHand!;
     final short =
         requestedQuantity != null && requestedQuantity! > onHand;
+    final bpc = value.boxesPerCarton;
+    final stockText = bpc > 0
+        ? s.packStock(onHand ~/ bpc, onHand % bpc)
+        : '$onHand ${value.unit}';
 
     final color = short ? theme.colorScheme.error : theme.colorScheme.primary;
     final label = short
-        ? s.stockShortageHint(onHand, value.unit)
-        : s.stockOnHandHint(onHand, value.unit);
+        ? '${s.shortageQty}: $stockText'
+        : '${s.onHand}: $stockText';
 
     return Padding(
       padding: const EdgeInsets.only(top: 6),

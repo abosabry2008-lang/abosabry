@@ -22,6 +22,8 @@ export interface PurchaseLineInput {
   quantity: number;
   unitCost: number;
   taxRate?: number;
+  /** unit | box | carton; cartons are converted to base boxes. */
+  sellUnit?: 'unit' | 'box' | 'carton';
 }
 
 export interface CreatePurchaseOrderInput {
@@ -34,16 +36,34 @@ export interface CreatePurchaseOrderInput {
   lines: PurchaseLineInput[];
 }
 
-function mapLines(lines: PurchaseLineInput[], taxEnabled = true) {
-  return lines.map((line) => ({
-    productId: line.productId,
-    quantity: line.quantity,
-    unitCost: line.unitCost,
-    taxRate: taxEnabled ? line.taxRate ?? 0 : 0,
-  }));
+async function mapLines(
+  tx: Tx,
+  lines: PurchaseLineInput[],
+  taxEnabled = true,
+) {
+  const products = await tx.product.findMany({
+    where: { id: { in: lines.map((line) => line.productId) } },
+    select: { id: true, boxesPerCarton: true },
+  });
+  const boxesById = new Map(
+    products.map((product) => [
+      product.id,
+      Number(product.boxesPerCarton ?? 0),
+    ]),
+  );
+  return lines.map((line) => {
+    const boxes = boxesById.get(line.productId) ?? 0;
+    const carton = line.sellUnit === 'carton' && boxes > 0;
+    return {
+      productId: line.productId,
+      quantity: carton ? line.quantity * boxes : line.quantity,
+      unitCost: carton ? line.unitCost / boxes : line.unitCost,
+      taxRate: taxEnabled ? line.taxRate ?? 0 : 0,
+    };
+  });
 }
 
-function purchaseTotals(lines: ReturnType<typeof mapLines>) {
+function purchaseTotals(lines: Awaited<ReturnType<typeof mapLines>>) {
   return documentTotals(
     lines.map((line) => ({ quantity: line.quantity, unitPrice: line.unitCost, taxRate: line.taxRate })),
   );
@@ -54,7 +74,7 @@ export async function createPurchaseOrderTx(tx: Tx, input: CreatePurchaseOrderIn
     throw ApiError.badRequest('A purchase order needs at least one line');
   }
   const settings = await getSettings(tx);
-  const lines = mapLines(input.lines, settings.taxEnabled);
+  const lines = await mapLines(tx, input.lines, settings.taxEnabled);
   const totals = purchaseTotals(lines);
   const now = new Date();
   const number = await nextNumber(
@@ -206,7 +226,7 @@ export async function updatePurchaseOrder(
 
     if (input.lines) {
       const settings = await getSettings(tx);
-      const lines = mapLines(input.lines, settings.taxEnabled);
+      const lines = await mapLines(tx, input.lines, settings.taxEnabled);
       const totals = purchaseTotals(lines);
       await tx.purchaseOrderLine.deleteMany({ where: { purchaseOrderId: id } });
       data.subtotal = totals.subtotal;

@@ -428,6 +428,9 @@ class AppStrings {
       );
   String get taxRate => _t('Tax rate', 'نسبة الضريبة');
   String get onHand => _t('On hand', 'المتوفر');
+  /// Carton + loose-box stock breakdown for packaged products.
+  String packStock(int cartons, int boxes) =>
+      _t('$cartons carton(s) + $boxes box(es)', '$cartons كرتونة + $boxes علبة');
 
   // ---------------------------------------------------------------------------
   // Categories
