@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/l10n.dart';
 import '../../core/session.dart';
+import '../../core/theme_controller.dart';
 import '../../state/reports_controller.dart';
 import '../../state/settings_controller.dart';
 import '../accounting/accounts_screen.dart';
@@ -388,6 +389,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         actions: <Widget>[
           const _GlobalSearchButton(),
           if (session.can('settings')) const _SettingsButton(),
+          const _ThemeButton(),
           const _LanguageButton(),
           _UserMenu(session: session),
           const SizedBox(width: 12),
@@ -517,6 +519,23 @@ class _SettingsButton extends StatelessWidget {
 }
 
 /// AppBar action that toggles between English and Arabic.
+/// AppBar action that flips between the light and dark colour schemes.
+class _ThemeButton extends StatelessWidget {
+  const _ThemeButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<ThemeController>();
+    final s = context.s;
+    final dark = controller.isDark;
+    return IconButton(
+      icon: Icon(dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+      tooltip: dark ? s.lightMode : s.darkMode,
+      onPressed: controller.toggle,
+    );
+  }
+}
+
 class _LanguageButton extends StatelessWidget {
   const _LanguageButton();
 

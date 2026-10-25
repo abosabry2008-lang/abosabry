@@ -8,6 +8,7 @@ import 'core/l10n.dart';
 import 'core/print_service.dart';
 import 'core/session.dart';
 import 'core/theme.dart';
+import 'core/theme_controller.dart';
 import 'features/auth/login_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'state/accounting_controller.dart';
@@ -54,6 +55,7 @@ class _ErpAppState extends State<ErpApp> {
   late final ApiClient _api;
   late final Session _session;
   late final LocaleController _locale;
+  late final ThemeController _theme;
 
   late final CategoriesController _categories;
   late final ProductsController _products;
@@ -89,6 +91,7 @@ class _ErpAppState extends State<ErpApp> {
     _api = ApiClient();
     _session = Session(client: _api);
     _locale = LocaleController();
+    _theme = ThemeController();
 
     _categories = CategoriesController(_api);
     _products = ProductsController(_api);
@@ -124,6 +127,7 @@ class _ErpAppState extends State<ErpApp> {
   Future<void> _bootstrap() async {
     await AppConfig.load();
     await _locale.load();
+    await _theme.load();
     await _session.bootstrap();
   }
 
@@ -133,6 +137,7 @@ class _ErpAppState extends State<ErpApp> {
       providers: [
         ChangeNotifierProvider<Session>.value(value: _session),
         ChangeNotifierProvider<LocaleController>.value(value: _locale),
+        ChangeNotifierProvider<ThemeController>.value(value: _theme),
         ChangeNotifierProvider<CategoriesController>.value(value: _categories),
         ChangeNotifierProvider<ProductsController>.value(value: _products),
         ChangeNotifierProvider<ProductCatalog>.value(value: _catalog),
@@ -169,8 +174,8 @@ class _ErpAppState extends State<ErpApp> {
         ChangeNotifierProvider<SalespeopleController>.value(value: _salespeople),
         ChangeNotifierProvider<PosController>.value(value: _pos),
       ],
-      child: Consumer<LocaleController>(
-        builder: (context, localeController, _) {
+      child: Consumer2<LocaleController, ThemeController>(
+        builder: (context, localeController, themeController, _) {
           // Keep the API client's language in sync so server error messages are
           // shown in the active language.
           _api.locale = localeController.locale;
@@ -181,7 +186,7 @@ class _ErpAppState extends State<ErpApp> {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
-          themeMode: ThemeMode.light,
+          themeMode: themeController.mode,
           locale: localeController.locale,
           supportedLocales: const <Locale>[Locale('en'), Locale('ar')],
           localizationsDelegates: const <LocalizationsDelegate<dynamic>>[

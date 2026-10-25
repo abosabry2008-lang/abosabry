@@ -610,6 +610,8 @@ class AppStrings {
   String get statusWord => _t('Status', 'الحالة');
   String get allStatuses => _t('All statuses', 'كل الحالات');
   String get productCard => _t('Item card', 'كشف الصنف');
+  String get darkMode => _t('Dark mode', 'الوضع الداكن');
+  String get lightMode => _t('Light mode', 'الوضع الفاتح');
   String get noPurchaseOrders => _t('No purchase orders', 'لا توجد أوامر شراء');
   String get createPurchaseOrderHint =>
       _t('Create a purchase order to restock inventory.', 'أنشئ أمر شراء لإعادة تعبئة المخزون.');
