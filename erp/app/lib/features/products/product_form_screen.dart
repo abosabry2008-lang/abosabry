@@ -307,7 +307,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     children: <Widget>[
                       Expanded(
                         child: AppNumberField(
-                          label: s.costPrice,
+                          label: _boxes > 0 ? s.boxCostPrice : s.costPrice,
                           controller: _costPrice,
                           enabled: !_saving,
                           onChanged: (_) => _syncCartonCostFromBox(),
@@ -317,7 +317,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: AppNumberField(
-                          label: s.salePrice,
+                          label: _boxes > 0 ? s.boxSalePrice : s.salePrice,
                           controller: _salePrice,
                           enabled: !_saving,
                           onChanged: (_) => _syncCartonFromBox(),
