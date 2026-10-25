@@ -894,6 +894,14 @@ export async function updateInvoiceTx(
         userId: options.userId,
       });
     }
+    if (movements.length > 0) {
+      // Detach the old sales from the invoice number so voiding the edited
+      // invoice only puts back the quantities that are still on it.
+      await tx.stockMovement.updateMany({
+        where: { id: { in: movements.map((movement) => movement.id) } },
+        data: { reference: `EDIT-${invoice.number}` },
+      });
+    }
   }
 
   if (built.lines.length > 0) {
