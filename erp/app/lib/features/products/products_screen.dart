@@ -221,11 +221,15 @@ class _ProductTile extends StatelessWidget {
     final controller = context.read<ProductsController>();
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await api.patchObject(
+      final data = await api.patchObject(
         '/products/${product.id}',
         body: <String, dynamic>{'categoryId': categoryId},
       );
-      await controller.refresh();
+      final updated = Product.fromJson(data);
+      controller.replaceWhere(
+        (item) => item.id == updated.id,
+        (_) => updated,
+      );
     } on ApiException catch (error) {
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
     }
@@ -290,49 +294,6 @@ class _ProductTile extends StatelessWidget {
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: theme.colorScheme.outline),
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: <Widget>[
-                        Icon(
-                          Icons.category_outlined,
-                          size: 15,
-                          color: theme.colorScheme.outline,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String?>(
-                              value: categories.any(
-                                (category) => category.id == product.categoryId,
-                              )
-                                  ? product.categoryId
-                                  : null,
-                              isDense: true,
-                              isExpanded: true,
-                              hint: Text(context.s.category),
-                              items: <DropdownMenuItem<String?>>[
-                                DropdownMenuItem<String?>(
-                                  value: null,
-                                  child: Text(context.s.uncategorized),
-                                ),
-                                for (final category in categories)
-                                  DropdownMenuItem<String?>(
-                                    value: category.id,
-                                    child: Text(
-                                      category.name,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                              ],
-                              onChanged: canWrite
-                                  ? (value) =>
-                                      _changeCategory(context, value)
-                                  : null,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -356,6 +317,40 @@ class _ProductTile extends StatelessWidget {
                             : theme.colorScheme.outline,
                       ),
                     ),
+                  const SizedBox(height: 2),
+                  SizedBox(
+                    width: 150,
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String?>(
+                        value: categories.any(
+                          (category) => category.id == product.categoryId,
+                        )
+                            ? product.categoryId
+                            : null,
+                        isDense: true,
+                        isExpanded: true,
+                        icon: const Icon(Icons.category_outlined, size: 16),
+                        hint: Text(context.s.category),
+                        items: <DropdownMenuItem<String?>>[
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text(context.s.uncategorized),
+                          ),
+                          for (final category in categories)
+                            DropdownMenuItem<String?>(
+                              value: category.id,
+                              child: Text(
+                                category.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: canWrite
+                            ? (value) => _changeCategory(context, value)
+                            : null,
+                      ),
+                    ),
+                  ),
                   if (product.isDeleted)
                     TextButton.icon(
                       onPressed: () => context

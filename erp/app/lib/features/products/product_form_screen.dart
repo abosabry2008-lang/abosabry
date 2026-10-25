@@ -159,11 +159,19 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     };
     try {
       if (widget.isEditing) {
-        await controller.api.patch('/products/${widget.product!.id}', body: body);
+        final data = await controller.api.patchObject(
+          '/products/${widget.product!.id}',
+          body: body,
+        );
+        final updated = Product.fromJson(data);
+        controller.replaceWhere(
+          (item) => item.id == updated.id,
+          (_) => updated,
+        );
       } else {
         await controller.api.post('/products', body: body);
+        await controller.refresh();
       }
-      await controller.refresh();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
