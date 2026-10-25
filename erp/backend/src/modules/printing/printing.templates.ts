@@ -393,24 +393,25 @@ ${lineRows || `        <tr><td colspan="5" class="muted center">${escapeHtml(t('
   const a5Css = a5
     ? `
   @page { size: A5; margin: 5mm; }
-  body { padding: 0; background: #ffffff; font-size: 11.5px; line-height: 1.35; }
+  body { padding: 0; background: #ffffff; font-size: 12.5px; font-weight: 600; line-height: 1.35; }
   .page { max-width: none; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0; }
   .doc-header { padding-bottom: 8px; margin-bottom: 10px; gap: 12px; }
-  .company h1 { font-size: 17px; }
-  .company .muted { font-size: 9.5px; }
-  .doc-title h2 { font-size: 15px; }
+  .company h1 { font-size: 18px; }
+  .company .muted { font-size: 10.5px; }
+  .doc-title h2 { font-size: 16px; }
   section.panel { padding: 8px 10px; margin-bottom: 10px; }
   .invoice-info .info-row { gap: 4px 12px; }
   .invoice-info .info-row + .info-row { margin-top: 5px; padding-top: 5px; }
   .invoice-info .label { min-width: 68px; }
   table.data { margin-bottom: 10px; }
-  table.data th, table.data td { padding: 4px 5px; font-size: 10.5px; }
-  table.data thead th { padding: 4px 5px; font-size: 10px; }
+  table.data th, table.data td { padding: 4px 5px; font-size: 11.5px; font-weight: 600; }
+  table.data thead th { padding: 4px 5px; font-size: 11px; font-weight: 700; }
   table.data tr { page-break-inside: avoid; break-inside: avoid; }
   table.data thead { display: table-header-group; }
   .totals-wrap { margin-bottom: 10px; }
-  table.totals th, table.totals td { padding: 3px 8px; font-size: 11px; }
-  .doc-footer { margin-top: 10px; padding-top: 6px; font-size: 9.5px; }
+  table.totals th, table.totals td { padding: 3px 8px; font-size: 12px; font-weight: 600; }
+  table.totals tr.grand th, table.totals tr.grand td { font-weight: 700; }
+  .doc-footer { margin-top: 10px; padding-top: 6px; font-size: 10.5px; }
 `
     : '';
 
@@ -493,17 +494,18 @@ export function salespersonInvoicesHtml(
 
   const extra = `
   @page { size: A5; margin: 5mm; }
-  body { background: #fff; padding: 0; font-size: 12px; }
+  body { background: #fff; padding: 0; font-size: 13px; font-weight: 600; }
   .a5 { page-break-after: always; break-after: page; padding: 0; margin: 0; }
   .a5:last-child { page-break-after: auto; break-after: auto; }
   .a5-head { display: flex; justify-content: space-between; gap: 10px; border-bottom: 2px solid #0f172a; padding-bottom: 5px; margin-bottom: 6px; }
-  .a5-head h2 { margin: 0; font-size: 15px; }
+  .a5-head h2 { margin: 0; font-size: 16px; }
   .a5-title { text-align: ${ar ? 'left' : 'right'}; }
   .a5-customer { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 6px; padding: 4px 7px; background: #f8fafc; border: 1px solid #e2e8f0; }
-  .a5-table th, .a5-table td { padding: 3px 5px; font-size: 11.5px; }
+  .a5-table th, .a5-table td { padding: 3px 5px; font-size: 12.5px; font-weight: 600; }
+  .a5-table thead th { font-weight: 700; }
   .a5-table { margin-bottom: 6px; }
   .a5-totals { margin-${ar ? 'right' : 'left'}: auto; margin-bottom: 6px; min-width: 240px; }
-  .a5-totals th, .a5-totals td { padding: 2px 8px; }
+  .a5-totals th, .a5-totals td { padding: 2px 8px; font-weight: 600; }
   .a5-sign { display: flex; justify-content: space-between; gap: 16px; margin-top: 8px; font-size: 10px; color: #475569; }
   @media print { body { padding: 0; } .a5 { padding: 0; } }
   `;
