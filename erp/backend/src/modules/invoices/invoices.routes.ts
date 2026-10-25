@@ -30,6 +30,7 @@ import {
   createPaymentTx,
   ensureDefaultCashBoxTx,
 } from '../payments/payments.service';
+import { updateSalesOrder } from '../sales/sales.service';
 
 const router = Router();
 router.use(authenticate);
@@ -316,7 +317,7 @@ router.patch(
     // an administrator may change them.
     const existing = await prisma.invoice.findUnique({
       where: { id: req.params.id },
-      select: { status: true },
+      select: { status: true, salesOrderId: true },
     });
     if (
       existing &&
@@ -324,6 +325,39 @@ router.patch(
       (user.role ?? '').toUpperCase() !== 'ADMIN'
     ) {
       throw ApiError.forbidden('Only an administrator can edit an issued invoice');
+    }
+    // An order-backed invoice mirrors a fulfilled sales order. Editing its
+    // lines updates the order too, so stock, order totals and the invoice stay
+    // in agreement.
+    const editedLines: Record<string, unknown>[] | null = Array.isArray(
+      req.body.lines,
+    )
+      ? (req.body.lines as Record<string, unknown>[])
+      : null;
+    if (existing?.salesOrderId && editedLines && editedLines.length > 0) {
+      const orderLines = editedLines.map((line) => ({
+        productId: line.productId as string,
+        quantity: Number(line.quantity),
+        unitPrice: Number(line.unitPrice),
+        discount: Number(line.discount ?? 0),
+        taxRate: Number(line.taxRate ?? 0),
+        sellUnit:
+          ((line.sellUnit as string | undefined) ?? 'unit') as
+            | 'unit'
+            | 'box'
+            | 'carton',
+      }));
+      if (orderLines.some((line) => !line.productId)) {
+        throw ApiError.badRequest(
+          'Every invoice line needs a product before it can update the sales order',
+          'ORDER_LINE_PRODUCT_REQUIRED',
+        );
+      }
+      await updateSalesOrder(
+        existing.salesOrderId,
+        { lines: orderLines },
+        { allowPosted: true, userId: user.id },
+      );
     }
     const invoice = await updateInvoice(req.params.id, req.body, {
       allowPosted: roleHasPermission(user.role, 'invoices.edit'),

@@ -827,14 +827,6 @@ export async function updateInvoiceTx(
         'HAS_PAYMENTS',
       );
     }
-    // An order-backed invoice mirrors a fulfilled sales order; its stock lives
-    // on the order, so line changes must be made there.
-    if (invoice.salesOrderId && input.lines && input.lines.length > 0) {
-      throw ApiError.badRequest(
-        'This invoice belongs to a sales order — edit the sales order instead so stock stays correct',
-        'ORDER_INVOICE_LOCKED',
-      );
-    }
   }
 
   const built = input.lines && input.lines.length > 0

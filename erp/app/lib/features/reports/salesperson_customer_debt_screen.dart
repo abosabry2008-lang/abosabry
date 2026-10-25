@@ -172,6 +172,11 @@ class _DebtTable extends StatelessWidget {
           minWidth: MediaQuery.sizeOf(context).width - 48,
         ),
         child: DataTable(
+          border: TableBorder.all(
+            color: theme.colorScheme.outlineVariant,
+            width: 0.6,
+          ),
+          showCheckboxColumn: false,
           headingTextStyle: headerStyle,
           dataTextStyle: theme.textTheme.bodyMedium,
           columnSpacing: 18,
