@@ -365,11 +365,30 @@ router.patch(
           'ORDER_LINE_PRODUCT_REQUIRED',
         );
       }
-      await updateSalesOrder(
-        existing.salesOrderId,
-        { lines: orderLines },
-        { allowPosted: true, fromInvoiceSync: true, userId: user.id },
-      );
+      // Price-only edits must not reverse and re-apply the whole order: that
+      // would create duplicate stock movements for products that did not
+      // change. Only sync when the product/quantity mix actually differs.
+      const currentOrder = await prisma.salesOrder.findUnique({
+        where: { id: existing.salesOrderId },
+        select: {
+          lines: { select: { productId: true, quantity: true } },
+        },
+      });
+      const signature = (rows: { productId: string; quantity: number }[]) =>
+        rows
+          .map((row) => `${row.productId}:${row.quantity}`)
+          .sort()
+          .join('|');
+      if (
+        !currentOrder ||
+        signature(currentOrder.lines) !== signature(orderLines)
+      ) {
+        await updateSalesOrder(
+          existing.salesOrderId,
+          { lines: orderLines },
+          { allowPosted: true, fromInvoiceSync: true, userId: user.id },
+        );
+      }
     }
     const invoice = await updateInvoice(req.params.id, req.body, {
       allowPosted: roleHasPermission(user.role, 'invoices.edit'),
