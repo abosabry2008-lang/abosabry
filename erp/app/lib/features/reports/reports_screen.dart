@@ -946,11 +946,53 @@ class _CustomerBalancesTabState extends State<_CustomerBalancesTab> {
         SectionCard(
           title: s.customerBalances,
           subtitle: s.customerCountLabel('${controller.customerBalances.length}'),
-          child: Column(
-            children: <Widget>[
-              for (final row in controller.customerBalances)
-                _CustomerBalanceTile(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 20,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.customer)),
+                DataColumn(label: Text(s.invoices), numeric: true),
+                DataColumn(label: Text(s.balance), numeric: true),
+                DataColumn(label: Text(s.accountStatement)),
+              ],
+              rows: <DataRow>[
+                for (final row in controller.customerBalances)
+                  _customerBalanceRow(context, row),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  DataRow _customerBalanceRow(
+    BuildContext context,
+    Map<String, dynamic> row,
+  ) {
+    final s = context.s;
+    final name = asString(row['name'], fallback: s.customer);
+    final id = asStringOrNull(row['id']) ?? asStringOrNull(row['customerId']);
+    return DataRow(
+      onSelectChanged: id == null
+          ? null
+          : (_) => openCustomerStatement(
+                context,
+                customerId: id,
+                customerName: name,
+              ),
+      cells: <DataCell>[
+        DataCell(SizedBox(width: 240, child: Text(name))),
+        DataCell(Text(Formatters.integer(asDouble(row['invoices'])))),
+        DataCell(MoneyText(asDouble(row['balance']), colorNegative: true)),
+        DataCell(
+          Icon(
+            Icons.list_alt_outlined,
+            size: 18,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
       ],
@@ -975,11 +1017,59 @@ class _SupplierBalancesTab extends StatelessWidget {
         SectionCard(
           title: s.supplierBalances,
           subtitle: s.supplierCountLabel('${controller.supplierBalances.length}'),
-          child: Column(
-            children: <Widget>[
-              for (final row in controller.supplierBalances)
-                _SupplierBalanceTile(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 20,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.supplier)),
+                DataColumn(label: Text(s.orders), numeric: true),
+                DataColumn(label: Text(s.balance), numeric: true),
+                DataColumn(label: Text(s.accountStatement)),
+              ],
+              rows: <DataRow>[
+                for (final row in controller.supplierBalances)
+                  _supplierBalanceRow(context, row),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  DataRow _supplierBalanceRow(
+    BuildContext context,
+    Map<String, dynamic> row,
+  ) {
+    final s = context.s;
+    final name = asString(row['name'], fallback: s.supplier);
+    final id = asStringOrNull(row['id']) ?? asStringOrNull(row['supplierId']);
+    return DataRow(
+      onSelectChanged: id == null
+          ? null
+          : (_) => openSupplierStatement(
+                context,
+                supplierId: id,
+                supplierName: name,
+              ),
+      cells: <DataCell>[
+        DataCell(SizedBox(width: 240, child: Text(name))),
+        DataCell(
+          Text(
+            Formatters.integer(
+              asDouble(row['purchaseOrders'] ?? row['invoices']),
+            ),
+          ),
+        ),
+        DataCell(MoneyText(asDouble(row['balance']), colorNegative: true)),
+        DataCell(
+          Icon(
+            Icons.list_alt_outlined,
+            size: 18,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
       ],
@@ -1094,49 +1184,60 @@ class _ReceivablesTabState extends State<_ReceivablesTab> {
         SectionCard(
           title: s.receivablesBySalesperson,
           subtitle: s.receivablesBySalespersonHint,
-          child: Column(
-            children: <Widget>[
-              for (final row in controller.receivables)
-                _ReceivableTile(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 20,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.customer)),
+                DataColumn(label: Text(s.salesperson)),
+                DataColumn(label: Text(s.invoices), numeric: true),
+                DataColumn(label: Text(s.previousBalanceLabel), numeric: true),
+                DataColumn(label: Text(s.periodBalance), numeric: true),
+                DataColumn(label: Text(s.balance), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in controller.receivables)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 220,
+                          child: Text(
+                            asString(row['customer'], fallback: s.customer),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          asStringOrNull(row['salesperson']) ?? s.unassigned,
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          Formatters.integer(asDouble(row['invoices'])),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      DataCell(
+                        MoneyText(asDouble(row['openingBalance'])),
+                      ),
+                      DataCell(MoneyText(asDouble(row['periodBalance']))),
+                      DataCell(
+                        MoneyText(
+                          asDouble(row['balance']),
+                          colorNegative: true,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ReceivableTile extends StatelessWidget {
-  const _ReceivableTile({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final salesperson = asStringOrNull(row['salesperson']) ?? s.unassigned;
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(asString(row['customer'], fallback: s.customer)),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            '$salesperson · '
-            '${s.invoiceCountLabel(Formatters.integer(asDouble(row['invoices'])))}',
-          ),
-          Row(
-            children: <Widget>[
-              Text('${s.previousBalanceLabel}: '),
-              MoneyText(asDouble(row['openingBalance'])),
-              Text(' · ${s.periodBalance}: '),
-              MoneyText(asDouble(row['periodBalance'])),
-            ],
-          ),
-        ],
-      ),
-      trailing: MoneyText(asDouble(row['balance']), colorNegative: true),
     );
   }
 }
@@ -1390,96 +1491,6 @@ class _StockBalanceTile extends StatelessWidget {
         '${s.available}: $available',
       ),
       trailing: MoneyText(asDouble(row['costValue'])),
-    );
-  }
-}
-
-class _CustomerBalanceTile extends StatelessWidget {
-  const _CustomerBalanceTile({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final name = asString(row['name'], fallback: s.customer);
-    final id = asStringOrNull(row['id']) ?? asStringOrNull(row['customerId']);
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(name),
-      subtitle: Text(s.invoiceCountLabel('${row['invoices'] ?? 0}')),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          MoneyText(asDouble(row['balance']), colorNegative: true),
-          if (id != null) ...<Widget>[
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: s.accountStatement,
-              icon: const Icon(Icons.list_alt_outlined),
-              onPressed: () => openCustomerStatement(
-                context,
-                customerId: id,
-                customerName: name,
-              ),
-            ),
-          ],
-        ],
-      ),
-      onTap: id == null
-          ? null
-          : () => openCustomerStatement(
-                context,
-                customerId: id,
-                customerName: name,
-              ),
-    );
-  }
-}
-
-class _SupplierBalanceTile extends StatelessWidget {
-  const _SupplierBalanceTile({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final name = asString(row['name'], fallback: s.supplier);
-    final id = asStringOrNull(row['id']) ?? asStringOrNull(row['supplierId']);
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(name),
-      subtitle: Text(
-        s.poCountLabel('${row['purchaseOrders'] ?? row['invoices'] ?? 0}'),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          MoneyText(asDouble(row['balance']), colorNegative: true),
-          if (id != null) ...<Widget>[
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: s.accountStatement,
-              icon: const Icon(Icons.list_alt_outlined),
-              onPressed: () => openSupplierStatement(
-                context,
-                supplierId: id,
-                supplierName: name,
-              ),
-            ),
-          ],
-        ],
-      ),
-      onTap: id == null
-          ? null
-          : () => openSupplierStatement(
-                context,
-                supplierId: id,
-                supplierName: name,
-              ),
     );
   }
 }

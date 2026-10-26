@@ -125,24 +125,51 @@ class _PriceListScreenState extends State<PriceListScreen> {
         SectionCard(
           title: s.priceList,
           subtitle: s.productCountLabel('${_rows.length}'),
-          child: Column(
-            children: <Widget>[
-              for (final row in _rows)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(asString(row['name'])),
-                  subtitle: Text(
-                    <String>[
-                      asString(row['sku']),
-                      if (asStringOrNull(row['category']) != null)
-                        asString(row['category']),
-                      '${s.available}: ${Formatters.integer(asDouble(row['quantity']))} ${asString(row['unit'])}',
-                    ].join(' · '),
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 20,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.product)),
+                DataColumn(label: Text(s.code)),
+                DataColumn(label: Text(s.category)),
+                DataColumn(label: Text(s.available), numeric: true),
+                DataColumn(label: Text(s.unit)),
+                DataColumn(label: Text(s.salePrice), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in _rows)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 280,
+                          child: Text(
+                            asString(row['name']),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(Text(asString(row['sku']))),
+                      DataCell(
+                        Text(
+                          asStringOrNull(row['category']) ?? '—',
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          Formatters.integer(asDouble(row['quantity'])),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      DataCell(Text(asString(row['unit']))),
+                      DataCell(MoneyText(asDouble(row['salePrice']))),
+                    ],
                   ),
-                  trailing: MoneyText(asDouble(row['salePrice'])),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ],

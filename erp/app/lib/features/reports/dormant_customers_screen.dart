@@ -110,28 +110,58 @@ class _DormantCustomersScreenState extends State<DormantCustomersScreen> {
         SectionCard(
           title: s.dormantCustomers,
           subtitle: s.dormantCustomersHint,
-          child: Column(
-            children: <Widget>[
-              for (final row in _rows)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(asString(row['name'])),
-                  subtitle: Text(
-                    <String>[
-                      if (asStringOrNull(row['salesperson']) != null)
-                        '${s.salesperson}: ${asString(row['salesperson'])}',
-                      if (asStringOrNull(row['lastInvoiceAt']) == null)
-                        s.neverInvoiced
-                      else
-                        '${s.lastInvoice}: ${Formatters.date(asDate(row['lastInvoiceAt']))}',
-                      if (row['daysSince'] != null)
-                        '${Formatters.integer(asDouble(row['daysSince']))} ${s.days}',
-                    ].join(' · '),
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 20,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.customer)),
+                DataColumn(label: Text(s.salesperson)),
+                DataColumn(label: Text(s.lastInvoice)),
+                DataColumn(label: Text(s.days), numeric: true),
+                DataColumn(label: Text(s.balance), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in _rows)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 240,
+                          child: Text(asString(row['name'])),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          asStringOrNull(row['salesperson']) ?? s.unassigned,
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          asStringOrNull(row['lastInvoiceAt']) == null
+                              ? s.neverInvoiced
+                              : Formatters.date(
+                                  asDate(row['lastInvoiceAt']),
+                                ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          row['daysSince'] == null
+                              ? '—'
+                              : Formatters.integer(
+                                  asDouble(row['daysSince']),
+                                ),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      DataCell(MoneyText(asDouble(row['balance']))),
+                    ],
                   ),
-                  trailing: MoneyText(asDouble(row['balance'])),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ],

@@ -14,7 +14,6 @@ import '../../widgets/section_card.dart';
 import '../shell/navigation.dart';
 import '../treasury/box_detail_screen.dart';
 import 'report_widgets.dart';
-import 'reports_screen.dart';
 
 // ---------------------------------------------------------------------------
 // Purchases (تقرير المشتريات)
@@ -107,43 +106,43 @@ class _PurchasesReportScreenState extends State<PurchasesReportScreen> {
         SectionCard(
           title: s.purchasesReport,
           subtitle: s.purchasesReportHint,
-          child: Column(
-            children: <Widget>[
-              for (final row in series) _SeriesRow(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 24,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.period)),
+                DataColumn(label: Text(s.orders), numeric: true),
+                DataColumn(label: Text(s.tax), numeric: true),
+                DataColumn(label: Text(s.total), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in series)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 240,
+                          child: Text(asString(row['period'])),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          Formatters.integer(asDouble(row['orders'])),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      DataCell(MoneyText(asDouble(row['tax']))),
+                      DataCell(MoneyText(asDouble(row['total']))),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SeriesRow extends StatelessWidget {
-  const _SeriesRow({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final theme = Theme.of(context);
-    final period = asString(row['period']);
-    final orders = Formatters.integer(asDouble(row['orders']));
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(period, style: theme.textTheme.bodyMedium),
-          ),
-          Text(
-            '$orders · ${s.tax} ${Formatters.money(asDouble(row['tax']))} · ',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline),
-          ),
-          MoneyText(asDouble(row['total']), style: theme.textTheme.bodyMedium),
-        ],
-      ),
     );
   }
 }
@@ -229,10 +228,50 @@ class _ProfitReportScreenState extends State<ProfitReportScreen> {
         SectionCard(
           title: s.salesProfit,
           subtitle: s.salesProfitHint,
-          child: Column(
-            children: <Widget>[
-              for (final row in rows.take(200)) _ProfitRow(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 20,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.product)),
+                DataColumn(label: Text(s.code)),
+                DataColumn(label: Text(s.quantity), numeric: true),
+                DataColumn(label: Text(s.costOfSales), numeric: true),
+                DataColumn(label: Text(s.netProfit), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in rows.take(200))
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 260,
+                          child: Text(
+                            asString(
+                              row['name'],
+                              fallback: asString(row['sku']).isEmpty
+                                  ? s.product
+                                  : asString(row['sku']),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(Text(asString(row['sku']))),
+                      DataCell(
+                        Text(
+                          Formatters.integer(asDouble(row['quantity'])),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      DataCell(MoneyText(asDouble(row['cost']))),
+                      DataCell(MoneyText(asDouble(row['profit']))),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],
@@ -265,39 +304,41 @@ class SalesReportScreen extends StatelessWidget {
         SectionCard(
           title: s.salesByDay,
           subtitle: s.revenuePerDay,
-          child: Column(
-            children: <Widget>[
-              for (final point in controller.salesSeries)
-                SalesSeriesRow(point: point),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 24,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.period)),
+                DataColumn(label: Text(s.quantity), numeric: true),
+                DataColumn(label: Text(s.revenue), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final point in controller.salesSeries)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 240,
+                          child: Text(point.label),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          Formatters.integer(point.quantity),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      DataCell(MoneyText(point.value)),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ProfitRow extends StatelessWidget {
-  const _ProfitRow({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final sku = asString(row['sku']);
-    final quantity = Formatters.integer(asDouble(row['quantity']));
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        asString(row['name'], fallback: sku.isEmpty ? s.product : sku),
-      ),
-      subtitle: Text(
-        '$sku · ${s.quantity}: $quantity · '
-        '${s.costOfSales}: ${Formatters.money(asDouble(row['cost']))}',
-      ),
-      trailing: MoneyText(asDouble(row['profit'])),
     );
   }
 }
@@ -378,59 +419,39 @@ class _TaxReportScreenState extends State<TaxReportScreen> {
           const SizedBox(height: 12),
           SectionCard(
             title: s.period,
-            child: Column(
-              children: <Widget>[
-                for (final row in series) _TaxRow(row: row),
-              ],
+            padding: EdgeInsets.zero,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                showCheckboxColumn: false,
+                columnSpacing: 24,
+                columns: <DataColumn>[
+                  DataColumn(label: Text(s.period)),
+                  DataColumn(label: Text(s.outputTax), numeric: true),
+                  DataColumn(label: Text(s.inputTax), numeric: true),
+                  DataColumn(label: Text(s.netTax), numeric: true),
+                ],
+                rows: <DataRow>[
+                  for (final row in series)
+                    DataRow(
+                      cells: <DataCell>[
+                        DataCell(
+                          SizedBox(
+                            width: 200,
+                            child: Text(asString(row['period'])),
+                          ),
+                        ),
+                        DataCell(MoneyText(asDouble(row['salesTax']))),
+                        DataCell(MoneyText(asDouble(row['purchaseTax']))),
+                        DataCell(MoneyText(asDouble(row['netTax']))),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
         ],
       ],
-    );
-  }
-}
-
-class _TaxRow extends StatelessWidget {
-  const _TaxRow({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  asString(row['period']),
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ),
-              MoneyText(
-                asDouble(row['netTax']),
-                style: theme.textTheme.bodyMedium,
-              ),
-            ],
-          ),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  '${s.outputTax}: ${Formatters.money(asDouble(row['salesTax']))}'
-                  ' · ${s.inputTax}: ${Formatters.money(asDouble(row['purchaseTax']))}',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }

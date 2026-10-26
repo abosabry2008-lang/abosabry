@@ -131,8 +131,16 @@ class _BreakdownRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
+    return Container(
       padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withAlpha(120),
+            width: 0.6,
+          ),
+        ),
+      ),
       child: Row(
         children: <Widget>[
           Expanded(
@@ -148,7 +156,7 @@ class _BreakdownRow extends StatelessWidget {
               child: Text(
                 meta!,
                 style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline),
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ),
           MoneyText(amount, style: theme.textTheme.bodyMedium),
