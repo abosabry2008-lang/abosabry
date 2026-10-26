@@ -424,6 +424,7 @@ class _InlinePriceFieldState extends State<_InlinePriceField> {
     final api = context.read<Session>().api;
     final controller = context.read<ProductsController>();
     final messenger = ScaffoldMessenger.of(context);
+    final s = context.s;
     setState(() => _saving = true);
     try {
       final body = <String, dynamic>{'salePrice': value};
@@ -442,6 +443,10 @@ class _InlinePriceFieldState extends State<_InlinePriceField> {
       controller.replaceWhere(
         (item) => item.id == updated.id,
         (_) => updated,
+      );
+      _controller.text = _format(updated.salePrice);
+      messenger.showSnackBar(
+        SnackBar(content: Text(s.productUpdated)),
       );
     } on ApiException catch (error) {
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
@@ -477,8 +482,21 @@ class _InlinePriceFieldState extends State<_InlinePriceField> {
                   ),
                 )
               : null,
+          suffixIcon: _saving
+              ? null
+              : IconButton(
+                  tooltip: s.save,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.check, size: 18),
+                  onPressed: _commit,
+                ),
         ),
+        textInputAction: TextInputAction.done,
         onSubmitted: (_) => _commit(),
+        onEditingComplete: () {
+          FocusScope.of(context).unfocus();
+          _commit();
+        },
         onTapOutside: (_) {
           FocusScope.of(context).unfocus();
           _commit();
