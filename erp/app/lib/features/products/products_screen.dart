@@ -12,7 +12,6 @@ import '../../state/products_controller.dart';
 import '../../widgets/async_list_view.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/page_header.dart';
-import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../shell/navigation.dart';
 import 'product_detail_screen.dart';
@@ -301,11 +300,7 @@ class _ProductTile extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: <Widget>[
-                  MoneyText(
-                    product.salePrice,
-                    currencyCode: product.currencyCode,
-                    style: theme.textTheme.titleMedium,
-                  ),
+                  _InlinePriceField(product: product, enabled: canWrite),
                   if (product.quantityOnHand != null)
                     Text(
                       product.boxesPerCarton > 0
@@ -371,6 +366,123 @@ class _ProductTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _InlinePriceField extends StatefulWidget {
+  const _InlinePriceField({required this.product, required this.enabled});
+
+  final Product product;
+  final bool enabled;
+
+  @override
+  State<_InlinePriceField> createState() => _InlinePriceFieldState();
+}
+
+class _InlinePriceFieldState extends State<_InlinePriceField> {
+  late final TextEditingController _controller;
+  bool _saving = false;
+
+  String _format(double value) => value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(2);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: _format(widget.product.salePrice),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _InlinePriceField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.product.id != widget.product.id ||
+        oldWidget.product.salePrice != widget.product.salePrice) {
+      _controller.text = _format(widget.product.salePrice);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _commit() async {
+    if (!widget.enabled || _saving) return;
+    final value = double.tryParse(_controller.text.trim());
+    if (value == null || value < 0) {
+      _controller.text = _format(widget.product.salePrice);
+      return;
+    }
+    if ((value - widget.product.salePrice).abs() < 0.005) return;
+
+    final api = context.read<Session>().api;
+    final controller = context.read<ProductsController>();
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _saving = true);
+    try {
+      final body = <String, dynamic>{'salePrice': value};
+      final boxes = widget.product.boxesPerCarton;
+      if (boxes > 0) {
+        // The box is the stored price; the carton follows the same rate.
+        body['boxPrice'] = value;
+        body['cartonPrice'] =
+            double.parse((value * boxes).toStringAsFixed(2));
+      }
+      final data = await api.patchObject(
+        '/products/${widget.product.id}',
+        body: body,
+      );
+      final updated = Product.fromJson(data);
+      controller.replaceWhere(
+        (item) => item.id == updated.id,
+        (_) => updated,
+      );
+    } on ApiException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      _controller.text = _format(widget.product.salePrice);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    return SizedBox(
+      width: 118,
+      child: TextField(
+        controller: _controller,
+        enabled: widget.enabled && !_saving,
+        textAlign: TextAlign.end,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          isDense: true,
+          labelText:
+              widget.product.boxesPerCarton > 0 ? s.boxSalePrice : s.salePrice,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          prefixIcon: _saving
+              ? const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : null,
+        ),
+        onSubmitted: (_) => _commit(),
+        onTapOutside: (_) {
+          FocusScope.of(context).unfocus();
+          _commit();
+        },
       ),
     );
   }
