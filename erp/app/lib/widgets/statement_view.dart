@@ -6,7 +6,11 @@ import '../models/account_statement.dart';
 import 'money_text.dart';
 import 'section_card.dart';
 
-/// Renders an account statement: partner header, ledger rows and totals.
+/// Renders an account statement: partner header, ledger table and totals.
+///
+/// The layout mirrors an SAP account statement: header data first, then a
+/// bordered ledger grid (opening balance, movements, running balance) and a
+/// separate totals block.
 class StatementView extends StatelessWidget {
   const StatementView({super.key, required this.statement});
 
@@ -36,7 +40,7 @@ class StatementView extends StatelessWidget {
                 child: MoneyText(
                   statement.balance,
                   colorNegative: true,
-                  style: theme.textTheme.bodyMedium
+                  style: theme.textTheme.titleSmall
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
@@ -59,26 +63,26 @@ class StatementView extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         SectionCard(
           title: s.ledger,
           subtitle: s.entriesCount(rows.length),
+          padding: EdgeInsets.zero,
           child: rows.isEmpty
-              ? Text(
-                  s.noEntriesForPeriod,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: theme.colorScheme.outline),
+              ? Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    s.noEntriesForPeriod,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
                 )
-              : Column(
-                  children: <Widget>[
-                    const Divider(height: 8),
-                    for (final row in rows) _LedgerTile(row: row),
-                  ],
-                ),
+              : _LedgerTable(statement: statement),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         SectionCard(
           title: s.totals,
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
           child: Column(
             children: <Widget>[
               _TotalRow(
@@ -87,7 +91,7 @@ class StatementView extends StatelessWidget {
               ),
               _TotalRow(label: s.totalDebit, amount: statement.totalDebit),
               _TotalRow(label: s.totalCredit, amount: statement.totalCredit),
-              const Divider(),
+              const Divider(height: 12),
               _TotalRow(
                 label: s.closingBalance,
                 amount: statement.closingBalance,
@@ -110,17 +114,26 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withAlpha(120),
+            width: 0.6,
+          ),
+        ),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           SizedBox(
-            width: 140,
+            width: 130,
             child: Text(
               label,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.outline),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Expanded(child: child),
@@ -130,114 +143,120 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _LedgerTile extends StatelessWidget {
-  const _LedgerTile({required this.row});
+class _LedgerTable extends StatelessWidget {
+  const _LedgerTable({required this.statement});
 
-  final StatementRow row;
+  final AccountStatement statement;
 
   @override
   Widget build(BuildContext context) {
     final s = context.s;
     final theme = Theme.of(context);
-    final isPayment = row.type == 'PAYMENT';
-    final title = row.description.isNotEmpty
-        ? row.description
-        : (row.number.isNotEmpty ? row.number : s.status(row.type));
-    final subtitle = <String>[
-      Formatters.dateTime(row.date),
-      if (row.number.isNotEmpty && row.description.isNotEmpty) row.number,
-    ].join('  ·  ');
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(
-            isPayment
-                ? Icons.payments_outlined
-                : Icons.receipt_long_outlined,
-            size: 20,
-            color: theme.colorScheme.outline,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(title, style: theme.textTheme.bodyMedium),
-                Text(
-                  s.status(row.type),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: isPayment ? Colors.teal : theme.colorScheme.primary,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
-                ),
-              ],
+    final bold = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+    );
+    final cells = <DataRow>[
+      DataRow(
+        color: WidgetStatePropertyAll<Color>(
+          theme.colorScheme.surfaceContainerHighest.withAlpha(110),
+        ),
+        cells: <DataCell>[
+          const DataCell(Text('')),
+          const DataCell(Text('')),
+          DataCell(
+            Text(
+              s.openingBalance,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              if (row.debit > 0)
-                _SignedAmount(label: s.dr, amount: row.debit),
-              if (row.credit > 0)
-                _SignedAmount(label: s.cr, amount: row.credit),
-              if (row.debit <= 0 && row.credit <= 0)
-                Text(
-                  '—',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: theme.colorScheme.outline),
-                ),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    '${s.bal} ',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: theme.colorScheme.outline),
-                  ),
-                  MoneyText(
-                    row.balance,
-                    colorNegative: true,
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          const DataCell(Text('')),
+          const DataCell(Text('')),
+          DataCell(MoneyText(statement.openingBalance, style: bold)),
         ],
       ),
-    );
-  }
-}
-
-class _SignedAmount extends StatelessWidget {
-  const _SignedAmount({required this.label, required this.amount});
-
-  final String label;
-  final double amount;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Text(
-          '$label ',
-          style: theme.textTheme.labelSmall
-              ?.copyWith(color: theme.colorScheme.outline),
+      for (final row in statement.rows)
+        DataRow(
+          cells: <DataCell>[
+            DataCell(
+              Text(
+                Formatters.date(row.date),
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+            DataCell(
+              Text(row.number, style: theme.textTheme.bodySmall),
+            ),
+            DataCell(
+              SizedBox(
+                width: 260,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      row.description.isNotEmpty
+                          ? row.description
+                          : (row.number.isNotEmpty
+                              ? row.number
+                              : s.status(row.type)),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      s.status(row.type),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontSize: 10,
+                        color: row.type == 'PAYMENT'
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            DataCell(
+              row.debit > 0
+                  ? MoneyText(row.debit)
+                  : const Text(''),
+            ),
+            DataCell(
+              row.credit > 0
+                  ? MoneyText(row.credit)
+                  : const Text(''),
+            ),
+            DataCell(
+              MoneyText(
+                row.balance,
+                colorNegative: true,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
         ),
-        MoneyText(amount, style: theme.textTheme.bodyMedium),
-      ],
+    ];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        showCheckboxColumn: false,
+        columnSpacing: 18,
+        horizontalMargin: 10,
+        dataRowMinHeight: 30,
+        dataRowMaxHeight: 52,
+        columns: <DataColumn>[
+          DataColumn(label: Text(s.date), numeric: false),
+          DataColumn(label: Text(s.numberLabel), numeric: false),
+          DataColumn(label: Text(s.description), numeric: false),
+          DataColumn(label: Text(s.debit), numeric: true),
+          DataColumn(label: Text(s.credit), numeric: true),
+          DataColumn(label: Text(s.balance), numeric: true),
+        ],
+        rows: cells,
+      ),
     );
   }
 }
@@ -256,19 +275,22 @@ class _TotalRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style =
-        emphasise ? theme.textTheme.titleMedium : theme.textTheme.bodyMedium;
+    final labelStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: emphasise ? null : theme.colorScheme.onSurfaceVariant,
+      fontWeight: emphasise ? FontWeight.w700 : FontWeight.w400,
+    );
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: emphasise ? FontWeight.w700 : FontWeight.w600,
+    );
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: <Widget>[
-          Expanded(child: Text(label, style: style)),
+          Expanded(child: Text(label, style: labelStyle)),
           MoneyText(
             amount,
             colorNegative: emphasise,
-            style: style?.copyWith(
-              fontWeight: emphasise ? FontWeight.w700 : FontWeight.w400,
-            ),
+            style: valueStyle,
           ),
         ],
       ),

@@ -93,31 +93,37 @@ class Formatters {
         .join(' ');
   }
 
-  /// Colour associated with a business status value.
+  /// Colour associated with a business status value (SAP Fiori semantics).
   static Color statusColor(BuildContext context, String? status) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    final positive = dark ? const Color(0xFF6BCB8B) : const Color(0xFF107E3E);
+    final negative = dark ? const Color(0xFFFFB55A) : const Color(0xFFE9730C);
+    final critical = dark ? const Color(0xFFFF8888) : const Color(0xFFBB0000);
+    final info = dark ? const Color(0xFF7FB8F0) : const Color(0xFF0A6ED1);
     switch ((status ?? '').toUpperCase()) {
       case 'DRAFT':
-        return scheme.outline;
+        return scheme.onSurfaceVariant;
       case 'PENDING':
       case 'PARTIALLY_RECEIVED':
       case 'PARTIALLY_FULFILLED':
       case 'PARTIALLY_PAID':
-        return const Color(0xFFB26A00);
+        return negative;
       case 'APPROVED':
       case 'CONFIRMED':
-        return const Color(0xFF1565C0);
+        return info;
       case 'RECEIVED':
       case 'FULFILLED':
       case 'PAID':
       case 'ACTIVE':
       case 'ISSUED':
-        return const Color(0xFF2E7D32);
+        return positive;
       case 'CANCELLED':
       case 'VOID':
       case 'INACTIVE':
       case 'OVERDUE':
-        return scheme.error;
+        return critical;
       default:
         return scheme.primary;
     }

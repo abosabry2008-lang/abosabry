@@ -227,14 +227,14 @@ class _ReportTable extends StatelessWidget {
     final s = context.s;
     return SectionCard(
       title: s.report,
+      subtitle: s.lineCount(rows.length),
+      padding: EdgeInsets.zero,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DataTable(
-          headingRowColor: WidgetStatePropertyAll<Color>(
-            Theme.of(context).colorScheme.surfaceContainerHighest,
-          ),
+          showCheckboxColumn: false,
           columnSpacing: 20,
-          horizontalMargin: 8,
+          horizontalMargin: 10,
           columns: columns
               .map(
                 (column) => DataColumn(

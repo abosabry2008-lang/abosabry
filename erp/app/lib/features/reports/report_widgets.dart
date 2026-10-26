@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/l10n.dart';
+import '../../core/theme.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 
-/// Print button aligned to the end of the row.
+/// Toolbar shown above a report body with a right-aligned print action.
 class ReportPrintBar extends StatelessWidget {
   const ReportPrintBar({super.key, required this.onPrint});
 
@@ -14,14 +15,33 @@ class ReportPrintBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
       child: Row(
         children: <Widget>[
+          Icon(
+            Icons.table_chart_outlined,
+            size: 17,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            context.s.report,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
           const Spacer(),
           OutlinedButton.icon(
             onPressed: onPrint,
-            icon: const Icon(Icons.print_outlined),
+            icon: const Icon(Icons.print_outlined, size: 17),
             label: Text(context.s.print),
           ),
         ],
@@ -30,7 +50,8 @@ class ReportPrintBar extends StatelessWidget {
   }
 }
 
-/// A print bar plus an optional row of filter controls.
+/// A print bar plus an optional row of filter controls, laid out as a compact
+/// SAP-style report toolbar.
 class ReportHeader extends StatelessWidget {
   const ReportHeader({super.key, this.onPrint, this.filters = const <Widget>[]});
 
@@ -40,21 +61,66 @@ class ReportHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        if (onPrint != null) ReportPrintBar(onPrint: onPrint!),
-        if (filters.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: filters,
-            ),
-          ),
-      ],
+    final hasFilters = filters.isNotEmpty;
+    if (onPrint == null && !hasFilters) return const SizedBox.shrink();
+    final print = onPrint == null
+        ? null
+        : OutlinedButton.icon(
+            onPressed: onPrint,
+            icon: const Icon(Icons.print_outlined, size: 17),
+            label: Text(context.s.print),
+          );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 720;
+          if (wide) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      for (final filter in filters)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 300),
+                          child: filter,
+                        ),
+                    ],
+                  ),
+                ),
+                if (print != null) ...<Widget>[
+                  const SizedBox(width: 12),
+                  print,
+                ],
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              for (var index = 0; index < filters.length; index++) ...<Widget>[
+                if (index > 0) const SizedBox(height: 8),
+                filters[index],
+              ],
+              if (print != null) ...<Widget>[
+                if (hasFilters) const SizedBox(height: 8),
+                Align(alignment: AlignmentDirectional.centerEnd, child: print),
+              ],
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -123,30 +189,50 @@ class ReportAsyncSection extends StatelessWidget {
 }
 
 /// A single `label — value` row, either plain text or money.
+///
+/// Rendered as a compact reporting line (label muted, value emphasised) with a
+/// hairline separator, the way SAP report totals are displayed.
 class ReportKeyValueRow extends StatelessWidget {
   const ReportKeyValueRow({
     super.key,
     required this.label,
     this.value,
     this.amount,
+    this.emphasise = false,
   });
 
   final String label;
   final String? value;
   final double? amount;
+  final bool emphasise;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    final labelStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      fontWeight: emphasise ? FontWeight.w600 : FontWeight.w400,
+    );
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: emphasise ? FontWeight.w700 : FontWeight.w600,
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withAlpha(140),
+            width: 0.6,
+          ),
+        ),
+      ),
       child: Row(
         children: <Widget>[
-          Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+          Expanded(child: Text(label, style: labelStyle)),
           if (value != null)
-            Text(value!, style: theme.textTheme.bodyMedium)
+            Text(value!, style: valueStyle)
           else
-            MoneyText(amount, style: theme.textTheme.bodyMedium),
+            MoneyText(amount, style: valueStyle, colorNegative: true),
         ],
       ),
     );
@@ -171,7 +257,57 @@ class ReportTotalsCard extends StatelessWidget {
     return SectionCard(
       title: title,
       subtitle: subtitle,
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
       child: Column(children: rows),
     );
   }
+}
+
+/// A framed table header used above custom report rows.
+class ReportTableHeader extends StatelessWidget {
+  const ReportTableHeader({super.key, required this.cells});
+
+  /// Cell label plus optional flex/alignment.
+  final List<ReportHeaderCell> cells;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppTheme.tableHeaderColor(context),
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.primary, width: 1.4),
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          for (final cell in cells)
+            Expanded(
+              flex: cell.flex,
+              child: Text(
+                cell.label,
+                textAlign: cell.align,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.isLight(context)
+                      ? AppTheme.textPrimary
+                      : theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class ReportHeaderCell {
+  const ReportHeaderCell(this.label, {this.flex = 1, this.align = TextAlign.start});
+
+  final String label;
+  final int flex;
+  final TextAlign align;
 }

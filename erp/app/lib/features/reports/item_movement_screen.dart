@@ -13,7 +13,6 @@ import '../../widgets/date_range_button.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_view.dart';
 import '../../widgets/form_fields.dart';
-import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import '../inventory/product_picker_field.dart';
 
@@ -213,70 +212,89 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
           SectionCard(
             title: s.itemMovement,
             subtitle: s.itemMovementHint,
-            child: Column(
-              children: <Widget>[
-                for (final row in rows) _MovementRow(row: row),
-              ],
+            padding: EdgeInsets.zero,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                showCheckboxColumn: false,
+                columnSpacing: 16,
+                columns: <DataColumn>[
+                  DataColumn(label: Text(s.date)),
+                  DataColumn(label: Text(s.numberLabel)),
+                  DataColumn(label: Text(s.type)),
+                  DataColumn(label: Text(s.partner)),
+                  DataColumn(label: Text(s.inShort), numeric: true),
+                  DataColumn(label: Text(s.outShort), numeric: true),
+                  DataColumn(label: Text(s.balance), numeric: true),
+                ],
+                rows: <DataRow>[
+                  for (final row in rows) _movementRow(context, row),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class _MovementRow extends StatelessWidget {
-  const _MovementRow({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
+  DataRow _movementRow(BuildContext context, Map<String, dynamic> row) {
     final s = context.s;
     final theme = Theme.of(context);
     final isIn = asString(row['dir']).toUpperCase() == 'IN';
-    final quantity = _num(row['quantity']);
+    final quantity = _num(row['quantity']).abs();
     final party = asMap(row['party']);
     final partyType = asString(party['type']);
     final partyName = asStringOrNull(party['name']);
     final partyLabel = party.isEmpty
-        ? null
+        ? asString(row['location'], fallback: '—')
         : partyType == 'CASH'
             ? s.cashSale
             : partyType == 'CUSTOMER'
                 ? '${isIn ? s.fromCustomer : s.toCustomer}: ${partyName ?? '—'}'
                 : partyType == 'SUPPLIER'
                     ? '${isIn ? s.fromSupplier : s.toSupplier}: ${partyName ?? '—'}'
-                    : null;
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        '${Formatters.date(asDate(row['date']))} · '
-        '${s.status(asStringOrNull(row['type']))}',
-      ),
-      subtitle: Text(
-        <String>[
-          if (partyLabel != null) partyLabel,
-          asString(row['reference'], fallback: '—'),
-          asString(row['location'], fallback: '—'),
-          '${s.runningBalance}: ${Formatters.integer(_num(row['balance']))}',
-        ].join(' · '),
-      ),
-      trailing: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: <Widget>[
-          Text(
-            '${quantity >= 0 ? '+' : ''}${Formatters.integer(quantity)}',
-            style: theme.textTheme.titleSmall?.copyWith(
-              color:
-                  isIn ? const Color(0xFF2E7D32) : theme.colorScheme.error,
-            ),
+                    : asString(row['location'], fallback: '—');
+    return DataRow(
+      cells: <DataCell>[
+        DataCell(Text(Formatters.date(asDate(row['date'])))),
+        DataCell(Text(asString(row['reference'], fallback: '—'))),
+        DataCell(Text(s.status(asStringOrNull(row['type'])))),
+        DataCell(
+          SizedBox(
+            width: 210,
+            child: Text(partyLabel, overflow: TextOverflow.ellipsis),
           ),
-          MoneyText(_num(row['value']), style: theme.textTheme.bodySmall),
-        ],
-      ),
+        ),
+        DataCell(
+          isIn
+              ? Text(
+                  Formatters.integer(quantity),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                )
+              : const Text(''),
+        ),
+        DataCell(
+          isIn
+              ? const Text('')
+              : Text(
+                  Formatters.integer(quantity),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+        ),
+        DataCell(
+          Text(
+            Formatters.integer(_num(row['balance'])),
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }

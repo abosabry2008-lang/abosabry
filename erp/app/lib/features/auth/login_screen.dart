@@ -79,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(6),
                 side: BorderSide(color: theme.colorScheme.outlineVariant),
               ),
               child: Padding(
@@ -90,10 +90,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
-                      Icon(
-                        Icons.inventory_2_outlined,
-                        size: 48,
-                        color: theme.colorScheme.primary,
+                      Center(
+                        child: Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.account_balance_outlined,
+                            size: 28,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(

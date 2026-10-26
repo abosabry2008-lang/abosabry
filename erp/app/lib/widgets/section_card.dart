@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme.dart';
+
 /// A card with an optional title/subtitle header used to group form fields and
 /// detail sections.
+///
+/// Styled like an SAP Fiori card / GUI group box: a tinted header band with a
+/// thin border and a dense body. Behaviour is unchanged.
 class SectionCard extends StatelessWidget {
   const SectionCard({
     super.key,
@@ -9,7 +14,9 @@ class SectionCard extends StatelessWidget {
     this.subtitle,
     this.trailing,
     required this.child,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(12),
+    this.headerColor,
+    this.noBorder = false,
   });
 
   final String? title;
@@ -17,40 +24,67 @@ class SectionCard extends StatelessWidget {
   final Widget? trailing;
   final Widget child;
   final EdgeInsetsGeometry padding;
+  final Color? headerColor;
+
+  /// Removes the outer border (used when the card sits inside another panel).
+  final bool noBorder;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasHeader = title != null || trailing != null;
+    final border = theme.colorScheme.outlineVariant;
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
       color: theme.colorScheme.surface,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(6),
+        side: noBorder ? BorderSide.none : BorderSide(color: border),
       ),
-      child: Padding(
-        padding: padding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            if (hasHeader) ...<Widget>[
-              Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (hasHeader)
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+              decoration: BoxDecoration(
+                color: headerColor ?? AppTheme.sectionHeaderColor(context),
+                border: Border(bottom: BorderSide(color: border)),
+              ),
+              child: Row(
                 children: <Widget>[
+                  Container(
+                    width: 3,
+                    height: 16,
+                    margin: const EdgeInsetsDirectional.only(end: 8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         if (title != null)
-                          Text(title!, style: theme.textTheme.titleMedium),
+                          Text(
+                            title!,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.isLight(context)
+                                  ? AppTheme.textPrimary
+                                  : theme.colorScheme.onSurface,
+                            ),
+                          ),
                         if (subtitle != null)
                           Padding(
-                            padding: const EdgeInsets.only(top: 2),
+                            padding: const EdgeInsets.only(top: 1),
                             child: Text(
                               subtitle!,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.outline,
+                                color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
@@ -60,11 +94,12 @@ class SectionCard extends StatelessWidget {
                   if (trailing != null) trailing!,
                 ],
               ),
-              const SizedBox(height: 12),
-            ],
-            child,
-          ],
-        ),
+            ),
+          Padding(
+            padding: padding,
+            child: child,
+          ),
+        ],
       ),
     );
   }

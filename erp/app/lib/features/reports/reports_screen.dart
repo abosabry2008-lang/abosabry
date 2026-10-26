@@ -8,6 +8,7 @@ import '../../core/json_utils.dart';
 import '../../core/l10n.dart';
 import '../../core/print_service.dart';
 import '../../core/session.dart';
+import '../../core/theme.dart';
 import '../../models/sales_point.dart';
 import '../../models/warehouse.dart';
 import '../../state/reports_controller.dart';
@@ -671,42 +672,46 @@ class _GroupHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: scheme.primaryContainer,
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Icon(group.icon, size: 20, color: scheme.onPrimaryContainer),
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: AppTheme.sectionHeaderColor(context),
+        borderRadius: BorderRadius.circular(4),
+        border: BorderDirectional(
+          start: BorderSide(color: theme.colorScheme.primary, width: 3),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                group.title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                group.description,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.outline,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(group.icon, size: 18, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  group.title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (group.description.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Text(
+                      group.description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-              ),
-            ],
+                  ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -720,9 +725,9 @@ class _ReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: scheme.surfaceContainerLowest,
+      color: scheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(4),
         side: BorderSide(color: scheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
@@ -734,23 +739,19 @@ class _ReportCard extends StatelessWidget {
           pushScreen<void>(context, report.title, report.builder(context));
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           child: Row(
             children: <Widget>[
               Container(
-                width: 36,
-                height: 36,
+                width: 30,
+                height: 30,
                 decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(10),
+                  color: scheme.primary.withAlpha(20),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                child: Icon(
-                  report.icon,
-                  size: 19,
-                  color: scheme.onSecondaryContainer,
-                ),
+                child: Icon(report.icon, size: 17, color: scheme.primary),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 9),
               Expanded(
                 child: Text(
                   report.title,
@@ -759,11 +760,15 @@ class _ReportCard extends StatelessWidget {
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                      ?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(Icons.chevron_right, size: 18, color: scheme.outline),
+              Icon(
+                Icons.chevron_right,
+                size: 16,
+                color: scheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),

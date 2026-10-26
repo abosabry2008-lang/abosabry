@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/l10n.dart';
 import '../../core/session.dart';
+import '../../core/theme.dart';
 import '../../core/theme_controller.dart';
 import '../../state/reports_controller.dart';
 import '../../state/settings_controller.dart';
@@ -403,7 +404,48 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(destination.label(s)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: const Icon(
+                Icons.account_balance_outlined,
+                size: 16,
+                color: Color(0xFF354A5F),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              s.appName,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.1,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(width: 1, height: 16, color: Colors.white24),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                destination.label(s),
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          ],
+        ),
         surfaceTintColor: Colors.transparent,
         actions: <Widget>[
           if (isWide) const _GlobalSearchButton(),
@@ -411,39 +453,25 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           const _ThemeButton(),
           const _LanguageButton(),
           _UserMenu(session: session),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
       ),
       drawer: isWide
           ? null
           : Drawer(
-              backgroundColor: Colors.transparent,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               elevation: 0,
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(10),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
-                ),
-                child: SafeArea(
-                  child: Scrollbar(
+              child: SafeArea(
+                child: Scrollbar(
+                  controller: _drawerScrollController,
+                  thumbVisibility: true,
+                  child: ListView(
                     controller: _drawerScrollController,
-                    thumbVisibility: true,
-                    child: ListView(
-                      controller: _drawerScrollController,
-                      padding: EdgeInsets.zero,
-                      children: <Widget>[
-                        ...drawerTiles,
-                        const SizedBox(height: 12),
-                      ],
-                    ),
+                    padding: EdgeInsets.zero,
+                    children: <Widget>[
+                      ...drawerTiles,
+                      const SizedBox(height: 12),
+                    ],
                   ),
                 ),
               ),
@@ -451,42 +479,23 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       body: Row(
         children: <Widget>[
           if (isWide)
-            // Wrap the rail so its destinations scroll when they exceed the
-            // available height (long menus on short screens).
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
-              child: SizedBox(
-                width: isExtraWide ? 236 : 210,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outlineVariant
-                          .withAlpha(179),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(5),
-                        blurRadius: 18,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
+            Container(
+              width: isExtraWide ? 244 : 220,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: BorderDirectional(
+                  end: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: Scrollbar(
-                      controller: _railScrollController,
-                      thumbVisibility: true,
-                      child: ListView(
-                        controller: _railScrollController,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        children: sidebarTiles,
-                      ),
-                    ),
-                  ),
+                ),
+              ),
+              child: Scrollbar(
+                controller: _railScrollController,
+                thumbVisibility: true,
+                child: ListView(
+                  controller: _railScrollController,
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  children: sidebarTiles,
                 ),
               ),
             ),
@@ -577,20 +586,21 @@ class _DrawerGroupLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 16, 28, 6),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
       child: Text(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.outline,
+          color: theme.colorScheme.onSurfaceVariant,
+          fontSize: 10.5,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.6,
+          letterSpacing: 0.8,
         ),
       ),
     );
   }
 }
 
-/// A single drawer navigation row matching the Material look of the shell.
+/// A single drawer navigation row matching the SAP shell sidebar.
 class _DrawerTile extends StatelessWidget {
   const _DrawerTile({
     required this.icon,
@@ -608,32 +618,45 @@ class _DrawerTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final foreground =
+        selected ? scheme.primary : theme.colorScheme.onSurface;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       child: Material(
-        color: selected ? scheme.secondaryContainer : Colors.transparent,
-        borderRadius: BorderRadius.circular(28),
+        color: selected ? scheme.primary.withAlpha(20) : Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
         child: InkWell(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(4),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              border: BorderDirectional(
+                start: BorderSide(
+                  color: selected ? scheme.primary : Colors.transparent,
+                  width: 3,
+                ),
+              ),
+            ),
             child: Row(
               children: <Widget>[
                 Icon(
                   icon,
+                  size: 18,
                   color: selected
-                      ? scheme.onSecondaryContainer
-                      : scheme.onSurfaceVariant,
+                      ? scheme.primary
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Text(
                     label,
                     style: theme.textTheme.labelLarge?.copyWith(
-                      color: selected
-                          ? scheme.onSecondaryContainer
-                          : scheme.onSurfaceVariant,
+                      fontSize: 12.5,
+                      fontWeight:
+                          selected ? FontWeight.w600 : FontWeight.w400,
+                      color: foreground,
                     ),
                   ),
                 ),
@@ -653,20 +676,49 @@ class _DrawerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 24, 28, 16),
+    return Container(
+      color: AppTheme.shellBar,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: const Icon(
+                  Icons.account_balance_outlined,
+                  size: 16,
+                  color: AppTheme.shellBar,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                context.s.appName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           Text(
             session.user?.name ?? context.s.erpUser,
-            style: theme.textTheme.titleMedium,
+            style: theme.textTheme.titleSmall?.copyWith(color: Colors.white),
           ),
           const SizedBox(height: 2),
           Text(
             context.s.status(session.role),
             style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline),
+                ?.copyWith(color: Colors.white70),
           ),
         ],
       ),
@@ -725,38 +777,45 @@ class _UserMenu extends StatelessWidget {
         ),
       ],
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             CircleAvatar(
-              radius: 16,
-              backgroundColor: theme.colorScheme.primaryContainer,
+              radius: 14,
+              backgroundColor: Colors.white24,
               child: Text(
                 _initials(user?.name),
                 style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onPrimaryContainer,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  user?.name ?? context.s.erpUser,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                Text(
-                  context.s.status(user?.role),
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline),
-                ),
-              ],
-            ),
-            const Icon(Icons.arrow_drop_down),
+            if (MediaQuery.sizeOf(context).width >= 760) ...<Widget>[
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    user?.name ?? context.s.erpUser,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    context.s.status(user?.role),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: Colors.white70,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+              const Icon(Icons.arrow_drop_down, color: Colors.white70),
+            ],
           ],
         ),
       ),

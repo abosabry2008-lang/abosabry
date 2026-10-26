@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/formatters.dart';
 import '../../core/json_utils.dart';
 import '../../core/l10n.dart';
 import '../../state/reports_controller.dart';
@@ -32,6 +31,7 @@ class TrialBalanceReportScreen extends StatelessWidget {
     final totals = asMap(controller.trialBalanceReport['totals']);
     final debit = asDouble(totals['debit']);
     final credit = asDouble(totals['credit']);
+    const boldStyle = TextStyle(fontWeight: FontWeight.w700);
     return ReportAsyncSection(
       loading: controller.loadingTrialBalance,
       error: controller.trialBalanceError,
@@ -52,40 +52,66 @@ class TrialBalanceReportScreen extends StatelessWidget {
         SectionCard(
           title: s.trialBalance,
           subtitle: s.trialBalanceHint,
-          child: Column(
-            children: <Widget>[
-              for (final row in rows) _AccountRow(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 24,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.code)),
+                DataColumn(label: Text(s.accountWord)),
+                DataColumn(label: Text(s.debit), numeric: true),
+                DataColumn(label: Text(s.credit), numeric: true),
+                DataColumn(label: Text(s.balance), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in rows)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(Text(asString(row['code']))),
+                      DataCell(Text(asString(row['name']))),
+                      DataCell(MoneyText(asDouble(row['debit']))),
+                      DataCell(MoneyText(asDouble(row['credit']))),
+                      DataCell(
+                        MoneyText(
+                          asDouble(row['balance']),
+                          colorNegative: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                DataRow(
+                  color: WidgetStatePropertyAll<Color>(
+                    Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withAlpha(120),
+                  ),
+                  cells: <DataCell>[
+                    const DataCell(Text('')),
+                    DataCell(
+                      Text(
+                        s.totals,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    DataCell(MoneyText(debit, style: boldStyle)),
+                    DataCell(MoneyText(credit, style: boldStyle)),
+                    DataCell(
+                      MoneyText(
+                        debit - credit,
+                        colorNegative: true,
+                        style: boldStyle,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _AccountRow extends StatelessWidget {
-  const _AccountRow({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final code = asString(row['code']);
-    final name = asString(row['name']);
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text('$code $name'.trim()),
-      subtitle: Text(
-        '${context.s.debit}: ${Formatters.money(asDouble(row['debit']))} · '
-        '${context.s.credit}: ${Formatters.money(asDouble(row['credit']))}',
-        style: theme.textTheme.bodySmall,
-      ),
-      trailing: MoneyText(
-        asDouble(row['balance']),
-        colorNegative: true,
-      ),
     );
   }
 }
@@ -236,15 +262,28 @@ class _StatementRow extends StatelessWidget {
                   initialTo: to,
                 ),
               ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant.withAlpha(120),
+              width: 0.6,
+            ),
+          ),
+        ),
         child: Row(
           children: <Widget>[
-            Expanded(child: Text('$code $name'.trim())),
+            Expanded(
+              child: Text(
+                '$code $name'.trim(),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
             MoneyText(asDouble(row['amount']), colorNegative: true),
             if (accountId.isNotEmpty) ...<Widget>[
               const SizedBox(width: 6),
-              const Icon(Icons.chevron_right, size: 18),
+              const Icon(Icons.chevron_right, size: 16),
             ],
           ],
         ),
