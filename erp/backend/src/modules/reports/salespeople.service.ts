@@ -40,6 +40,7 @@ export interface ConsolidatedLine {
   name: string;
   category: string | null;
   unit: string;
+  boxesPerCarton: number;
   quantity: number;
   net: number;
 }
@@ -118,7 +119,15 @@ export async function buildConsolidatedSalesNote(
           quantity: true,
           unitPrice: true,
           discount: true,
-          product: { select: { sku: true, name: true, unit: true, category: { select: { name: true } } } },
+          product: {
+            select: {
+              sku: true,
+              name: true,
+              unit: true,
+              boxesPerCarton: true,
+              category: { select: { name: true } },
+            },
+          },
         },
       },
     },
@@ -171,6 +180,7 @@ export async function buildConsolidatedSalesNote(
           name: line.product?.name ?? '',
           category: line.product?.category?.name ?? null,
           unit: line.product?.unit ?? '',
+          boxesPerCarton: Number(line.product?.boxesPerCarton ?? 0),
           quantity: 0,
           net: 0,
         } satisfies ConsolidatedLine);
@@ -227,12 +237,11 @@ export async function buildConsolidatedSalesNote(
       returnNet = round2(returnNet + lineNet);
       const existing = row.lines.find((x) => x.productId === l.productId);
       if (existing) {
-        existing.quantity = Math.max(0, existing.quantity - l.quantity);
         existing.net = round2(Math.max(0, existing.net - lineNet));
       }
     }
     row.net = round2(Math.max(0, row.net - (returnNet > 0 ? returnNet : Number(ret.total))));
-    row.quantity = Math.max(0, row.quantity - ret.lines.reduce((s, l) => s + l.quantity, 0));
+    // Quantities stay gross of returns; only the net value is reduced.
   }
 
   const rows = [...byRep.values()]

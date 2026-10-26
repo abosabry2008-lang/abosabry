@@ -368,7 +368,7 @@ router.patch(
       await updateSalesOrder(
         existing.salesOrderId,
         { lines: orderLines },
-        { allowPosted: true, userId: user.id },
+        { allowPosted: true, fromInvoiceSync: true, userId: user.id },
       );
     }
     const invoice = await updateInvoice(req.params.id, req.body, {

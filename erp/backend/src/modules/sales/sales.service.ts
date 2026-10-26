@@ -460,6 +460,8 @@ export interface UpdateSalesOrderOptions {
    * so inventory stays consistent with the document.
    */
   allowPosted?: boolean;
+  /** Internal flag: the line change originates from the linked invoice. */
+  fromInvoiceSync?: boolean;
   userId?: string;
 }
 
@@ -491,6 +493,24 @@ export async function updateSalesOrder(
       existing.status === 'DRAFT' || options.allowPosted === true;
     if (!editable) {
       throw ApiError.badRequest('Only draft sales orders can be edited', 'NOT_EDITABLE');
+    }
+
+    // Once the order has an issued invoice, its lines are owned by that
+    // invoice (which also keeps stock in sync). Editing them here would make
+    // the invoice, stock and order drift apart.
+    if (input.lines && options.fromInvoiceSync !== true) {
+      const invoiced = await tx.invoice.count({
+        where: {
+          salesOrderId: id,
+          status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+        },
+      });
+      if (invoiced > 0) {
+        throw ApiError.badRequest(
+          'This sales order is already invoiced — edit the invoice lines instead',
+          'ORDER_ALREADY_INVOICED',
+        );
+      }
     }
 
     // Once the order is invoiced the payment has already been posted, so the

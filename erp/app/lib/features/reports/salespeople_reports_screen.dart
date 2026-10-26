@@ -221,11 +221,18 @@ class _SalespersonSection extends StatelessWidget {
                 title: Text(
                   asString(line['name'], fallback: asString(line['sku'])),
                 ),
-                subtitle: Text(
-                  '${asString(line['sku'])} · ${s.quantity}: '
-                  '${Formatters.integer(asDouble(line['quantity']))} '
-                  '${asString(line['unit'])}',
-                ),
+                subtitle: Text(() {
+                  final quantity = asDouble(line['quantity']).toInt();
+                  final boxesPerCarton = asInt(line['boxesPerCarton']);
+                  final quantityText = boxesPerCarton > 0
+                      ? s.packStock(
+                          quantity ~/ boxesPerCarton,
+                          quantity % boxesPerCarton,
+                        )
+                      : '$quantity ${asString(line['unit'])}';
+                  return '${asString(line['sku'])} · ${s.quantity}: '
+                      '$quantityText';
+                }()),
                 trailing: MoneyText(asDouble(line['net'])),
               ),
           ],

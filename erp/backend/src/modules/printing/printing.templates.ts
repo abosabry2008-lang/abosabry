@@ -78,6 +78,28 @@ function timestamp(): string {
   return localStamp(new Date());
 }
 
+/** Renders a base-box quantity as cartons + loose boxes. */
+function packQuantity(
+  quantity: number,
+  boxesPerCarton: number,
+  ar: boolean,
+): string {
+  if (boxesPerCarton <= 0) return String(quantity);
+  const cartons = Math.floor(quantity / boxesPerCarton);
+  const boxes = quantity % boxesPerCarton;
+  if (cartons === 0 && boxes === 0) return '0';
+  if (ar) {
+    const parts: string[] = [];
+    if (cartons) parts.push(`${cartons} كرتونة`);
+    if (boxes) parts.push(`${boxes} علبة`);
+    return parts.join(' + ');
+  }
+  const parts: string[] = [];
+  if (cartons) parts.push(`${cartons} carton${cartons === 1 ? '' : 's'}`);
+  if (boxes) parts.push(`${boxes} box${boxes === 1 ? '' : 'es'}`);
+  return parts.join(' + ');
+}
+
 // ---------------------------------------------------------------------------
 // Page shell
 // ---------------------------------------------------------------------------
@@ -1090,7 +1112,7 @@ export function consolidatedSalesNoteHtml(
         <td>${escapeHtml(line.sku)}</td>
         <td>${escapeHtml(line.name)}</td>
         <td>${escapeHtml(line.unit)}</td>
-        <td class="num">${escapeHtml(line.quantity)}</td>
+        <td class="num">${escapeHtml(packQuantity(Number(line.quantity), Number(line.boxesPerCarton ?? 0), ar))}</td>
         <td class="num">${money(line.net)}</td>
       </tr>`,
             )
