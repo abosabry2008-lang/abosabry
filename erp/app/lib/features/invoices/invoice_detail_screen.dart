@@ -97,13 +97,22 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
   Future<void> _issue() async {
     final s = context.s;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked == null || !mounted) return;
     final api = context.read<Session>().api;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
     try {
       await api.post(
         '/invoices/${widget.invoiceId}/issue',
-        body: const <String, dynamic>{},
+        body: <String, dynamic>{
+          'issueDate': picked.toUtc().toIso8601String(),
+        },
       );
       await _load();
       messenger.showSnackBar(SnackBar(content: Text(s.invoiceIssued)));

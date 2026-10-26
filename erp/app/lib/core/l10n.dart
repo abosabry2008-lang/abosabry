@@ -810,6 +810,7 @@ class AppStrings {
         'The payment was already posted with the invoice. Record further payments from the invoice screen.',
         'تم تسجيل الدفعة مع الفاتورة. سجّل أي دفعات إضافية من شاشة الفاتورة.',
       );
+  String get issueDate => _t('Issue date', 'تاريخ الإصدار');
   String get paidOn => _t('Paid on', 'تاريخ الدفع');
   String get noInvoice => _t('No invoice', 'بدون فاتورة');
   String get invoiceOptional => _t('Invoice (optional)', 'الفاتورة (اختياري)');

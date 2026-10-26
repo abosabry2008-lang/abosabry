@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/formatters.dart';
 import '../../core/l10n.dart';
+import '../../core/print_service.dart';
 import '../../core/session.dart';
 import '../../models/invoice.dart';
 import '../../state/invoices_controller.dart';
@@ -140,22 +141,35 @@ class InvoicesScreen extends StatelessWidget {
                     invoice.number,
                     InvoiceDetailScreen(invoiceId: invoice.id, initial: invoice),
                   ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      MoneyText(
-                        invoice.total,
-                        currencyCode: invoice.currencyCode,
-                        style: Theme.of(context).textTheme.titleMedium,
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: <Widget>[
+                          MoneyText(
+                            invoice.total,
+                            currencyCode: invoice.currencyCode,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          StatusChip(
+                            status:
+                                invoice.isOverdue ? 'OVERDUE' : invoice.status,
+                            label: invoice.isOverdue
+                                ? s.overdue
+                                : s.status(invoice.status),
+                            compact: true,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      StatusChip(
-                        status: invoice.isOverdue ? 'OVERDUE' : invoice.status,
-                        label: invoice.isOverdue
-                            ? s.overdue
-                            : s.status(invoice.status),
-                        compact: true,
+                      IconButton(
+                        tooltip: s.print,
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.print_outlined),
+                        onPressed: () =>
+                            PrintService.printInvoice(context, invoice.id),
                       ),
                     ],
                   ),

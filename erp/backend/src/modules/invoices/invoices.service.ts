@@ -71,6 +71,8 @@ export interface CreateInvoiceInput {
   currencyId?: string | null;
   /** Warehouse a direct invoice deducts stock from; ignored for order invoices. */
   warehouseId?: string | null;
+  /** When issuing, the date the document should carry (defaults to now). */
+  issueDate?: Date;
   dueDate?: Date | null;
   notes?: string | null;
   lines?: InvoiceLineInput[];
@@ -684,12 +686,16 @@ export async function createInvoice(input: CreateInvoiceInput) {
   return prisma.$transaction(async (tx) => {
     const invoice = await createInvoiceTx(tx, input);
     if (!input.issue) return invoice;
-    return issueInvoiceTx(tx, invoice.id, input.userId);
+    return issueInvoiceTx(tx, invoice.id, input.userId, input.issueDate);
   });
 }
 
-export async function issueInvoice(id: string, userId?: string) {
-  return prisma.$transaction((tx) => issueInvoiceTx(tx, id, userId));
+export async function issueInvoice(
+  id: string,
+  userId?: string,
+  issueDate?: Date,
+) {
+  return prisma.$transaction((tx) => issueInvoiceTx(tx, id, userId, issueDate));
 }
 
 /**

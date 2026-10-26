@@ -34,6 +34,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
       TextEditingController(text: widget.invoice?.notes ?? '');
   late String? _customerId = widget.invoice?.customerId;
   late DateTime? _dueDate = widget.invoice?.dueDate;
+  DateTime _issueDate = DateTime.now();
   late final List<InvoiceLineDraft> _lines =
       (widget.invoice?.lines ?? const <InvoiceLine>[])
           .map(InvoiceLineDraft.fromLine)
@@ -49,6 +50,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
   @override
   void initState() {
     super.initState();
+    _issueDate = widget.invoice?.issueDate ?? DateTime.now();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final api = context.read<Session>().api;
@@ -96,6 +98,7 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
     return <String, dynamic>{
       'customerId': _customerId,
       'warehouseId': _warehouseId,
+      'issueDate': _issueDate.toUtc().toIso8601String(),
       'dueDate': _dueDate?.toUtc().toIso8601String(),
       'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       'lines': _lines.map((line) => line.toJson()).toList(),
@@ -249,6 +252,20 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
                     enabled: !_saving,
                     onChanged: (value) => setState(() => _dueDate = value),
                   ),
+                  if (invoice == null) ...<Widget>[
+                    const SizedBox(height: 14),
+                    AppDateField(
+                      label: s.issueDate,
+                      value: _issueDate,
+                      enabled: !_saving,
+                      clearable: false,
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _issueDate = value);
+                        }
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   AppTextField(
                     label: s.notes,

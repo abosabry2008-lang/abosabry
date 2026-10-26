@@ -53,6 +53,7 @@ const createSchema = z
     warehouseId: z.string().nullable().optional(),
     currencyId: z.string().nullable().optional(),
     dueDate: z.coerce.date().nullable().optional(),
+    issueDate: z.coerce.date().optional(),
     notes: z.string().nullable().optional(),
     lines: z.array(lineSchema).min(1).optional(),
     skipUnavailable: z.boolean().optional(),
@@ -105,6 +106,7 @@ async function collectWalkInCashSale(invoiceId: string, userId: string) {
       number: true,
       customerId: true,
       total: true,
+      issueDate: true,
       status: true,
     },
   });
@@ -118,7 +120,7 @@ async function collectWalkInCashSale(invoiceId: string, userId: string) {
       cashBoxId: box.id,
       method: 'CASH',
       amount: Number(invoice.total),
-      paidAt: new Date(),
+      paidAt: invoice.issueDate,
       note: `Cash sale ${invoice.number}`,
       userId,
     });
@@ -295,7 +297,17 @@ router.post(
   requirePermission('invoices.write'),
   asyncHandler(async (req, res) => {
     await assertInvoiceAccess(currentUser(req), req.params.id);
-    const invoice = await issueInvoice(req.params.id, currentUser(req).id);
+    const rawIssueDate = req.body?.issueDate;
+    const issueDate =
+      rawIssueDate == null ? undefined : new Date(String(rawIssueDate));
+    if (issueDate && Number.isNaN(issueDate.getTime())) {
+      throw ApiError.badRequest('Invalid issue date', 'INVALID_ISSUE_DATE');
+    }
+    const invoice = await issueInvoice(
+      req.params.id,
+      currentUser(req).id,
+      issueDate,
+    );
     await collectWalkInCashSale(invoice.id, currentUser(req).id);
     const fresh = await prisma.invoice.findUniqueOrThrow({
       where: { id: invoice.id },
