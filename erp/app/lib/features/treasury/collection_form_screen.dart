@@ -524,6 +524,86 @@ class _CustomerAmountRow extends StatelessWidget {
     final theme = Theme.of(context);
     final remaining = customer.balance - amount;
 
+    final indexLabel = SizedBox(
+      width: 26,
+      child: Text(
+        '${index + 1}',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.outline,
+        ),
+      ),
+    );
+    final info = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          customer.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 4,
+          children: <Widget>[
+            if (customer.code != null)
+              Text(
+                customer.code!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+            Text(
+              '${s.balance}: ',
+              style: theme.textTheme.bodySmall,
+            ),
+            MoneyText(
+              customer.balance,
+              style: theme.textTheme.bodySmall,
+            ),
+            if (amount > 0) ...<Widget>[
+              Text(
+                ' · ${s.remainingBalance}: ',
+                style: theme.textTheme.bodySmall,
+              ),
+              MoneyText(
+                remaining,
+                colorNegative: true,
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+    final amountField = SizedBox(
+      width: 104,
+      child: TextField(
+        controller: controller,
+        enabled: enabled,
+        textAlign: TextAlign.center,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: <TextInputFormatter>[
+          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+        ],
+        decoration: const InputDecoration(
+          hintText: '0.00',
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          border: OutlineInputBorder(),
+        ),
+      ),
+    );
+    final action = IconButton(
+      tooltip: s.fullBalance,
+      visualDensity: VisualDensity.compact,
+      onPressed: enabled ? onFullBalance : null,
+      icon: const Icon(Icons.price_check_outlined),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
@@ -531,93 +611,44 @@ class _CustomerAmountRow extends StatelessWidget {
           bottom: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
       ),
-      child: Row(
-        children: <Widget>[
-          SizedBox(
-            width: 28,
-            child: Text(
-              '${index + 1}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.outline,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // On wide layouts the money box sits in the exact middle of the row:
+          // both sides are equally flexible, so it stays centred. On phones it
+          // stays beside the action so long customer names still fit.
+          if (constraints.maxWidth < 600) {
+            return Row(
               children: <Widget>[
-                Text(
-                  customer.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 4,
+                indexLabel,
+                Expanded(child: info),
+                const SizedBox(width: 8),
+                amountField,
+                action,
+              ],
+            );
+          }
+          return Row(
+            children: <Widget>[
+              Expanded(
+                child: Row(
                   children: <Widget>[
-                    if (customer.code != null)
-                      Text(
-                        customer.code!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.outline,
-                        ),
-                      ),
-                    Text(
-                      '${s.balance}: ',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    MoneyText(
-                      customer.balance,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    if (amount > 0) ...<Widget>[
-                      Text(
-                        ' · ${s.remainingBalance}: ',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      MoneyText(
-                        remaining,
-                        colorNegative: true,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
+                    indexLabel,
+                    Expanded(child: info),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 104,
-            child: TextField(
-              controller: controller,
-              enabled: enabled,
-              textAlign: TextAlign.end,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-              ],
-              decoration: const InputDecoration(
-                hintText: '0.00',
-                isDense: true,
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                border: OutlineInputBorder(),
               ),
-            ),
-          ),
-          IconButton(
-            tooltip: s.fullBalance,
-            visualDensity: VisualDensity.compact,
-            onPressed: enabled ? onFullBalance : null,
-            icon: const Icon(Icons.price_check_outlined),
-          ),
-        ],
+              const SizedBox(width: 8),
+              amountField,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: action,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
