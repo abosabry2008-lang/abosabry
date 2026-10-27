@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
 
-/// Unified header used by list screens: a page title, an optional action and a
-/// consistent stack of search / filter controls.
-///
-/// The filter controls sit in a tinted toolbar band, the way SAP list reports
-/// separate the header from the filter area.
+/// Unified header used by list screens: a classic SAP GUI title bar, an
+/// optional action and a dense stack of search / filter controls.
 class PageHeader extends StatelessWidget {
   const PageHeader({
     super.key,
@@ -24,33 +21,33 @@ class PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isLight = AppTheme.isLight(context);
     final border = theme.colorScheme.outlineVariant;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 7),
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(3),
           border: Border.all(color: border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: AlignmentDirectional.centerStart,
+                  end: AlignmentDirectional.centerEnd,
+                  colors: <Color>[
+                    AppTheme.titleBarStart,
+                    AppTheme.titleBarEnd,
+                  ],
+                ),
+              ),
               child: Row(
                 children: <Widget>[
-                  Container(
-                    width: 3,
-                    height: 18,
-                    margin: const EdgeInsetsDirectional.only(end: 9),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -58,11 +55,9 @@ class PageHeader extends StatelessWidget {
                         Text(
                           title,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: isLight
-                                ? AppTheme.textPrimary
-                                : theme.colorScheme.onSurface,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                         if (subtitle != null && subtitle!.isNotEmpty)
@@ -71,7 +66,8 @@ class PageHeader extends StatelessWidget {
                             child: Text(
                               subtitle!,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                                fontSize: 10.5,
+                                color: Colors.white70,
                               ),
                             ),
                           ),
@@ -84,16 +80,18 @@ class PageHeader extends StatelessWidget {
             ),
             if (filters.isNotEmpty)
               Container(
-                padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
+                padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.sectionHeaderColor(context),
+                  color: AppTheme.isLight(context)
+                      ? const Color(0xFFEDF1F5)
+                      : theme.colorScheme.surfaceContainerHigh,
                   border: Border(top: BorderSide(color: border)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
                     for (var index = 0; index < filters.length; index++) ...<Widget>[
-                      if (index > 0) const SizedBox(height: 7),
+                      if (index > 0) const SizedBox(height: 6),
                       filters[index],
                     ],
                   ],

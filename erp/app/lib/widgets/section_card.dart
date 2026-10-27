@@ -14,7 +14,7 @@ class SectionCard extends StatelessWidget {
     this.subtitle,
     this.trailing,
     required this.child,
-    this.padding = const EdgeInsets.all(12),
+    this.padding = const EdgeInsets.all(10),
     this.headerColor,
     this.noBorder = false,
   });
@@ -40,7 +40,7 @@ class SectionCard extends StatelessWidget {
       color: theme.colorScheme.surface,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(3),
         side: noBorder ? BorderSide.none : BorderSide(color: border),
       ),
       child: Column(
@@ -48,22 +48,13 @@ class SectionCard extends StatelessWidget {
         children: <Widget>[
           if (hasHeader)
             Container(
-              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+              padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
               decoration: BoxDecoration(
                 color: headerColor ?? AppTheme.sectionHeaderColor(context),
                 border: Border(bottom: BorderSide(color: border)),
               ),
               child: Row(
                 children: <Widget>[
-                  Container(
-                    width: 3,
-                    height: 16,
-                    margin: const EdgeInsetsDirectional.only(end: 8),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,9 +64,7 @@ class SectionCard extends StatelessWidget {
                             title!,
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: AppTheme.isLight(context)
-                                  ? AppTheme.textPrimary
-                                  : theme.colorScheme.onSurface,
+                              color: AppTheme.groupTitleColor(context),
                             ),
                           ),
                         if (subtitle != null)

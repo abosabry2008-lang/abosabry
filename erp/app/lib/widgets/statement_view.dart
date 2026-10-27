@@ -82,7 +82,7 @@ class StatementView extends StatelessWidget {
         const SizedBox(height: 12),
         SectionCard(
           title: s.totals,
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+          padding: const EdgeInsets.fromLTRB(10, 2, 10, 4),
           child: Column(
             children: <Widget>[
               _TotalRow(
@@ -243,10 +243,10 @@ class _LedgerTable extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: DataTable(
         showCheckboxColumn: false,
-        columnSpacing: 18,
-        horizontalMargin: 10,
-        dataRowMinHeight: 30,
-        dataRowMaxHeight: 52,
+        columnSpacing: 14,
+        horizontalMargin: 8,
+        dataRowMinHeight: 26,
+        dataRowMaxHeight: 38,
         columns: <DataColumn>[
           DataColumn(label: Text(s.date), numeric: false),
           DataColumn(label: Text(s.numberLabel), numeric: false),

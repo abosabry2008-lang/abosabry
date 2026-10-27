@@ -674,10 +674,10 @@ class _GroupHeading extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       decoration: BoxDecoration(
         color: AppTheme.sectionHeaderColor(context),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(2),
         border: BorderDirectional(
           start: BorderSide(color: theme.colorScheme.primary, width: 3),
         ),
@@ -685,8 +685,12 @@ class _GroupHeading extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(group.icon, size: 18, color: theme.colorScheme.primary),
-          const SizedBox(width: 8),
+          Icon(
+            group.icon,
+            size: 16,
+            color: AppTheme.groupTitleColor(context),
+          ),
+          const SizedBox(width: 7),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -695,6 +699,7 @@ class _GroupHeading extends StatelessWidget {
                   group.title,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
+                    color: AppTheme.groupTitleColor(context),
                   ),
                 ),
                 if (group.description.isNotEmpty)
@@ -703,6 +708,7 @@ class _GroupHeading extends StatelessWidget {
                     child: Text(
                       group.description,
                       style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 10.5,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -727,7 +733,7 @@ class _ReportCard extends StatelessWidget {
     return Material(
       color: scheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(2),
         side: BorderSide(color: scheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
@@ -739,19 +745,19 @@ class _ReportCard extends StatelessWidget {
           pushScreen<void>(context, report.title, report.builder(context));
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           child: Row(
             children: <Widget>[
               Container(
-                width: 30,
-                height: 30,
+                width: 26,
+                height: 26,
                 decoration: BoxDecoration(
-                  color: scheme.primary.withAlpha(20),
-                  borderRadius: BorderRadius.circular(4),
+                  color: scheme.primary.withAlpha(18),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                child: Icon(report.icon, size: 17, color: scheme.primary),
+                child: Icon(report.icon, size: 15, color: scheme.primary),
               ),
-              const SizedBox(width: 9),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   report.title,

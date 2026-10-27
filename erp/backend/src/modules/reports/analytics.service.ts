@@ -760,7 +760,7 @@ export async function buildAgingReport(
 }
 
 // ---------------------------------------------------------------------------
-// Sales shortages / what needs purchasing (نواقص أوامر البيع)
+// Sales shortages / what needs purchasing (نواقص طلبيات العملاء)
 // ---------------------------------------------------------------------------
 
 export interface ShortageOrderRef {
@@ -923,7 +923,7 @@ export async function buildShortagesReport(
 }
 
 // ---------------------------------------------------------------------------
-// Sales-order fulfilment board (البضاعة المتاحة والمطلوبة لكل أمر بيع)
+// Sales-order fulfilment board (البضاعة المتاحة والمطلوبة لكل طلبية عميل)
 // ---------------------------------------------------------------------------
 
 export interface OrderFulfilmentLine {

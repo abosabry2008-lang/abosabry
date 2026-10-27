@@ -1428,7 +1428,7 @@ ${rows || `        <tr><td colspan="5" class="muted center">${empty}</td></tr>`}
     </table>`;
 
   return renderPage({
-    title: ar ? 'نواقص أوامر البيع' : 'Sales shortages',
+    title: ar ? 'نواقص طلبيات العملاء' : 'Sales shortages',
     company: settings,
     showCompanyDetails: false,
     body,
@@ -1882,7 +1882,7 @@ ${rows}
     </table>`;
     })
     .join('\n');
-  const empty = ar ? 'لا توجد أوامر بيع مفتوحة' : 'No open sales orders';
+  const empty = ar ? 'لا توجد طلبيات عملاء مفتوحة' : 'No open sales orders';
 
   const body = `    <section class="meta">
       <div><span class="label">${ar ? 'أوامر مفتوحة' : 'Open orders'}</span><span class="value">${escapeHtml(report.totals.orders)}</span></div>
@@ -1893,7 +1893,7 @@ ${rows}
 ${sections || `    <p class="muted center">${empty}</p>`}`;
 
   return renderPage({
-    title: ar ? 'المتاح والمطلوب لكل أمر بيع' : 'Available vs. needed per order',
+    title: ar ? 'المتاح والمطلوب لكل طلبية عميل' : 'Available vs. needed per order',
     company: settings,
     showCompanyDetails: false,
     body,

@@ -39,9 +39,9 @@ class PermissionCatalog {
       PermItem('customers.write', 'إضافة/تعديل العملاء'),
     ],
     'المبيعات ونقطة البيع': <PermItem>[
-      PermItem('sales.read', 'عرض أوامر البيع'),
-      PermItem('sales.write', 'إنشاء/تأكيد أوامر البيع'),
-      PermItem('sales.cancel', 'إلغاء أمر بيع'),
+      PermItem('sales.read', 'عرض طلبيات العملاء'),
+      PermItem('sales.write', 'إنشاء/تأكيد طلبيات العملاء'),
+      PermItem('sales.cancel', 'إلغاء طلبية عميل'),
       PermItem('pos.use', 'استخدام نقطة البيع (POS)'),
     ],
     'المردودات': <PermItem>[

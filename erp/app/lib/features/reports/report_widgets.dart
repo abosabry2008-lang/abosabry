@@ -17,9 +17,11 @@ class ReportPrintBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: AppTheme.isLight(context)
+            ? const Color(0xFFEDF1F5)
+            : theme.colorScheme.surfaceContainerHigh,
         border: Border(
           bottom: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
@@ -28,20 +30,21 @@ class ReportPrintBar extends StatelessWidget {
         children: <Widget>[
           Icon(
             Icons.table_chart_outlined,
-            size: 17,
-            color: theme.colorScheme.primary,
+            size: 16,
+            color: AppTheme.groupTitleColor(context),
           ),
           const SizedBox(width: 6),
           Text(
             context.s.report,
             style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: AppTheme.groupTitleColor(context),
+              fontWeight: FontWeight.w700,
             ),
           ),
           const Spacer(),
           OutlinedButton.icon(
             onPressed: onPrint,
-            icon: const Icon(Icons.print_outlined, size: 17),
+            icon: const Icon(Icons.print_outlined, size: 16),
             label: Text(context.s.print),
           ),
         ],
@@ -71,9 +74,11 @@ class ReportHeader extends StatelessWidget {
             label: Text(context.s.print),
           );
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+      padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: AppTheme.isLight(context)
+            ? const Color(0xFFEDF1F5)
+            : Theme.of(context).colorScheme.surfaceContainerHigh,
         border: Border(
           bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         ),
@@ -181,7 +186,7 @@ class ReportAsyncSection extends StatelessWidget {
       onRefresh: onRetry,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         children: children,
       ),
     );
@@ -217,11 +222,11 @@ class ReportKeyValueRow extends StatelessWidget {
       fontWeight: emphasise ? FontWeight.w700 : FontWeight.w600,
     );
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withAlpha(140),
+            color: theme.colorScheme.outlineVariant.withAlpha(150),
             width: 0.6,
           ),
         ),
@@ -257,7 +262,7 @@ class ReportTotalsCard extends StatelessWidget {
     return SectionCard(
       title: title,
       subtitle: subtitle,
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+      padding: const EdgeInsets.fromLTRB(10, 2, 10, 4),
       child: Column(children: rows),
     );
   }
@@ -274,11 +279,11 @@ class ReportTableHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: AppTheme.tableHeaderColor(context),
         border: Border(
-          bottom: BorderSide(color: theme.colorScheme.primary, width: 1.4),
+          bottom: BorderSide(color: theme.colorScheme.primary, width: 1),
         ),
       ),
       child: Row(

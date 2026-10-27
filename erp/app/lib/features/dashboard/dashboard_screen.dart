@@ -88,7 +88,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           primary: false,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
           children: <Widget>[
           if (controller.loadingDashboard && summary == null)
             const Padding(
@@ -338,8 +338,8 @@ class _KpiCard extends StatelessWidget {
           const SizedBox(height: 8),
           DefaultTextStyle.merge(
             style: theme.textTheme.titleLarge?.copyWith(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
             ),
             child: child,
           ),

@@ -79,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(3),
                 side: BorderSide(color: theme.colorScheme.outlineVariant),
               ),
               child: Padding(

@@ -590,10 +590,10 @@ class _DrawerGroupLabel extends StatelessWidget {
       child: Text(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
+          color: AppTheme.groupTitleColor(context),
           fontSize: 10.5,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
+          letterSpacing: 0.6,
         ),
       ),
     );
@@ -619,11 +619,13 @@ class _DrawerTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final foreground =
-        selected ? scheme.primary : theme.colorScheme.onSurface;
+        selected ? AppTheme.groupTitleColor(context) : theme.colorScheme.onSurface;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       child: Material(
-        color: selected ? scheme.primary.withAlpha(20) : Colors.transparent,
+        color: selected
+            ? Theme.of(context).colorScheme.primary.withAlpha(22)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(4),
         child: InkWell(
           borderRadius: BorderRadius.circular(4),
@@ -645,7 +647,7 @@ class _DrawerTile extends StatelessWidget {
                   icon,
                   size: 18,
                   color: selected
-                      ? scheme.primary
+                      ? AppTheme.groupTitleColor(context)
                       : theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 9),

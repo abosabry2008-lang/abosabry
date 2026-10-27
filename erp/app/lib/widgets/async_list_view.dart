@@ -20,7 +20,7 @@ class AsyncListView<T> extends StatefulWidget {
     this.emptyIcon = Icons.inbox_outlined,
     this.emptyAction,
     this.searchPromptMessage,
-    this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 96),
+    this.padding = const EdgeInsets.fromLTRB(10, 6, 10, 96),
     this.separator = true,
   });
 
@@ -151,7 +151,7 @@ class _AsyncListViewState<T> extends State<AsyncListView<T>> {
                 final card = widget.itemBuilder(context, items[itemIndex], itemIndex);
                 if (!widget.separator) return card;
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 4),
                   child: card,
                 );
               }

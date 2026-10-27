@@ -138,7 +138,7 @@ class AppStrings {
   String get globalSearch => _t('Global search', 'البحث الشامل');
   String get searchEverythingHint => _t(
         'Search customers, products, invoices, orders or suppliers…',
-        'ابحث عن عميل، صنف، فاتورة، أمر بيع أو مورد…',
+        'ابحث عن عميل، صنف، فاتورة، طلبية عميل أو مورد…',
       );
   String get searchDifferentTerm =>
       _t('Try a different search term.', 'جرّب كلمة بحث أخرى.');
@@ -215,7 +215,7 @@ class AppStrings {
   String get suppliers => _t('Suppliers', 'الموردون');
   String get purchasing => _t('Purchasing', 'المشتريات');
   String get customers => _t('Customers', 'العملاء');
-  String get salesOrders => _t('Sales Orders', 'أوامر البيع');
+  String get salesOrders => _t('Sales Orders', 'طلبيات العملاء');
   String get invoices => _t('Invoices', 'الفواتير');
   String get payments => _t('Payments', 'المدفوعات');
   String get reports => _t('Reports', 'التقارير');
@@ -631,7 +631,7 @@ class AppStrings {
   String get productsToOrder => _t('Products to order', 'المنتجات المطلوب طلبها');
   String get createOrder => _t('Create order', 'إنشاء الأمر');
   String get editOrder => _t('Edit order', 'تعديل الأمر');
-  String get salesOrderCreated => _t('Sales order created.', 'تم إنشاء أمر البيع.');
+  String get salesOrderCreated => _t('Sales order created.', 'تم إنشاء طلبية العميل.');
   String get warehouseIsRequired => _t('Warehouse is required', 'المستودع مطلوب');
   String get selectSupplierAndWarehouse =>
       _t('Select a supplier and a warehouse.', 'اختر موردًا ومستودعًا.');
@@ -670,7 +670,7 @@ class AppStrings {
   // ---------------------------------------------------------------------------
   String get noCustomers => _t('No customers', 'لا يوجد عملاء');
   String get addCustomerHint =>
-      _t('Add a customer to create sales orders.', 'أضف عميلًا لإنشاء أوامر البيع.');
+      _t('Add a customer to create sales orders.', 'أضف عميلًا لإنشاء طلبيات العملاء.');
   String get newCustomer => _t('New customer', 'عميل جديد');
   String get deleteCustomerQ => _t('Delete customer?', 'حذف العميل؟');
   String customerWillBeRemoved(String name) =>
@@ -686,33 +686,33 @@ class AppStrings {
   // ---------------------------------------------------------------------------
   // Sales
   // ---------------------------------------------------------------------------
-  String get searchSalesOrdersHint => _t('Search sales orders…', 'ابحث في أوامر البيع…');
-  String get noSalesOrders => _t('No sales orders', 'لا توجد أوامر بيع');
+  String get searchSalesOrdersHint => _t('Search sales orders…', 'ابحث في طلبيات العملاء…');
+  String get noSalesOrders => _t('No sales orders', 'لا توجد طلبيات عملاء');
   String get createSalesOrderHint =>
-      _t('Create a sales order to start selling.', 'أنشئ أمر بيع لبدء البيع.');
-  String get salesOrder => _t('Sales order', 'أمر بيع');
-  String get newSalesOrder => _t('New sales order', 'أمر بيع جديد');
+      _t('Create a sales order to start selling.', 'أنشئ طلبية عميل لبدء البيع.');
+  String get salesOrder => _t('Sales order', 'طلبية عميل');
+  String get newSalesOrder => _t('New sales order', 'طلبية عميل جديدة');
   String get confirmWord => _t('Confirm', 'تأكيد');
   String get fulfil => _t('Fulfil', 'تنفيذ');
   String get createInvoice => _t('Create invoice', 'إنشاء فاتورة');
-  String get confirmSalesOrderQ => _t('Confirm sales order?', 'تأكيد أمر البيع؟');
+  String get confirmSalesOrderQ => _t('Confirm sales order?', 'تأكيد طلبية العميل؟');
   String get confirmSalesOrderMessage => _t(
         'Confirmed orders can be fulfilled and invoiced.',
         'يمكن تنفيذ الأوامر المؤكدة وإصدار فواتير لها.',
       );
-  String get salesOrderConfirmed => _t('Sales order confirmed.', 'تم تأكيد أمر البيع.');
+  String get salesOrderConfirmed => _t('Sales order confirmed.', 'تم تأكيد طلبية العميل.');
   String get fulfilAllQ => _t('Fulfil all outstanding items?', 'تنفيذ كل الأصناف المتبقية؟');
   String get fulfilAllMessage => _t(
         'Stock levels will be reduced for every outstanding line.',
         'سيتم خفض مستويات المخزون لكل سطر متبقٍ.',
       );
-  String get salesOrderFulfilled => _t('Sales order fulfilled.', 'تم تنفيذ أمر البيع.');
-  String get cancelSalesOrderQ => _t('Cancel sales order?', 'إلغاء أمر البيع؟');
-  String get salesOrderCancelled => _t('Sales order cancelled.', 'تم إلغاء أمر البيع.');
-  String get salesOrderUpdated => _t('Sales order updated.', 'تم تحديث أمر البيع.');
+  String get salesOrderFulfilled => _t('Sales order fulfilled.', 'تم تنفيذ طلبية العميل.');
+  String get cancelSalesOrderQ => _t('Cancel sales order?', 'إلغاء طلبية العميل؟');
+  String get salesOrderCancelled => _t('Sales order cancelled.', 'تم إلغاء طلبية العميل.');
+  String get salesOrderUpdated => _t('Sales order updated.', 'تم تحديث طلبية العميل.');
   String get onlyAdminEditsFulfilled => _t(
         'Only an admin can change the lines of a fulfilled order.',
-        'تعديل أسطر أمر بيع منفَّذ متاح للمدير فقط.',
+        'تعديل أسطر طلبية عميل منفَّذة متاح للمدير فقط.',
       );
   String get cancelFulfilledOrderMessage => _t(
         'This order was already fulfilled — its goods will be returned to stock and its ledger entry reversed.',
@@ -726,7 +726,7 @@ class AppStrings {
         'Draft invoice created. Issue it from Invoices.',
         'تم إنشاء فاتورة مسودة. أصدرها من الفواتير.',
       );
-  String get salesOrderNotFound => _t('Sales order not found.', 'أمر البيع غير موجود.');
+  String get salesOrderNotFound => _t('Sales order not found.', 'طلبية العميل غير موجود.');
   String get channel => _t('Channel', 'القناة');
   String get fulfilled => _t('Fulfilled', 'المنفذ');
   String get productsToSell => _t('Products to sell', 'المنتجات المطلوب بيعها');
@@ -742,7 +742,7 @@ class AppStrings {
   String get noInvoices => _t('No invoices', 'لا توجد فواتير');
   String get invoicesCreatedHint => _t(
         'Invoices are created from sales orders or the POS screen.',
-        'تُنشأ الفواتير من أوامر البيع أو شاشة نقطة البيع.',
+        'تُنشأ الفواتير من طلبيات العملاء أو شاشة نقطة البيع.',
       );
   String get overdue => _t('Overdue', 'متأخرة');
   String get invoiceNotFound => _t('Invoice not found.', 'الفاتورة غير موجودة.');
@@ -1019,7 +1019,7 @@ class AppStrings {
   String get lowStockAlertsSetting => _t('Low stock alerts', 'تنبيهات نقص المخزون');
   String get numberPrefixes => _t('Number prefixes', 'بادئات الأرقام');
   String get purchaseOrderPrefix => _t('Purchase order', 'أمر شراء');
-  String get salesOrderPrefix => _t('Sales order', 'أمر بيع');
+  String get salesOrderPrefix => _t('Sales order', 'طلبية عميل');
   String get journalEntry => _t('Journal entry', 'قيد اليومية');
   String get saveSettings => _t('Save settings', 'حفظ الإعدادات');
   String get noCurrencies => _t('No currencies', 'لا توجد عملات');
@@ -1752,7 +1752,7 @@ class AppStrings {
   String get needPartner => _t('Pick a partner', 'اختر عميلًا أو موردًا');
 
   // ---------------------------------------------------------------------------
-  // Sales shortages (نواقص أوامر البيع)
+  // Sales shortages (نواقص طلبيات العملاء)
   // ---------------------------------------------------------------------------
   String get confirmDeleteTitle => _t('Delete?', 'حذف؟');
   String get confirmDeleteMessage =>
@@ -1761,11 +1761,11 @@ class AppStrings {
         'Delete "$name"? This action cannot be undone.',
         'هل تريد حذف "$name"؟ هذا الإجراء لا يمكن التراجع عنه.',
       );
-  String get shortages => _t('Sales shortages', 'نواقص أوامر البيع');
+  String get shortages => _t('Sales shortages', 'نواقص طلبيات العملاء');
   String get shortagesHint => _t(
         'Products that open sales orders still need but are not on hand — buy '
             'these to keep the orders moving.',
-        'أصناف تحتاجها أوامر بيع مفتوحة وليست موجودة بالمخزون — اشترِها '
+        'أصناف تحتاجها طلبيات عملاء مفتوحة وليست موجودة بالمخزون — اشترِها '
             'لمتابعة تنفيذ الأوامر.',
       );
   String get noShortages =>
@@ -1836,14 +1836,14 @@ class AppStrings {
       _t('Available vs. needed', 'المتاح والمطلوب');
   String get orderFulfilmentHint => _t(
         'What is on hand for each open sales order, and what still has to be purchased.',
-        'المتاح فعلياً لكل أمر بيع مفتوح، والمطلوب شراؤه لإكماله.',
+        'المتاح فعلياً لكل طلبية عميل مفتوحة، والمطلوب شراؤه لإكماله.',
       );
   String get fullyAvailable => _t('Ready to deliver', 'جاهز للتسليم');
   String get needsPurchasing => _t('Needs purchasing', 'يحتاج شراء');
   String get availableQty => _t('Available', 'المتاح');
   String get noOpenOrders => _t(
         'No open sales orders right now.',
-        'لا توجد أوامر بيع مفتوحة حالياً.',
+        'لا توجد طلبيات عملاء مفتوحة حالياً.',
       );
 
   // ---------------------------------------------------------------------------
