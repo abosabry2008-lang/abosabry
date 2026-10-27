@@ -623,6 +623,8 @@ class AppStrings {
   String get purchaseOrder => _t('Purchase order', 'أمر شراء');
   String get newPurchaseOrder => _t('New purchase order', 'أمر شراء جديد');
   String get orderDetails => _t('Order details', 'تفاصيل الأمر');
+  String get orderData => _t('Order data', 'بيانات الطلب');
+  String get paymentOptional => _t('Payment (optional)', 'الدفع (اختياري)');
   String get supplierStar => _t('Supplier *', 'المورد *');
   String get supplierRequired => _t('Supplier is required', 'المورد مطلوب');
   String get expectedDate => _t('Expected date', 'التاريخ المتوقع');

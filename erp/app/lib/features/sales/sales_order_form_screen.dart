@@ -49,6 +49,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
   bool _saving = false;
   bool _linesDirty = false;
   bool _showProfit = false;
+  bool _showPayment = false;
 
   bool get _editing => widget.order != null;
 
@@ -69,6 +70,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
       _orderDate = order.orderDate ?? DateTime.now();
       _paymentCashBoxId = order.paymentCashBoxId;
       _paymentMethod = order.paymentMethod;
+      _showPayment = order.paidAmount > 0;
       for (final line in order.lines) {
         _lines.add(
           OrderLineDraft(
@@ -80,7 +82,6 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
         );
       }
     }
-    if (_lines.isEmpty) _lines.add(OrderLineDraft());
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       context.read<CustomersController>().ensureCatalogLoaded();
@@ -249,6 +250,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
   @override
   Widget build(BuildContext context) {
     final s = context.s;
+    final theme = Theme.of(context);
     final session = context.watch<Session>();
     final customers = context.watch<CustomersController>();
     final salespeople = context.watch<SalespeopleController>();
@@ -265,64 +267,21 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
     return Scaffold(
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        child: Column(
           children: <Widget>[
-            SectionCard(
-              title: s.orderDetails,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final twoColumns = constraints.maxWidth >= 640;
-                  final width = twoColumns
-                      ? (constraints.maxWidth - 14) / 2
-                      : constraints.maxWidth;
-                  Widget field(Widget child) =>
-                      SizedBox(width: width, child: child);
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                     children: <Widget>[
-                      Wrap(
-                        spacing: 14,
-                        runSpacing: 14,
-                        children: <Widget>[
-                          if (!session.isSalesperson)
-                            field(
-                              SearchablePickerField(
-                                label: s.salesperson,
-                                value: _salespersonId,
-                                hint: s.chooseSalesperson,
-                                enabled: !_saving,
-                                prefixIcon: Icons.badge_outlined,
-                                searchHint: s.searchHint,
-                                clearable: true,
-                                options: salespeople.salespeople
-                                    .map(
-                                      (p) => PickerOption(
-                                        value: p.id,
-                                        label: p.name,
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) => setState(() {
-                                  _salespersonId =
-                                      (value == null || value.isEmpty)
-                                          ? null
-                                          : value;
-                                  if (_salespersonId != null &&
-                                      _customerId != null) {
-                                    final cust = customers.catalog
-                                        .where((c) => c.id == _customerId)
-                                        .firstOrNull;
-                                    if (cust == null ||
-                                        cust.salespersonId != _salespersonId) {
-                                      _customerId = null;
-                                    }
-                                  }
-                                }),
-                              ),
-                            ),
-                          field(
-                            SearchablePickerField(
+                      SectionCard(
+                        title: s.orderData,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final wide = constraints.maxWidth >= 620;
+                            final customerField = SearchablePickerField(
                               label: s.customer,
                               value: _customerId,
                               enabled: !_saving,
@@ -342,10 +301,51 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                                   .toList(),
                               onChanged: (value) =>
                                   setState(() => _customerId = value),
-                            ),
-                          ),
-                          field(
-                            AppSelectField<String>(
+                            );
+                            final dateField = AppDateField(
+                              label: s.orderDate,
+                              value: _orderDate,
+                              enabled: !_saving,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _orderDate = value);
+                                }
+                              },
+                            );
+                            final salespersonField = SearchablePickerField(
+                              label: s.salesperson,
+                              value: _salespersonId,
+                              hint: s.chooseSalesperson,
+                              enabled: !_saving,
+                              prefixIcon: Icons.badge_outlined,
+                              searchHint: s.searchHint,
+                              clearable: true,
+                              options: salespeople.salespeople
+                                  .map(
+                                    (p) => PickerOption(
+                                      value: p.id,
+                                      label: p.name,
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) => setState(() {
+                                _salespersonId =
+                                    (value == null || value.isEmpty)
+                                        ? null
+                                        : value;
+                                if (_salespersonId != null &&
+                                    _customerId != null) {
+                                  final cust = customers.catalog
+                                      .where((c) => c.id == _customerId)
+                                      .firstOrNull;
+                                  if (cust == null ||
+                                      cust.salespersonId != _salespersonId) {
+                                    _customerId = null;
+                                  }
+                                }
+                              }),
+                            );
+                            final warehouseField = AppSelectField<String>(
                               label: s.warehouseRequired,
                               value: _warehouseId,
                               enabled: !_saving,
@@ -362,148 +362,343 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                                   setState(() => _warehouseId = value),
                               validator: (value) =>
                                   value == null ? s.warehouseIsRequired : null,
-                            ),
-                          ),
-                          field(
-                            AppSelectField<String?>(
-                              label: s.cashBox,
-                              value: _paymentCashBoxId,
-                              hint: s.chooseBox,
-                              enabled: !_paymentLocked,
-                              prefixIcon:
-                                  Icons.account_balance_wallet_outlined,
-                              options: _boxes
-                                  .map(
-                                    (box) => SelectOption<String?>(
-                                      box.id,
-                                      box.name,
-                                    ),
+                            );
+
+                            final fields = wide
+                                ? Column(
+                                    children: <Widget>[
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Expanded(
+                                            flex: 2,
+                                            child: customerField,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(child: dateField),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          if (!session.isSalesperson) ...<Widget>[
+                                            Expanded(
+                                              child: salespersonField,
+                                            ),
+                                            const SizedBox(width: 10),
+                                          ],
+                                          Expanded(child: warehouseField),
+                                        ],
+                                      ),
+                                    ],
                                   )
-                                  .toList(),
-                              onChanged: (value) => setState(
-                                () => _paymentCashBoxId = value,
-                              ),
-                            ),
-                          ),
-                          field(
-                            AppNumberField(
-                              label: s.paid,
-                              controller: _paidAmount,
-                              enabled: !_paymentLocked,
-                              prefixIcon: Icons.payments_outlined,
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ),
-                          field(
-                            AppDateField(
-                              label: s.orderDate,
-                              value: _orderDate,
-                              enabled: !_saving,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _orderDate = value);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_paymentLocked) ...<Widget>[
-                        const SizedBox(height: 8),
-                        Text(
-                          s.paymentLockedHint,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                      if (selectedCustomer != null) ...<Widget>[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  '${s.previousBalanceLabel}: ${selectedCustomer.name}',
+                                : Column(
+                                    children: <Widget>[
+                                      customerField,
+                                      const SizedBox(height: 10),
+                                      dateField,
+                                      if (!session.isSalesperson) ...<Widget>[
+                                        const SizedBox(height: 10),
+                                        salespersonField,
+                                      ],
+                                      const SizedBox(height: 10),
+                                      warehouseField,
+                                    ],
+                                  );
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: <Widget>[
+                                fields,
+                                if (selectedCustomer != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Row(
+                                      children: <Widget>[
+                                        Icon(
+                                          Icons.account_balance_wallet_outlined,
+                                          size: 14,
+                                          color:
+                                              theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${s.previousBalanceLabel}: ',
+                                          style: theme.textTheme.bodySmall,
+                                        ),
+                                        MoneyText(
+                                          selectedCustomer.balance,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                const Divider(height: 18),
+                                _PaymentSection(
+                                  expanded: _showPayment,
+                                  locked: _paymentLocked,
+                                  paidAmount: _paidAmount.text,
+                                  cashBoxField: AppSelectField<String?>(
+                                    label: s.cashBox,
+                                    value: _paymentCashBoxId,
+                                    hint: s.chooseBox,
+                                    enabled: !_paymentLocked,
+                                    prefixIcon: Icons
+                                        .account_balance_wallet_outlined,
+                                    options: _boxes
+                                        .map(
+                                          (box) => SelectOption<String?>(
+                                            box.id,
+                                            box.name,
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (value) => setState(
+                                      () => _paymentCashBoxId = value,
+                                    ),
+                                  ),
+                                  paidField: AppNumberField(
+                                    label: s.paid,
+                                    controller: _paidAmount,
+                                    enabled: !_paymentLocked,
+                                    prefixIcon: Icons.payments_outlined,
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                  wide: wide,
+                                  onToggle: () => setState(
+                                    () => _showPayment = !_showPayment,
+                                  ),
                                 ),
-                              ),
-                              MoneyText(selectedCustomer.balance),
-                            ],
-                          ),
+                              ],
+                            );
+                          },
                         ),
-                      ],
-                      const SizedBox(height: 14),
-                    ],
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            SectionCard(
-              title: s.lines,
-              subtitle: s.productsToSell,
-              trailing: session.isAdmin
-                  ? TextButton.icon(
-                      onPressed: () =>
-                          setState(() => _showProfit = !_showProfit),
-                      icon: Icon(
-                        _showProfit
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
                       ),
-                      label: Text(_showProfit ? s.hideProfit : s.showProfit),
-                    )
-                  : null,
-              child: OrderLinesEditor(
-                lines: _lines,
-                enabled: !_saving,
-                showDiscount: true,
-                preferSalePrice: true,
-                enforceSalePriceFloor: true,
-                customerId: _customerId,
-                showProfit: session.isAdmin && _showProfit,
-                onChanged: () => setState(() => _linesDirty = true),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed:
-                        _saving ? null : () => Navigator.of(context).pop(false),
-                    child: Text(s.cancel),
+                      const SizedBox(height: 12),
+                      SectionCard(
+                        title: s.lines,
+                        subtitle: s.lineCount(
+                          _lines.where((line) => line.isValid).length,
+                        ),
+                        trailing: session.isAdmin
+                            ? TextButton.icon(
+                                onPressed: () =>
+                                    setState(() => _showProfit = !_showProfit),
+                                icon: Icon(
+                                  _showProfit
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                ),
+                                label: Text(
+                                  _showProfit ? s.hideProfit : s.showProfit,
+                                ),
+                              )
+                            : null,
+                        child: OrderLinesEditor(
+                          lines: _lines,
+                          enabled: !_saving,
+                          showDiscount: true,
+                          preferSalePrice: true,
+                          enforceSalePriceFloor: true,
+                          showHistoryHint: false,
+                          customerId: _customerId,
+                          showProfit: session.isAdmin && _showProfit,
+                          onChanged: () => setState(() => _linesDirty = true),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _saving ? null : _submit,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save_outlined),
-                    label: Text(
-                      _saving
-                          ? s.saving
-                          : _editing
-                              ? s.save
-                              : s.createOrder,
+              ),
+            ),
+            _OrderFooter(
+              total: _lines
+                  .where((line) => line.isValid)
+                  .fold<double>(0, (sum, line) => sum + line.lineTotal),
+              lineCount: _lines.where((line) => line.isValid).length,
+              saving: _saving,
+              saveLabel: _editing ? s.save : s.createOrder,
+              onCancel: () =>
+                  _saving ? null : Navigator.of(context).pop(false),
+              onSave: _saving ? null : _submit,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Collapsible payment block: cash box + paid amount are optional when the
+/// order is created, so they stay out of the way until needed.
+class _PaymentSection extends StatelessWidget {
+  const _PaymentSection({
+    required this.expanded,
+    required this.locked,
+    required this.paidAmount,
+    required this.cashBoxField,
+    required this.paidField,
+    required this.wide,
+    required this.onToggle,
+  });
+
+  final bool expanded;
+  final bool locked;
+  final String paidAmount;
+  final Widget cashBoxField;
+  final Widget paidField;
+  final bool wide;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    final theme = Theme.of(context);
+    final paid = double.tryParse(paidAmount.trim()) ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        InkWell(
+          borderRadius: BorderRadius.circular(3),
+          onTap: onToggle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  Icons.payments_outlined,
+                  size: 16,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  s.paymentOptional,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (paid > 0) ...<Widget>[
+                  const SizedBox(width: 8),
+                  MoneyText(
+                    paid,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
+                ],
+                const Spacer(),
+                Icon(
+                  expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ],
+            ),
+          ),
+        ),
+        if (expanded) ...<Widget>[
+          const SizedBox(height: 6),
+          if (wide)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(child: cashBoxField),
+                const SizedBox(width: 10),
+                Expanded(child: paidField),
+              ],
+            )
+          else ...<Widget>[
+            cashBoxField,
+            const SizedBox(height: 10),
+            paidField,
+          ],
+          if (locked) ...<Widget>[
+            const SizedBox(height: 6),
+            Text(
+              s.paymentLockedHint,
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+/// Sticky total + actions bar for the order form.
+class _OrderFooter extends StatelessWidget {
+  const _OrderFooter({
+    required this.total,
+    required this.lineCount,
+    required this.saving,
+    required this.saveLabel,
+    required this.onCancel,
+    required this.onSave,
+  });
+
+  final double total;
+  final int lineCount;
+  final bool saving;
+  final String saveLabel;
+  final VoidCallback? onCancel;
+  final VoidCallback? onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    '${s.total} · ${s.lineCount(lineCount)}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  MoneyText(
+                    total,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            OutlinedButton(
+              onPressed: onCancel,
+              child: Text(s.cancel),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: onSave,
+              icon: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined),
+              label: Text(saving ? s.saving : saveLabel),
             ),
           ],
         ),

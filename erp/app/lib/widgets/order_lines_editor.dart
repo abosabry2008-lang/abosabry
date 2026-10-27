@@ -222,6 +222,7 @@ class OrderLinesEditor extends StatelessWidget {
     this.customerId,
     this.supplierId,
     this.showProfit = false,
+    this.showHistoryHint = true,
   });
 
   final List<OrderLineDraft> lines;
@@ -249,6 +250,10 @@ class OrderLinesEditor extends StatelessWidget {
 
   /// Admin-only: show revenue, cost and profit for the document being entered.
   final bool showProfit;
+
+  /// Shows the "last price" hint under each line. Sales orders hide it to keep
+  /// the sheet compact (the price is already pre-filled from that history).
+  final bool showHistoryHint;
 
   double get subtotal =>
       lines.fold<double>(0, (sum, line) => sum + line.gross);
@@ -315,23 +320,17 @@ class OrderLinesEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final s = context.s;
+    final hasValidLine = lines.any((line) => line.isValid);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ProductPickerField(
-            product: null,
-            enabled: enabled,
-            label: s.addLine,
-            onChanged: (product) => _addProduct(context, product),
-          ),
+        ProductPickerField(
+          product: null,
+          enabled: enabled,
+          label: s.addLine,
+          onChanged: (product) => _addProduct(context, product),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         if (lines.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -346,7 +345,7 @@ class OrderLinesEditor extends StatelessWidget {
         else
           for (var index = 0; index < lines.length; index++)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 4),
               child: _OrderLineRow(
                 key: ObjectKey(lines[index]),
                 line: lines[index],
@@ -358,6 +357,7 @@ class OrderLinesEditor extends StatelessWidget {
                 enforceSalePriceFloor: enforceSalePriceFloor,
                 customerId: customerId,
                 supplierId: supplierId,
+                showHistoryHint: showHistoryHint,
                 onProductPicked: (product, target) =>
                     _prefillLastPrice(context, target, product),
                 onChanged: onChanged,
@@ -367,45 +367,51 @@ class OrderLinesEditor extends StatelessWidget {
                 },
               ),
             ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            children: <Widget>[
-              _SummaryRow(label: s.subtotal, value: subtotal),
-              if (showDiscount)
-                _SummaryRow(label: s.discountWord, value: -discountTotal),
-              if (showTax) _SummaryRow(label: s.tax, value: taxTotal),
-              const Divider(),
-              _SummaryRow(
-                label: s.total,
-                value: total,
-                emphasise: true,
-              ),
-            ],
-          ),
-        ),
-        if (showProfit) ...<Widget>[
+        if (hasValidLine) ...<Widget>[
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
             decoration: BoxDecoration(
-              color: theme.colorScheme.tertiaryContainer,
-              borderRadius: BorderRadius.circular(12),
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(3),
             ),
             child: Column(
               children: <Widget>[
-                _SummaryRow(label: s.netSales, value: revenue),
-                _SummaryRow(label: s.costOfSales, value: cost),
+                _SummaryRow(label: s.subtotal, value: subtotal),
+                if (showDiscount)
+                  _SummaryRow(label: s.discountWord, value: -discountTotal),
+                if (showTax) _SummaryRow(label: s.tax, value: taxTotal),
                 const Divider(),
-                _SummaryRow(label: s.netProfit, value: profit, emphasise: true),
+                _SummaryRow(
+                  label: s.total,
+                  value: total,
+                  emphasise: true,
+                ),
               ],
             ),
           ),
+          if (showProfit) ...<Widget>[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.tertiaryContainer,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Column(
+                children: <Widget>[
+                  _SummaryRow(label: s.netSales, value: revenue),
+                  _SummaryRow(label: s.costOfSales, value: cost),
+                  const Divider(),
+                  _SummaryRow(
+                    label: s.netProfit,
+                    value: profit,
+                    emphasise: true,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ],
     );
@@ -425,6 +431,7 @@ class _OrderLineRow extends StatefulWidget {
     required this.enforceSalePriceFloor,
     this.customerId,
     this.supplierId,
+    this.showHistoryHint = true,
     this.onProductPicked,
     required this.onChanged,
     required this.onRemove,
@@ -439,6 +446,7 @@ class _OrderLineRow extends StatefulWidget {
   final bool enforceSalePriceFloor;
   final String? customerId;
   final String? supplierId;
+  final bool showHistoryHint;
   final void Function(Product product, OrderLineDraft line)? onProductPicked;
   final VoidCallback onChanged;
   final VoidCallback onRemove;
@@ -461,11 +469,11 @@ class _OrderLineRowState extends State<_OrderLineRow> {
       margin: EdgeInsets.zero,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(3),
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 2, 2, 6),
+        padding: const EdgeInsets.fromLTRB(7, 2, 2, 5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -521,11 +529,12 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                 ),
               ],
             ),
+            const SizedBox(height: 4),
             Row(
               children: <Widget>[
                 if (line.hasPackaging) ...<Widget>[
                   SizedBox(
-                    width: 96,
+                    width: 88,
                     child: DropdownButtonFormField<String>(
                       value: line.sellUnit == 'carton' ? 'carton' : 'box',
                       decoration: const InputDecoration(
@@ -574,12 +583,12 @@ class _OrderLineRowState extends State<_OrderLineRow> {
               ],
             ),
             if (product != null) ...<Widget>[
-              if (widget.customerId != null)
+              if (widget.showHistoryHint && widget.customerId != null)
                 LastSalePriceLoader(
                   customerId: widget.customerId!,
                   product: product,
                 )
-              else if (widget.supplierId != null)
+              else if (widget.showHistoryHint && widget.supplierId != null)
                 LastSupplierPriceLoader(
                   supplierId: widget.supplierId!,
                   product: product,
