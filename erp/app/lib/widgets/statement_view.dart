@@ -208,7 +208,7 @@ class _LedgerTable extends StatelessWidget {
                     Text(
                       s.status(row.type),
                       style: theme.textTheme.labelSmall?.copyWith(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: row.type == 'PAYMENT'
                             ? theme.colorScheme.primary
                             : theme.colorScheme.onSurfaceVariant,
