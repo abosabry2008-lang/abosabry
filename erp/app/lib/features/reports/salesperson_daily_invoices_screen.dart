@@ -8,6 +8,7 @@ import '../../core/print_service.dart';
 import '../../core/session.dart';
 import '../../state/salespeople_controller.dart';
 import '../../widgets/form_fields.dart';
+import '../../widgets/money_text.dart';
 import '../../widgets/section_card.dart';
 import 'report_widgets.dart';
 
@@ -172,35 +173,79 @@ class _SalespersonDailyInvoicesScreenState
               SectionCard(
                 title: s.invoices,
                 subtitle: s.invoiceCountLabel('${_invoices.length}'),
+                padding: EdgeInsets.zero,
                 child: _loading
                     ? const Padding(
                         padding: EdgeInsets.all(16),
                         child: Center(child: CircularProgressIndicator()),
                       )
                     : _error != null
-                        ? Text(_error!)
+                        ? Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(_error!),
+                          )
                         : _invoices.isEmpty
                             ? Padding(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 12),
                                 child: Text(s.noDataForFilters),
                               )
-                            : Column(
-                                children: <Widget>[
-                                  for (final invoice in _invoices)
-                                    ListTile(
-                                      dense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                      title: Text(asString(invoice['number'])),
-                                      subtitle: Text(
-                                        '${asString(asMap(invoice['customer'])['name'], fallback: s.walkInCustomer)}'
-                                        ' · ${asString(invoice['status'])}',
-                                      ),
-                                      trailing: Text(
-                                        asDouble(invoice['total']).toStringAsFixed(2),
-                                      ),
+                            : SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: DataTable(
+                                  showCheckboxColumn: false,
+                                  columnSpacing: 18,
+                                  columns: <DataColumn>[
+                                    DataColumn(label: Text(s.numberLabel)),
+                                    DataColumn(label: Text(s.customer)),
+                                    DataColumn(label: Text(s.statusWord)),
+                                    DataColumn(
+                                      label: Text(s.total),
+                                      numeric: true,
                                     ),
-                                ],
+                                  ],
+                                  rows: <DataRow>[
+                                    for (final invoice in _invoices)
+                                      DataRow(
+                                        cells: <DataCell>[
+                                          DataCell(
+                                            Text(
+                                              asString(invoice['number']),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            SizedBox(
+                                              width: 230,
+                                              child: Text(
+                                                asString(
+                                                  asMap(invoice['customer'])[
+                                                      'name'],
+                                                  fallback: s.walkInCustomer,
+                                                ),
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            Text(
+                                              s.status(
+                                                asString(invoice['status']),
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            MoneyText(
+                                              asDouble(invoice['total']),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
                               ),
               ),
             ],

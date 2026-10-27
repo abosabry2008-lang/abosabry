@@ -549,48 +549,56 @@ class _AgingReportScreenState extends State<AgingReportScreen> {
         SectionCard(
           title: title,
           subtitle: hint,
-          child: Column(
-            children: <Widget>[
-              for (final row in rows) _AgingRow(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 18,
+              columns: <DataColumn>[
+                DataColumn(label: Text(_receivable ? s.customer : s.supplier)),
+                DataColumn(label: Text(s.notYetDue), numeric: true),
+                DataColumn(label: Text(s.days1To30), numeric: true),
+                DataColumn(label: Text(s.days31To60), numeric: true),
+                DataColumn(label: Text(s.days61To90), numeric: true),
+                DataColumn(label: Text(s.over90Days), numeric: true),
+                DataColumn(label: Text(s.total), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in rows)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 230,
+                          child: Text(
+                            asString(
+                              row['name'],
+                              fallback: _receivable ? s.customer : s.supplier,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(MoneyText(asDouble(row['current']))),
+                      DataCell(MoneyText(asDouble(row['d1_30']))),
+                      DataCell(MoneyText(asDouble(row['d31_60']))),
+                      DataCell(MoneyText(asDouble(row['d61_90']))),
+                      DataCell(MoneyText(asDouble(row['d90_plus']))),
+                      DataCell(
+                        MoneyText(
+                          asDouble(row['total']),
+                          colorNegative: true,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _AgingRow extends StatelessWidget {
-  const _AgingRow({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final theme = Theme.of(context);
-    final parts = <String>[];
-    void add(String label, double value) {
-      if (value != 0) parts.add('$label ${Formatters.money(value)}');
-    }
-
-    add(s.notYetDue, asDouble(row['current']));
-    add(s.days1To30, asDouble(row['d1_30']));
-    add(s.days31To60, asDouble(row['d31_60']));
-    add(s.days61To90, asDouble(row['d61_90']));
-    add(s.over90Days, asDouble(row['d90_plus']));
-
-    final phone = asStringOrNull(row['phone']);
-    final subtitle = parts.isEmpty ? s.notYetDue : parts.join(' · ');
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(asString(row['name'], fallback: s.customer)),
-      subtitle: Text(
-        phone == null ? subtitle : '$phone · $subtitle',
-        style: theme.textTheme.bodySmall,
-      ),
-      trailing: MoneyText(asDouble(row['total']), colorNegative: true),
     );
   }
 }
@@ -621,41 +629,60 @@ class LowStockReportScreen extends StatelessWidget {
         SectionCard(
           title: s.lowStockItems,
           subtitle: s.stockBalanceHint,
-          child: Column(
-            children: <Widget>[
-              for (final row in rows) _LowStockRow(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 18,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.product)),
+                DataColumn(label: Text(s.code)),
+                DataColumn(label: Text(s.quantity), numeric: true),
+                DataColumn(label: Text(s.shortageQty), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in rows)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 280,
+                          child: Text(
+                            asString(
+                              row['name'],
+                              fallback: asString(row['sku']).isEmpty
+                                  ? s.product
+                                  : asString(row['sku']),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(Text(asString(row['sku']))),
+                      DataCell(
+                        Text(
+                          Formatters.integer(asDouble(row['quantity'])),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          '−${Formatters.integer(asDouble(row['shortage']))}',
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LowStockRow extends StatelessWidget {
-  const _LowStockRow({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final sku = asString(row['sku']);
-    final quantity = Formatters.integer(asDouble(row['quantity']));
-    final shortage = Formatters.integer(asDouble(row['shortage']));
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        asString(row['name'], fallback: sku.isEmpty ? s.product : sku),
-      ),
-      subtitle: Text('$sku · ${s.quantity}: $quantity'),
-      trailing: Text(
-        '−$shortage',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.error,
-            ),
-      ),
     );
   }
 }
@@ -701,11 +728,46 @@ class BoxBalancesReportScreen extends StatelessWidget {
         const SizedBox(height: 12),
         SectionCard(
           title: s.cashBoxes,
-          child: Column(
-            children: <Widget>[
-              for (final box in boxes)
-                _BoxRow(box: box, onTap: () => _open(context, box)),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 18,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.cashBox)),
+                DataColumn(label: Text(s.code)),
+                DataColumn(label: Text(s.type)),
+                DataColumn(label: Text(s.openingBalance), numeric: true),
+                DataColumn(label: Text(s.balance), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final box in boxes)
+                  DataRow(
+                    onSelectChanged: (_) => _open(context, box),
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 220,
+                          child: Text(box.name, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                      DataCell(Text(box.code)),
+                      DataCell(
+                        Text(box.isMain ? s.mainBox : s.subBox),
+                      ),
+                      DataCell(MoneyText(box.openingBalance)),
+                      DataCell(
+                        MoneyText(
+                          box.balance,
+                          colorNegative: true,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],
@@ -717,37 +779,6 @@ class BoxBalancesReportScreen extends StatelessWidget {
       context,
       box.name,
       BoxDetailScreen(boxId: box.id, initialBox: box),
-    );
-  }}
-
-class _BoxRow extends StatelessWidget {
-  const _BoxRow({required this.box, required this.onTap});
-
-  final CashBox box;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final theme = Theme.of(context);
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        box.isMain ? Icons.account_balance_outlined : Icons.savings_outlined,
-      ),
-      title: Text(box.name),
-      subtitle: Text(
-        '${box.code} · ${box.isMain ? s.mainBox : s.subBox} · '
-        '${s.openingShort}: ${Formatters.money(box.openingBalance)}',
-      ),
-      trailing: MoneyText(
-        box.balance,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      onTap: onTap,
     );
   }
 }

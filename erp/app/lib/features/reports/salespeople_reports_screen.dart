@@ -6,6 +6,7 @@ import '../../core/json_utils.dart';
 import '../../core/l10n.dart';
 import '../../core/print_service.dart';
 import '../../core/session.dart';
+import '../../core/theme.dart';
 import '../../state/reports_controller.dart';
 import '../../state/salespeople_controller.dart';
 import '../../widgets/date_range_button.dart';
@@ -202,19 +203,27 @@ class _SalespersonSection extends StatelessWidget {
         children: <Widget>[
           for (final category in categoryKeys) ...<Widget>[
             Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 4),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
+              padding: const EdgeInsets.only(top: 10, bottom: 2),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                ),
                 child: Text(
                   category,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.groupTitleColor(context),
+                      ),
                 ),
               ),
             ),
-            for (final line in groups[category]!)
+            for (final line in groups[category]!) ...<Widget>[
               ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -233,8 +242,13 @@ class _SalespersonSection extends StatelessWidget {
                   return '${asString(line['sku'])} · ${s.quantity}: '
                       '$quantityText';
                 }()),
-                trailing: MoneyText(asDouble(line['net'])),
+                trailing: MoneyText(
+                  asDouble(line['net']),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
+              const Divider(height: 1),
+            ],
           ],
         ],
       ),

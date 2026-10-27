@@ -94,16 +94,16 @@ class _OrderTile extends StatelessWidget {
         : theme.colorScheme.error;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Card(
         margin: EdgeInsets.zero,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(3),
           side: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -120,7 +120,7 @@ class _OrderTile extends StatelessWidget {
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(3),
                     ),
                     child: Text(
                       ready ? s.fullyAvailable : s.needsPurchasing,
@@ -176,11 +176,16 @@ class _LineRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text(
-            '${s.requiredQty}: ${Formatters.integer(asDouble(line['required']))} · '
-            '${s.availableQty}: ${Formatters.integer(asDouble(line['available']))} · '
-            '${s.shortageQty}: ${Formatters.integer(short)}',
-            style: theme.textTheme.bodySmall?.copyWith(color: color),
+          const SizedBox(width: 8),
+          Flexible(
+            flex: 2,
+            child: Text(
+              '${s.requiredQty}: ${Formatters.integer(asDouble(line['required']))} · '
+              '${s.availableQty}: ${Formatters.integer(asDouble(line['available']))} · '
+              '${s.shortageQty}: ${Formatters.integer(short)}',
+              textAlign: TextAlign.end,
+              style: theme.textTheme.bodySmall?.copyWith(color: color),
+            ),
           ),
         ],
       ),

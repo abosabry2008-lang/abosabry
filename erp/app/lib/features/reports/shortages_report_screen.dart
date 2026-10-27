@@ -62,80 +62,62 @@ class ShortagesReportScreen extends StatelessWidget {
         SectionCard(
           title: s.shortages,
           subtitle: s.shortagesHint,
-          child: Column(
-            children: <Widget>[
-              for (final row in controller.shortages) _ShortageTile(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 18,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.product)),
+                DataColumn(label: Text(s.code)),
+                DataColumn(label: Text(s.shortageQty), numeric: true),
+                DataColumn(label: Text(s.purchaseValue), numeric: true),
+                DataColumn(label: Text(s.orders), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in controller.shortages)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 280,
+                          child: Text(
+                            asString(
+                              row['name'],
+                              fallback: asString(row['sku']).isEmpty
+                                  ? s.product
+                                  : asString(row['sku']),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(Text(asString(row['sku']))),
+                      DataCell(
+                        Text(
+                          Formatters.integer(asDouble(row['shortage'])),
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      DataCell(MoneyText(asDouble(row['purchaseValue']))),
+                      DataCell(
+                        Text(
+                          '${(row['orders'] is List) ? (row['orders'] as List).length : 0}',
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ShortageTile extends StatelessWidget {
-  const _ShortageTile({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final theme = Theme.of(context);
-    final sku = asString(row['sku']);
-    final orders = (row['orders'] is List)
-        ? (row['orders'] as List).whereType<Map>().toList()
-        : const <Map>[];
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Card(
-        margin: EdgeInsets.zero,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      asString(row['name'], fallback: sku.isEmpty ? s.product : sku),
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ),
-                  MoneyText(asDouble(row['purchaseValue'])),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${s.shortageQty}: ${Formatters.integer(asDouble(row['shortage']))}',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.error),
-              ),
-              if (orders.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 8),
-                Text(
-                  s.waitingOrders,
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: theme.colorScheme.outline),
-                ),
-                for (final order in orders)
-                  Text(
-                    '• ${asString(order['orderNumber'])}'
-                    '${asStringOrNull(order['customer']) == null ? '' : ' · ${asString(order['customer'])}'}'
-                    ' · ${Formatters.integer(asDouble(order['outstanding']))}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-              ],
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

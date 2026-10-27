@@ -85,15 +85,15 @@ class AppTheme {
       titleLarge: baseText.titleLarge
           ?.copyWith(fontSize: 18, fontWeight: FontWeight.w700, color: text),
       titleMedium: baseText.titleMedium
-          ?.copyWith(fontSize: 14.5, fontWeight: FontWeight.w700, color: text),
+          ?.copyWith(fontSize: 15, fontWeight: FontWeight.w700, color: text),
       titleSmall: baseText.titleSmall
-          ?.copyWith(fontSize: 12.5, fontWeight: FontWeight.w700, color: text),
-      bodyLarge: baseText.bodyLarge?.copyWith(fontSize: 13.5, color: text),
-      bodyMedium: baseText.bodyMedium?.copyWith(fontSize: 12.5, color: text),
+          ?.copyWith(fontSize: 13, fontWeight: FontWeight.w700, color: text),
+      bodyLarge: baseText.bodyLarge?.copyWith(fontSize: 14, color: text),
+      bodyMedium: baseText.bodyMedium?.copyWith(fontSize: 13, color: text),
       bodySmall: baseText.bodySmall
-          ?.copyWith(fontSize: 11, color: secondaryText),
+          ?.copyWith(fontSize: 11.5, color: secondaryText),
       labelLarge: baseText.labelLarge
-          ?.copyWith(fontSize: 12.5, fontWeight: FontWeight.w600, color: text),
+          ?.copyWith(fontSize: 13, fontWeight: FontWeight.w600, color: text),
       labelMedium: baseText.labelMedium?.copyWith(fontSize: 11.5, color: text),
       labelSmall: baseText.labelSmall?.copyWith(
         fontSize: 10.5,
@@ -209,11 +209,11 @@ class AppTheme {
         shape: const RoundedRectangleBorder(borderRadius: radius),
         iconColor: scheme.onSurfaceVariant,
         titleTextStyle: TextStyle(
-          fontSize: 12.5,
+          fontSize: 13,
           fontWeight: FontWeight.w500,
           color: text,
         ),
-        subtitleTextStyle: TextStyle(fontSize: 11, color: secondaryText),
+        subtitleTextStyle: TextStyle(fontSize: 11.5, color: secondaryText),
       ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
@@ -231,20 +231,20 @@ class AppTheme {
           isLight ? tableHeader : scheme.surfaceContainerHighest,
         ),
         headingTextStyle: TextStyle(
-          fontSize: 11.5,
+          fontSize: 12.5,
           fontWeight: FontWeight.w700,
           color: isLight ? const Color(0xFF16324F) : scheme.onSurface,
         ),
         dataTextStyle: TextStyle(
-          fontSize: 11.5,
+          fontSize: 12.5,
           color: isLight ? textPrimary : scheme.onSurface,
         ),
-        headingRowHeight: 30,
-        dataRowMinHeight: 26,
-        dataRowMaxHeight: 34,
-        horizontalMargin: 8,
-        columnSpacing: 14,
-        dividerThickness: 0.5,
+        headingRowHeight: 36,
+        dataRowMinHeight: 32,
+        dataRowMaxHeight: 44,
+        horizontalMargin: 10,
+        columnSpacing: 18,
+        dividerThickness: 0.6,
       ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: isLight ? Colors.white : scheme.surface,

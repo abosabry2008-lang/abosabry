@@ -243,10 +243,10 @@ class _LedgerTable extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: DataTable(
         showCheckboxColumn: false,
-        columnSpacing: 14,
-        horizontalMargin: 8,
-        dataRowMinHeight: 26,
-        dataRowMaxHeight: 38,
+        columnSpacing: 16,
+        horizontalMargin: 10,
+        dataRowMinHeight: 32,
+        dataRowMaxHeight: 46,
         columns: <DataColumn>[
           DataColumn(label: Text(s.date), numeric: false),
           DataColumn(label: Text(s.numberLabel), numeric: false),

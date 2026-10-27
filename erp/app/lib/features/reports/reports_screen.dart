@@ -1315,36 +1315,58 @@ class _SupplierPayablesTabState extends State<_SupplierPayablesTab> {
         SectionCard(
           title: s.supplierPayables,
           subtitle: s.supplierPayablesHint,
-          child: Column(
-            children: <Widget>[
-              for (final row in controller.supplierPayables)
-                _SupplierPayableTile(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 18,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.supplier)),
+                DataColumn(label: Text(s.phone)),
+                DataColumn(label: Text(s.orders), numeric: true),
+                DataColumn(label: Text(s.purchases), numeric: true),
+                DataColumn(label: Text(s.paid), numeric: true),
+                DataColumn(label: Text(s.balance), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in controller.supplierPayables)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 230,
+                          child: Text(
+                            asString(row['supplier'], fallback: s.supplier),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(asStringOrNull(row['phone']) ?? '—'),
+                      ),
+                      DataCell(
+                        Text(
+                          Formatters.integer(asDouble(row['purchaseOrders'])),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      DataCell(MoneyText(asDouble(row['purchases']))),
+                      DataCell(MoneyText(asDouble(row['paid']))),
+                      DataCell(
+                        MoneyText(
+                          asDouble(row['balance']),
+                          colorNegative: true,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SupplierPayableTile extends StatelessWidget {
-  const _SupplierPayableTile({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final phone = asStringOrNull(row['phone']);
-    final orders = s.poCountLabel(
-      Formatters.integer(asDouble(row['purchaseOrders'])),
-    );
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(asString(row['supplier'], fallback: s.supplier)),
-      subtitle: Text(phone == null ? orders : '$phone · $orders'),
-      trailing: MoneyText(asDouble(row['balance']), colorNegative: true),
     );
   }
 }
@@ -1462,41 +1484,60 @@ class _StockBalanceTabState extends State<_StockBalanceTab> {
         SectionCard(
           title: s.stockBalance,
           subtitle: s.stockBalanceHint,
-          child: Column(
-            children: <Widget>[
-              for (final row in controller.stockBalance)
-                _StockBalanceTile(row: row),
-            ],
+          padding: EdgeInsets.zero,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 18,
+              columns: <DataColumn>[
+                DataColumn(label: Text(s.product)),
+                DataColumn(label: Text(s.code)),
+                DataColumn(label: Text(s.warehouse)),
+                DataColumn(label: Text(s.quantity), numeric: true),
+                DataColumn(label: Text(s.available), numeric: true),
+                DataColumn(label: Text(s.costValue), numeric: true),
+              ],
+              rows: <DataRow>[
+                for (final row in controller.stockBalance)
+                  DataRow(
+                    cells: <DataCell>[
+                      DataCell(
+                        SizedBox(
+                          width: 260,
+                          child: Text(
+                            asString(
+                              row['name'],
+                              fallback: asString(row['sku']).isEmpty
+                                  ? s.product
+                                  : asString(row['sku']),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(Text(asString(row['sku']))),
+                      DataCell(Text(asString(row['warehouse']))),
+                      DataCell(
+                        Text(
+                          Formatters.integer(asDouble(row['quantity'])),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          Formatters.integer(asDouble(row['available'])),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                      DataCell(MoneyText(asDouble(row['costValue']))),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _StockBalanceTile extends StatelessWidget {
-  const _StockBalanceTile({required this.row});
-
-  final Map<String, dynamic> row;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.s;
-    final sku = asString(row['sku']);
-    final warehouse = asString(row['warehouse']);
-    final quantity = Formatters.integer(asDouble(row['quantity']));
-    final available = Formatters.integer(asDouble(row['available']));
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        asString(row['name'], fallback: sku.isEmpty ? s.product : sku),
-      ),
-      subtitle: Text(
-        '$sku · $warehouse · ${s.quantity}: $quantity · '
-        '${s.available}: $available',
-      ),
-      trailing: MoneyText(asDouble(row['costValue'])),
     );
   }
 }

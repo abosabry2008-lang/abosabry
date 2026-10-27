@@ -309,12 +309,31 @@ class _KeyValueRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withAlpha(150),
+            width: 0.6,
+          ),
+        ),
+      ),
       child: Row(
         children: <Widget>[
-          Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
-          Text(value, style: theme.textTheme.bodyMedium),
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );

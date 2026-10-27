@@ -186,7 +186,7 @@ class ReportAsyncSection extends StatelessWidget {
       onRefresh: onRetry,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         children: children,
       ),
     );
@@ -215,14 +215,16 @@ class ReportKeyValueRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final labelStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontSize: 13,
       color: theme.colorScheme.onSurfaceVariant,
       fontWeight: emphasise ? FontWeight.w600 : FontWeight.w400,
     );
     final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontSize: 13,
       fontWeight: emphasise ? FontWeight.w700 : FontWeight.w600,
     );
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -262,7 +264,7 @@ class ReportTotalsCard extends StatelessWidget {
     return SectionCard(
       title: title,
       subtitle: subtitle,
-      padding: const EdgeInsets.fromLTRB(10, 2, 10, 4),
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 5),
       child: Column(children: rows),
     );
   }
@@ -295,7 +297,7 @@ class ReportTableHeader extends StatelessWidget {
                 cell.label,
                 textAlign: cell.align,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  fontSize: 11.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.isLight(context)
                       ? AppTheme.textPrimary
