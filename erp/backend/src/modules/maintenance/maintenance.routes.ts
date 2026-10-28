@@ -442,4 +442,113 @@ router.post(
   }),
 );
 
+/**
+ * Repairs the cost snapshot of stock returned by reversing a fulfilled sales
+ * order.
+ *
+ * `restoreFulfilledStock` used to write the selling price into `unitCost`, so
+ * every reversal inflated the inventory value. Quantity was always correct;
+ * only the movement value was wrong. This endpoint rewrites the reversal cost
+ * to the weighted cost of the matching SALE movements for the same document.
+ *
+ * `confirmation` must equal `FIX-SALE-RETURN-COSTS`. Pass `dryRun: true` to see
+ * the changes without writing anything.
+ */
+router.post(
+  '/fix-sale-return-costs',
+  requirePermission('settings.write'),
+  asyncHandler(async (req, res) => {
+    const body = (req.body ?? {}) as { confirmation?: unknown; dryRun?: unknown };
+    const confirmation = String(body.confirmation ?? '');
+    const dryRun = body.dryRun === true;
+
+    if (confirmation !== 'FIX-SALE-RETURN-COSTS') {
+      res.status(400).json({
+        error: {
+          message: 'Type FIX-SALE-RETURN-COSTS to confirm this operation',
+          code: 'CONFIRMATION_REQUIRED',
+        },
+      });
+      return;
+    }
+
+    const reversals = await prisma.stockMovement.findMany({
+      where: {
+        type: 'SALE_RETURN',
+        note: { startsWith: 'Reversed fulfilment of' },
+      },
+      select: {
+        id: true,
+        productId: true,
+        reference: true,
+        quantity: true,
+        unitCost: true,
+        createdAt: true,
+        product: { select: { name: true, sku: true } },
+      },
+    });
+
+    const changes: {
+      id: string;
+      product: string;
+      sku: string | null;
+      reference: string | null;
+      quantity: number;
+      from: number;
+      to: number;
+      valueDelta: number;
+    }[] = [];
+
+    for (const reversal of reversals) {
+      if (!reversal.reference) continue;
+      const saleRows = await prisma.stockMovement.findMany({
+        where: {
+          type: 'SALE',
+          productId: reversal.productId,
+          reference: reversal.reference,
+        },
+        select: { quantity: true, unitCost: true },
+      });
+      if (saleRows.length === 0) continue;
+
+      const totalQty = saleRows.reduce((sum, row) => sum + Math.abs(row.quantity), 0);
+      if (totalQty <= 0) continue;
+      const weighted =
+        saleRows.reduce(
+          (sum, row) => sum + Math.abs(row.quantity) * Number(row.unitCost ?? 0),
+          0,
+        ) / totalQty;
+      const target = round2(weighted);
+      const current = round2(Number(reversal.unitCost ?? 0));
+      if (Math.abs(target - current) < 0.005) continue;
+
+      const valueDelta = round2((target - current) * Math.abs(reversal.quantity));
+      changes.push({
+        id: reversal.id,
+        product: reversal.product.name,
+        sku: reversal.product.sku,
+        reference: reversal.reference,
+        quantity: reversal.quantity,
+        from: current,
+        to: target,
+        valueDelta,
+      });
+      if (!dryRun) {
+        await prisma.stockMovement.update({
+          where: { id: reversal.id },
+          data: { unitCost: target },
+        });
+      }
+    }
+
+    ok(res, {
+      dryRun,
+      scanned: reversals.length,
+      changed: changes.length,
+      valueDelta: round2(changes.reduce((sum, row) => sum + row.valueDelta, 0)),
+      sample: changes.slice(0, 50),
+    });
+  }),
+);
+
 export default router;

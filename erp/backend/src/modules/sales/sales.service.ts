@@ -402,7 +402,8 @@ interface FulfilledLine {
   id: string;
   productId: string;
   fulfilledQty: number;
-  unitPrice: unknown;
+  /** Cost snapshot captured when the line left the warehouse. */
+  unitCost?: unknown;
 }
 
 async function restoreFulfilledStock(
@@ -417,12 +418,23 @@ async function restoreFulfilledStock(
   const location = await resolveLocation(tx, order.warehouseId);
 
   for (const line of pending) {
+    // Reverse at the same cost the goods left with. Using the selling price
+    // here would inflate the inventory value every time an order is edited or
+    // cancelled.
+    let cost = Number(line.unitCost);
+    if (!(cost > 0)) {
+      const product = await tx.product.findUnique({
+        where: { id: line.productId },
+        select: { costPrice: true },
+      });
+      cost = Number(product?.costPrice ?? 0);
+    }
     await applyMovement(tx, {
       type: 'SALE_RETURN',
       productId: line.productId,
       locationId: location.id,
       quantity: line.fulfilledQty,
-      unitCost: Number(line.unitPrice),
+      unitCost: cost,
       reference: order.number,
       note: `Reversed fulfilment of ${order.number}`,
       userId,
@@ -546,7 +558,7 @@ export async function updateSalesOrder(
             id: line.id,
             productId: line.productId,
             fulfilledQty: line.fulfilledQty,
-            unitPrice: line.unitPrice,
+            unitCost: line.unitCost,
           })),
           options.userId,
         );
@@ -680,7 +692,7 @@ export async function cancelSalesOrder(id: string, options: CancelSalesOrderOpti
         id: line.id,
         productId: line.productId,
         fulfilledQty: line.fulfilledQty,
-        unitPrice: line.unitPrice,
+        unitCost: line.unitCost,
       })),
       options.userId,
     );
