@@ -23,7 +23,7 @@ const Map<String, List<String>> permissionAliases = <String, List<String>>{
   'categories': <String>['categories', 'categories.read'],
   'inventory': <String>['inventory', 'inventory.read'],
   'warehouses': <String>['warehouses', 'warehouses.read'],
-  'suppliers': <String>['suppliers', 'suppliers.read'],
+  'suppliers': <String>['suppliers', 'suppliers.read', 'purchasing.read'],
   'purchases': <String>['purchases', 'purchasing.read'],
   'customers': <String>['customers', 'customers.read'],
   'sales': <String>['sales', 'sales.read'],
