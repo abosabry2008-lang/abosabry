@@ -6,7 +6,7 @@ import { roleHasPermission, type Permission } from '../lib/permissions';
 export function requirePermission(permission: Permission): RequestHandler {
   return (req, _res, next) => {
     if (!req.user) throw ApiError.unauthorized();
-    if (!roleHasPermission(req.user.role, permission)) {
+    if (!roleHasPermission(req.user.role, permission, req.user.permissions)) {
       throw ApiError.forbidden(`Your role (${req.user.role}) lacks the "${permission}" permission`);
     }
     next();

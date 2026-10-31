@@ -45,7 +45,12 @@ function publicUser(user: SessionUser & { permissions?: unknown }) {
 }
 
 async function issueTokens(user: SessionUser) {
-  const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role });
+  const accessToken = signAccessToken({
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    permissions: permissionsFor(user.role, (user as any).permissions),
+  });
   const refreshToken = generateRefreshToken();
   await prisma.refreshToken.create({
     data: {

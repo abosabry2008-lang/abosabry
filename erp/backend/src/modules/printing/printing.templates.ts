@@ -1154,7 +1154,6 @@ export function consolidatedSalesNoteHtml(
             .map(
               (line, index) => `      <tr>
         <td style="font-weight:700;color:#1F4E79">${index === 0 ? escapeHtml(category) : ''}</td>
-        <td>${escapeHtml(line.sku)}</td>
         <td>${escapeHtml(line.name)}</td>
         <td>${escapeHtml(line.unit)}</td>
         <td class="num">${escapeHtml(packQuantity(Number(line.quantity), Number(line.boxesPerCarton ?? 0), ar))}</td>
@@ -1169,7 +1168,6 @@ export function consolidatedSalesNoteHtml(
       <thead>
         <tr>
           <th>${ar ? 'التصنيف' : 'Category'}</th>
-          <th>${ar ? 'الكود' : 'SKU'}</th>
           <th>${ar ? 'الصنف' : 'Product'}</th>
           <th>${ar ? 'الوحدة' : 'Unit'}</th>
           <th class="num">${ar ? 'الكمية' : 'Quantity'}</th>
@@ -1178,7 +1176,7 @@ export function consolidatedSalesNoteHtml(
       </thead>
       <tbody>
 ${rows}
-        <tr class="total"><td colspan="4">${ar ? 'إجمالي المندوب' : 'Salesperson total'}</td><td class="num">${escapeHtml(rep.quantity)}</td><td class="num">${money(rep.net)}</td></tr>
+        <tr class="total"><td colspan="3">${ar ? 'إجمالي المندوب' : 'Salesperson total'}</td><td class="num">${escapeHtml(rep.quantity)}</td><td class="num">${money(rep.net)}</td></tr>
       </tbody>
     </table>`;
     })

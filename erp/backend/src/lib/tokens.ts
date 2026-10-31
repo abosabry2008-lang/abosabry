@@ -6,6 +6,7 @@ export interface AccessPayload {
   sub: string;
   email: string;
   role: string;
+  permissions?: string[];
 }
 
 const accessTtl = env.accessTokenTtl as unknown as SignOptions['expiresIn'];

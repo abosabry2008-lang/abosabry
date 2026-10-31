@@ -1,6 +1,8 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { Role } from '@prisma/client';
 import { ApiError } from '../lib/api-error';
+import { parseCustomPermissions } from '../lib/permissions';
+import { prisma } from '../lib/prisma';
 import { ensureRolePermissionsLoaded } from '../lib/settings';
 import { verifyAccessToken } from '../lib/tokens';
 
@@ -8,6 +10,8 @@ export interface AuthUser {
   id: string;
   email: string;
   role: Role;
+  /** Per-user overrides; when present they replace the role defaults. */
+  permissions?: string[];
 }
 
 declare global {
@@ -43,7 +47,21 @@ export async function authenticate(
     } catch {
       throw ApiError.unauthorized('Invalid or expired access token');
     }
-    req.user = { id: payload.sub, email: payload.email, role: payload.role as Role };
+    const account = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { role: true, active: true, permissions: true },
+    });
+    if (!account || !account.active) {
+      throw ApiError.unauthorized('This account is inactive or no longer exists');
+    }
+    req.user = {
+      id: payload.sub,
+      email: payload.email,
+      role: account.role,
+      permissions: Array.isArray(payload.permissions)
+        ? payload.permissions
+        : parseCustomPermissions(account.permissions),
+    };
     // Make sure role-permission overrides from settings are in memory.
     await ensureRolePermissionsLoaded();
     next();

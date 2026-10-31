@@ -12,6 +12,35 @@ import 'json_utils.dart';
 /// Lifecycle of the authenticated session.
 enum SessionStatus { unknown, unauthenticated, authenticated }
 
+/// Maps a coarse UI destination key to the granular permissions that grant it.
+/// Custom user permissions use the granular keys (`products.read`, …), while the
+/// bundled role presets use the short keys (`products`, …); checking both keeps
+/// the menu and the API in agreement.
+const Map<String, List<String>> permissionAliases = <String, List<String>>{
+  'dashboard': <String>['dashboard', 'reports.read', 'sales.read'],
+  'pos': <String>['pos', 'pos.use'],
+  'products': <String>['products', 'products.read'],
+  'categories': <String>['categories', 'categories.read'],
+  'inventory': <String>['inventory', 'inventory.read'],
+  'warehouses': <String>['warehouses', 'warehouses.read'],
+  'suppliers': <String>['suppliers', 'suppliers.read'],
+  'purchases': <String>['purchases', 'purchasing.read'],
+  'customers': <String>['customers', 'customers.read'],
+  'sales': <String>['sales', 'sales.read'],
+  'invoices': <String>['invoices', 'invoices.read'],
+  'payments': <String>['payments', 'payments.read'],
+  'treasury': <String>['treasury', 'treasury.read'],
+  'expenses': <String>['expenses', 'expenses.read'],
+  'reports': <String>['reports', 'reports.read'],
+  'accounting': <String>['accounting', 'accounting.read'],
+  'openingBalances': <String>[
+    'openingBalances',
+    'openingBalances.read',
+  ],
+  'currencies': <String>['currencies', 'currency.read'],
+  'settings': <String>['settings', 'settings.read', 'settings.write'],
+};
+
 /// Role → permission keys. `ADMIN` is a wildcard.
 const Map<String, Set<String>> rolePermissions = <String, Set<String>>{
   'ADMIN': <String>{'*'},
@@ -134,13 +163,16 @@ class Session extends ChangeNotifier {
     final current = role;
     if (current == null) return false;
     if (current == 'ADMIN') return true;
+    final candidates = permissionAliases[permission] ?? <String>[permission];
     final userPerms = _user?.permissions;
     if (userPerms != null && userPerms.isNotEmpty) {
-      return userPerms.contains('*') || userPerms.contains(permission);
+      if (userPerms.contains('*')) return true;
+      return candidates.any(userPerms.contains);
     }
     final permissions = rolePermissions[current];
     if (permissions == null) return false;
-    return permissions.contains('*') || permissions.contains(permission);
+    if (permissions.contains('*')) return true;
+    return candidates.any(permissions.contains);
   }
 
   /// True when the current role has at least one of [permissions].

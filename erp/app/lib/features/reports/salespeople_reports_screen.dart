@@ -265,7 +265,7 @@ class _ConsolidatedLineRow extends StatelessWidget {
                       ?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  '${asString(line['sku'])} · ${s.quantity}: $quantityText',
+                  '${s.quantity}: $quantityText',
                   style: theme.textTheme.bodySmall,
                 ),
               ],
