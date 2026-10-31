@@ -1149,9 +1149,11 @@ export function consolidatedSalesNoteHtml(
       });
       const rows = categoryKeys
         .map((category) => {
-          const items = (grouped.get(category) ?? [])
+          const items = grouped.get(category) ?? [];
+          return items
             .map(
-              (line) => `      <tr>
+              (line, index) => `      <tr>
+        <td style="font-weight:700;color:#1F4E79">${index === 0 ? escapeHtml(category) : ''}</td>
         <td>${escapeHtml(line.sku)}</td>
         <td>${escapeHtml(line.name)}</td>
         <td>${escapeHtml(line.unit)}</td>
@@ -1160,14 +1162,13 @@ export function consolidatedSalesNoteHtml(
       </tr>`,
             )
             .join('\n');
-          const heading = `      <tr><td colspan="5" style="background:#eef2f7;font-weight:700">${escapeHtml(category)}</td></tr>`;
-          return `${heading}\n${items}`;
         })
         .join('\n');
       return `    <h3>${escapeHtml(rep.salesperson ?? unassigned)}</h3>
     <table class="data">
       <thead>
         <tr>
+          <th>${ar ? 'التصنيف' : 'Category'}</th>
           <th>${ar ? 'الكود' : 'SKU'}</th>
           <th>${ar ? 'الصنف' : 'Product'}</th>
           <th>${ar ? 'الوحدة' : 'Unit'}</th>
@@ -1177,7 +1178,7 @@ export function consolidatedSalesNoteHtml(
       </thead>
       <tbody>
 ${rows}
-        <tr class="total"><td colspan="3">${ar ? 'إجمالي المندوب' : 'Salesperson total'}</td><td class="num">${escapeHtml(rep.quantity)}</td><td class="num">${money(rep.net)}</td></tr>
+        <tr class="total"><td colspan="4">${ar ? 'إجمالي المندوب' : 'Salesperson total'}</td><td class="num">${escapeHtml(rep.quantity)}</td><td class="num">${money(rep.net)}</td></tr>
       </tbody>
     </table>`;
     })
