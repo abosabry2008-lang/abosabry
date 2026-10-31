@@ -174,7 +174,7 @@ router.get(
       ];
     }
 
-    const [total, invoices] = await Promise.all([
+    const [total, invoices, aggregate] = await Promise.all([
       prisma.invoice.count({ where }),
       prisma.invoice.findMany({
         where,
@@ -187,9 +187,16 @@ router.get(
           _count: { select: { lines: true, payments: true } },
         },
       }),
+      prisma.invoice.aggregate({ where, _sum: { total: true } }),
     ]);
 
-    paginated(res, invoices.map((invoice) => serializeInvoice(invoice)), total, paging);
+    paginated(
+      res,
+      invoices.map((invoice) => serializeInvoice(invoice)),
+      total,
+      paging,
+      { totalAmount: Number(aggregate._sum.total ?? 0) },
+    );
   }),
 );
 

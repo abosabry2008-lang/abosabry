@@ -5,10 +5,13 @@ import '../../core/formatters.dart';
 import '../../core/l10n.dart';
 import '../../models/purchase_order.dart';
 import '../../state/purchase_orders_controller.dart';
+import '../../state/suppliers_controller.dart';
 import '../../widgets/async_list_view.dart';
+import '../../widgets/day_search_row.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/page_header.dart';
 import '../../widgets/money_text.dart';
+import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/status_chip.dart';
 import '../shell/navigation.dart';
@@ -32,16 +35,65 @@ class PurchaseOrdersScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.s;
     final controller = context.watch<PurchaseOrdersController>();
+    final suppliers = context.watch<SuppliersController>();
+    if (suppliers.catalog.isEmpty && !suppliers.catalogLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.read<SuppliersController>().ensureCatalogLoaded();
+        }
+      });
+    }
+    final supplierOptions = suppliers.catalog
+        .map(
+          (supplier) => PickerOption(
+            value: supplier.id,
+            label: supplier.name,
+            subtitle: supplier.code,
+            keywords: <String>[
+              if (supplier.phone != null) supplier.phone!,
+              if (supplier.contact != null) supplier.contact!,
+            ],
+          ),
+        )
+        .toList();
     return Scaffold(
       body: Column(
         children: <Widget>[
           PageHeader(
             title: s.purchasing,
+            subtitle: s.poCountLabel('${controller.total}'),
             filters: <Widget>[
-              AppSearchField(
-                hintText: s.searchPurchaseOrdersHint,
-                initialValue: controller.search,
-                onChanged: controller.searchWith,
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: AppSearchField(
+                      hintText: s.searchPurchaseOrdersHint,
+                      initialValue: controller.search,
+                      onChanged: controller.searchWith,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: () => controller.refresh(),
+                    icon: const Icon(Icons.search),
+                    label: Text(s.search),
+                  ),
+                ],
+              ),
+              DaySearchRow(
+                day: controller.dayFilter.day,
+                onDayChanged: controller.filterByDay,
+                onSearch: () => controller.refresh(),
+              ),
+              SearchablePickerField(
+                label: s.supplier,
+                value: controller.supplierId,
+                hint: s.allSuppliers,
+                prefixIcon: Icons.local_shipping_outlined,
+                searchHint: s.searchSuppliersHint,
+                clearable: true,
+                options: supplierOptions,
+                onChanged: controller.filterBySupplier,
               ),
               AppSelectField<String>(
                 label: s.statusWord,

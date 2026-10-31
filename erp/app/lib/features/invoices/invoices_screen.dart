@@ -50,6 +50,38 @@ class InvoicesScreen extends StatelessWidget {
         children: <Widget>[
           PageHeader(
             title: s.invoices,
+            titleSuffix: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(30),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: controller.loading
+                  ? const Text(
+                      '…',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          '${s.total}: ',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                        MoneyText(
+                          controller.totalAmount,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
             trailing: IconButton.filledTonal(
               tooltip: s.dailyInvoicesPrint,
               onPressed: () => pushScreen<void>(

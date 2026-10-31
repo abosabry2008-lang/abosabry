@@ -12,9 +12,16 @@ import 'section_card.dart';
 /// bordered ledger grid (opening balance, movements, running balance) and a
 /// separate totals block.
 class StatementView extends StatelessWidget {
-  const StatementView({super.key, required this.statement});
+  const StatementView({
+    super.key,
+    required this.statement,
+    this.compact = false,
+  });
 
   final AccountStatement statement;
+
+  /// Hides the document number and description columns (customer statements).
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +84,7 @@ class StatementView extends StatelessWidget {
                         ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 )
-              : _LedgerTable(statement: statement),
+              : _LedgerTable(statement: statement, compact: compact),
         ),
         const SizedBox(height: 12),
         SectionCard(
@@ -144,9 +151,10 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _LedgerTable extends StatelessWidget {
-  const _LedgerTable({required this.statement});
+  const _LedgerTable({required this.statement, required this.compact});
 
   final AccountStatement statement;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -161,17 +169,29 @@ class _LedgerTable extends StatelessWidget {
           theme.colorScheme.surfaceContainerHighest.withAlpha(110),
         ),
         cells: <DataCell>[
-          const DataCell(Text('')),
-          const DataCell(Text('')),
-          DataCell(
-            Text(
-              s.openingBalance,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurfaceVariant,
+          if (compact)
+            DataCell(
+              Text(
+                s.openingBalance,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else ...<DataCell>[
+            const DataCell(Text('')),
+            const DataCell(Text('')),
+            DataCell(
+              Text(
+                s.openingBalance,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-          ),
+          ],
           const DataCell(Text('')),
           const DataCell(Text('')),
           DataCell(MoneyText(statement.openingBalance, style: bold)),
@@ -186,38 +206,40 @@ class _LedgerTable extends StatelessWidget {
                 style: theme.textTheme.bodySmall,
               ),
             ),
-            DataCell(
-              Text(row.number, style: theme.textTheme.bodySmall),
-            ),
-            DataCell(
-              SizedBox(
-                width: 260,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      row.description.isNotEmpty
-                          ? row.description
-                          : (row.number.isNotEmpty
-                              ? row.number
-                              : s.status(row.type)),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      s.status(row.type),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontSize: 11,
-                        color: row.type == 'PAYMENT'
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurfaceVariant,
+            if (!compact) ...<DataCell>[
+              DataCell(
+                Text(row.number, style: theme.textTheme.bodySmall),
+              ),
+              DataCell(
+                SizedBox(
+                  width: 260,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        row.description.isNotEmpty
+                            ? row.description
+                            : (row.number.isNotEmpty
+                                ? row.number
+                                : s.status(row.type)),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                      Text(
+                        s.status(row.type),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontSize: 11,
+                          color: row.type == 'PAYMENT'
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
             DataCell(
               row.debit > 0
                   ? MoneyText(row.debit)
@@ -249,8 +271,10 @@ class _LedgerTable extends StatelessWidget {
         dataRowMaxHeight: 46,
         columns: <DataColumn>[
           DataColumn(label: Text(s.date), numeric: false),
-          DataColumn(label: Text(s.numberLabel), numeric: false),
-          DataColumn(label: Text(s.description), numeric: false),
+          if (!compact) ...<DataColumn>[
+            DataColumn(label: Text(s.numberLabel), numeric: false),
+            DataColumn(label: Text(s.description), numeric: false),
+          ],
           DataColumn(label: Text(s.debit), numeric: true),
           DataColumn(label: Text(s.credit), numeric: true),
           DataColumn(label: Text(s.balance), numeric: true),

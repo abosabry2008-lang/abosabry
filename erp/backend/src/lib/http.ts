@@ -45,6 +45,7 @@ export function paginated(
   data: unknown[],
   total: number,
   paging: Paging,
+  extraMeta: Record<string, unknown> = {},
 ): void {
   res.status(200).json({
     data,
@@ -53,6 +54,7 @@ export function paginated(
       pageSize: paging.pageSize,
       total,
       totalPages: paging.take > 0 ? Math.ceil(total / paging.take) : 0,
+      ...extraMeta,
     },
   });
 }

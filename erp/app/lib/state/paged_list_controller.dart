@@ -21,6 +21,7 @@ abstract class PagedListController<T> extends ChangeNotifier {
   int _page = 1;
   int _total = 0;
   int _totalPages = 0;
+  double _totalAmount = 0;
   int _pageSize = 20;
   String _search = '';
   bool _initialised = false;
@@ -33,6 +34,7 @@ abstract class PagedListController<T> extends ChangeNotifier {
   int get page => _page;
   int get total => _total;
   int get totalPages => _totalPages;
+  double get totalAmount => _totalAmount;
   int get pageSize => _pageSize;
   String get search => _search;
   bool get hasMore => _totalPages > 0 && _page < _totalPages;
@@ -83,6 +85,7 @@ abstract class PagedListController<T> extends ChangeNotifier {
     if (_loading) return;
     if (!isActivated) {
       _hasLoadedOnce = true;
+      _totalAmount = 0;
       notifyListeners();
       return;
     }
@@ -97,6 +100,7 @@ abstract class PagedListController<T> extends ChangeNotifier {
       _page = result.page < 1 ? 1 : result.page;
       _total = result.total;
       _totalPages = result.totalPages;
+      _totalAmount = result.totalAmount;
       _initialised = true;
       _hasLoadedOnce = true;
     } on ApiException catch (error) {
@@ -123,6 +127,7 @@ abstract class PagedListController<T> extends ChangeNotifier {
       _page = result.page < 1 ? _page + 1 : result.page;
       _total = result.total;
       _totalPages = result.totalPages;
+      _totalAmount = result.totalAmount;
     } on ApiException catch (error) {
       _error = error.message;
     } catch (error) {

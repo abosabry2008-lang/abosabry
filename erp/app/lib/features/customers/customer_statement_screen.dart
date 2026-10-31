@@ -123,7 +123,7 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: <Widget>[
-            StatementView(statement: statement),
+            StatementView(statement: statement, compact: true),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: () => PrintService.printCustomerStatement(

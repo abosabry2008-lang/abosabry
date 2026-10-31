@@ -8,6 +8,7 @@ class Paginated<T> {
     this.pageSize = 20,
     this.total = 0,
     this.totalPages = 0,
+    this.totalAmount = 0,
   });
 
   final List<T> items;
@@ -15,6 +16,10 @@ class Paginated<T> {
   final int pageSize;
   final int total;
   final int totalPages;
+
+  /// Sum of a monetary column across the whole filtered result set, when the
+  /// endpoint provides one (invoices use it for the day's total).
+  final double totalAmount;
 
   /// True when another page can be fetched.
   bool get hasMore => totalPages > 0 && page < totalPages;
@@ -42,6 +47,7 @@ class Paginated<T> {
       pageSize: asInt(meta['pageSize'], fallback: items.length),
       total: asInt(meta['total'], fallback: items.length),
       totalPages: asInt(meta['totalPages']),
+      totalAmount: asDouble(meta['totalAmount']),
     );
   }
 

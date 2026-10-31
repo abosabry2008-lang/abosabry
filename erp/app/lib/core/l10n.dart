@@ -1276,6 +1276,7 @@ class AppStrings {
         'اختر عميلًا أو موردًا أولًا.',
       );
   String get allSalespeople => _t('All salespeople', 'كل المندوبين');
+  String get allSuppliers => _t('All suppliers', 'كل الموردين');
   String get salespeople => _t('Salespeople', 'المناديب');
   String get salespeopleReports => _t('Salespeople reports', 'تقارير المناديب');
   String get consolidatedSalesNote =>

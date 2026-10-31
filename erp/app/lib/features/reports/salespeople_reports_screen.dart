@@ -204,23 +204,12 @@ class _SalespersonSection extends StatelessWidget {
           for (final category in categoryKeys) ...<Widget>[
             Padding(
               padding: const EdgeInsets.only(top: 10, bottom: 2),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(context).colorScheme.outlineVariant,
+              child: Text(
+                category,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.groupTitleColor(context),
                     ),
-                  ),
-                ),
-                child: Text(
-                  category,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.groupTitleColor(context),
-                      ),
-                ),
               ),
             ),
             for (final line in groups[category]!) ...<Widget>[
@@ -247,7 +236,6 @@ class _SalespersonSection extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-              const Divider(height: 1),
             ],
           ],
         ],

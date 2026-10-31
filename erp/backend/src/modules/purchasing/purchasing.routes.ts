@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { ApiError } from '../../lib/api-error';
 import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http';
 import { prisma } from '../../lib/prisma';
-import { asEnum, asString } from '../../lib/query';
+import { asDate, asDateEnd, asEnum, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
@@ -75,10 +75,18 @@ router.get(
     const supplierId = asString(query.supplierId);
     const status = asEnum<PurchaseOrderStatus>(query.status as string, statuses);
     const search = asString(query.search);
+    const from = asDate(query.from);
+    const to = asDateEnd(query.to);
 
     const where: Prisma.PurchaseOrderWhereInput = {};
     if (supplierId) where.supplierId = supplierId;
     if (status) where.status = status;
+    if (from || to) {
+      where.orderDate = {
+        ...(from ? { gte: from } : {}),
+        ...(to ? { lte: to } : {}),
+      };
+    }
     if (search) {
       where.OR = [
         { number: { contains: search, mode: 'insensitive' } },

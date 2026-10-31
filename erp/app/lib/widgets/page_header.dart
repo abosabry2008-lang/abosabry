@@ -9,12 +9,16 @@ class PageHeader extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.titleSuffix,
     this.trailing,
     this.filters = const <Widget>[],
   });
 
   final String title;
   final String? subtitle;
+
+  /// Optional widget rendered immediately after [title] (e.g. a total chip).
+  final Widget? titleSuffix;
   final Widget? trailing;
   final List<Widget> filters;
 
@@ -52,13 +56,25 @@ class PageHeader extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(
-                          title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Flexible(
+                              child: Text(
+                                title,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            if (titleSuffix != null) ...<Widget>[
+                              const SizedBox(width: 8),
+                              titleSuffix!,
+                            ],
+                          ],
                         ),
                         if (subtitle != null && subtitle!.isNotEmpty)
                           Padding(
