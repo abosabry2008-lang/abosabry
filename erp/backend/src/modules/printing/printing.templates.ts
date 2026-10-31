@@ -609,20 +609,28 @@ function statementBody(
 ): string {
   const ar = lang === 'ar';
   const t = (en: string, arabic: string) => (ar ? arabic : en);
-  const typeLabels = ar ? ROW_TYPE_LABEL_AR : ROW_TYPE_LABEL;
+  const baseTypeLabels = ar ? ROW_TYPE_LABEL_AR : ROW_TYPE_LABEL;
+  const typeLabels = compact
+    ? { ...baseTypeLabels, PAYMENT: t('Collection', 'تحصيل') }
+    : {
+        ...baseTypeLabels,
+        PURCHASE_ORDER: t('Purchase invoice', 'فاتورة شراء'),
+        PAYMENT: t('Payment', 'سداد'),
+      };
 
   const rows = view.rows
     .map((row) =>
       compact
         ? `      <tr>
         <td>${escapeHtml(formatDate(row.date))}</td>
+        <td>${escapeHtml(typeLabels[row.type] ?? row.type)}</td>
         <td class="num">${row.debit ? money(row.debit) : ''}</td>
         <td class="num">${row.credit ? money(row.credit) : ''}</td>
         <td class="num">${money(row.balance)}</td>
       </tr>`
         : `      <tr>
         <td>${escapeHtml(formatDate(row.date))}</td>
-        <td>${escapeHtml(typeLabels[row.type])}</td>
+        <td>${escapeHtml(typeLabels[row.type] ?? row.type)}</td>
         <td>${escapeHtml(row.number)}</td>
         <td>${escapeHtml(row.description)}</td>
         <td class="num">${row.debit ? money(row.debit) : ''}</td>
@@ -640,6 +648,7 @@ function statementBody(
   const head = compact
     ? `<tr>
           <th>${escapeHtml(t('Date', 'التاريخ'))}</th>
+          <th>${escapeHtml(t('Type', 'النوع'))}</th>
           <th class="num">${escapeHtml(t('Debit', 'مدين'))}</th>
           <th class="num">${escapeHtml(t('Credit', 'دائن'))}</th>
           <th class="num">${escapeHtml(t('Balance', 'الرصيد'))}</th>
@@ -655,15 +664,15 @@ function statementBody(
         </tr>`;
 
   const opening = compact
-    ? `<tr class="muted"><td colspan="3">${escapeHtml(t('Opening balance', 'الرصيد الافتتاحي'))}</td><td class="num">${money(view.openingBalance)}</td></tr>`
+    ? `<tr class="muted"><td></td><td>${escapeHtml(t('Opening balance', 'الرصيد الافتتاحي'))}</td><td></td><td></td><td class="num">${money(view.openingBalance)}</td></tr>`
     : `<tr class="muted"><td colspan="6">${escapeHtml(t('Opening balance', 'الرصيد الافتتاحي'))}</td><td class="num">${money(view.openingBalance)}</td></tr>`;
 
   const empty = compact
-    ? `<tr><td colspan="4" class="muted center">${escapeHtml(t('No transactions in this period', 'لا توجد حركات في هذه الفترة'))}</td></tr>`
+    ? `<tr><td colspan="5" class="muted center">${escapeHtml(t('No transactions in this period', 'لا توجد حركات في هذه الفترة'))}</td></tr>`
     : `<tr><td colspan="7" class="muted center">${escapeHtml(t('No transactions in this period', 'لا توجد حركات في هذه الفترة'))}</td></tr>`;
 
   const totals = compact
-    ? `<tr class="total"><td>${escapeHtml(t('Totals', 'الإجماليات'))}</td><td class="num">${money(view.totals.debit)}</td><td class="num">${money(view.totals.credit)}</td><td class="num">${money(view.totals.closingBalance)}</td></tr>`
+    ? `<tr class="total"><td colspan="2">${escapeHtml(t('Totals', 'الإجماليات'))}</td><td class="num">${money(view.totals.debit)}</td><td class="num">${money(view.totals.credit)}</td><td class="num">${money(view.totals.closingBalance)}</td></tr>`
     : `<tr class="total"><td colspan="4">${escapeHtml(t('Totals', 'الإجماليات'))}</td><td class="num">${money(view.totals.debit)}</td><td class="num">${money(view.totals.credit)}</td><td class="num">${money(view.totals.closingBalance)}</td></tr>`;
 
   return `    <section class="meta">

@@ -201,43 +201,82 @@ class _SalespersonSection extends StatelessWidget {
       subtitle: subtitle,
       child: Column(
         children: <Widget>[
-          for (final category in categoryKeys) ...<Widget>[
-            Padding(
-              padding: const EdgeInsets.only(top: 10, bottom: 2),
-              child: Text(
-                category,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.groupTitleColor(context),
+          for (final category in categoryKeys)
+            for (var index = 0; index < groups[category]!.length; index++)
+              _ConsolidatedLineRow(
+                category: index == 0 ? category : null,
+                line: groups[category]![index],
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One consolidated line. The category name is printed only beside the first
+/// item of each category, so the sheet stays compact without heading rows or
+/// separators.
+class _ConsolidatedLineRow extends StatelessWidget {
+  const _ConsolidatedLineRow({required this.category, required this.line});
+
+  final String? category;
+  final Map<String, dynamic> line;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.s;
+    final theme = Theme.of(context);
+    final quantity = asDouble(line['quantity']).toInt();
+    final boxesPerCarton = asInt(line['boxesPerCarton']);
+    final quantityText = boxesPerCarton > 0
+        ? s.packStock(
+            quantity ~/ boxesPerCarton,
+            quantity % boxesPerCarton,
+          )
+        : '$quantity ${asString(line['unit'])}';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          SizedBox(
+            width: 105,
+            child: category == null
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsetsDirectional.only(top: 1),
+                    child: Text(
+                      category!,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.groupTitleColor(context),
+                      ),
                     ),
-              ),
-            ),
-            for (final line in groups[category]!) ...<Widget>[
-              ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(
+                  ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
                   asString(line['name'], fallback: asString(line['sku'])),
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
-                subtitle: Text(() {
-                  final quantity = asDouble(line['quantity']).toInt();
-                  final boxesPerCarton = asInt(line['boxesPerCarton']);
-                  final quantityText = boxesPerCarton > 0
-                      ? s.packStock(
-                          quantity ~/ boxesPerCarton,
-                          quantity % boxesPerCarton,
-                        )
-                      : '$quantity ${asString(line['unit'])}';
-                  return '${asString(line['sku'])} · ${s.quantity}: '
-                      '$quantityText';
-                }()),
-                trailing: MoneyText(
-                  asDouble(line['net']),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                Text(
+                  '${asString(line['sku'])} · ${s.quantity}: $quantityText',
+                  style: theme.textTheme.bodySmall,
                 ),
-              ),
-            ],
-          ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          MoneyText(
+            asDouble(line['net']),
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );

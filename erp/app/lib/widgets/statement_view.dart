@@ -16,12 +16,16 @@ class StatementView extends StatelessWidget {
     super.key,
     required this.statement,
     this.compact = false,
+    this.supplier = false,
   });
 
   final AccountStatement statement;
 
   /// Hides the document number and description columns (customer statements).
   final bool compact;
+
+  /// Uses supplier wording for row types (purchase invoice / payment).
+  final bool supplier;
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +88,11 @@ class StatementView extends StatelessWidget {
                         ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 )
-              : _LedgerTable(statement: statement, compact: compact),
+              : _LedgerTable(
+                  statement: statement,
+                  compact: compact,
+                  supplier: supplier,
+                ),
         ),
         const SizedBox(height: 12),
         SectionCard(
@@ -151,10 +159,47 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _LedgerTable extends StatelessWidget {
-  const _LedgerTable({required this.statement, required this.compact});
+  const _LedgerTable({
+    required this.statement,
+    required this.compact,
+    required this.supplier,
+  });
 
   final AccountStatement statement;
   final bool compact;
+  final bool supplier;
+
+  String _typeLabel(BuildContext context, String type) {
+    final s = context.s;
+    switch (type) {
+      case 'INVOICE':
+        return supplier ? s.statementPurchaseInvoice : s.invoice;
+      case 'PURCHASE_ORDER':
+        return s.statementPurchaseInvoice;
+      case 'PAYMENT':
+        return supplier ? s.payment : s.statementCollection;
+      case 'SETTLEMENT':
+        return s.settlement;
+      case 'RETURN':
+        return s.statementReturn;
+      default:
+        return s.status(type);
+    }
+  }
+
+  Color _typeColor(BuildContext context, String type) {
+    final scheme = Theme.of(context).colorScheme;
+    switch (type) {
+      case 'PAYMENT':
+        return const Color(0xFF107E3E);
+      case 'SETTLEMENT':
+        return const Color(0xFFB26A00);
+      case 'RETURN':
+        return scheme.error;
+      default:
+        return scheme.primary;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,28 +214,19 @@ class _LedgerTable extends StatelessWidget {
           theme.colorScheme.surfaceContainerHighest.withAlpha(110),
         ),
         cells: <DataCell>[
-          if (compact)
-            DataCell(
-              Text(
-                s.openingBalance,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            )
-          else ...<DataCell>[
-            const DataCell(Text('')),
-            const DataCell(Text('')),
-            DataCell(
-              Text(
-                s.openingBalance,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+          const DataCell(Text('')),
+          DataCell(
+            Text(
+              s.openingBalance,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+          ),
+          if (!compact) ...<DataCell>[
+            const DataCell(Text('')),
+            const DataCell(Text('')),
           ],
           const DataCell(Text('')),
           const DataCell(Text('')),
@@ -204,6 +240,15 @@ class _LedgerTable extends StatelessWidget {
               Text(
                 Formatters.date(row.date),
                 style: theme.textTheme.bodySmall,
+              ),
+            ),
+            DataCell(
+              Text(
+                _typeLabel(context, row.type),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: _typeColor(context, row.type),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             if (!compact) ...<DataCell>[
@@ -271,6 +316,7 @@ class _LedgerTable extends StatelessWidget {
         dataRowMaxHeight: 46,
         columns: <DataColumn>[
           DataColumn(label: Text(s.date), numeric: false),
+          DataColumn(label: Text(s.type), numeric: false),
           if (!compact) ...<DataColumn>[
             DataColumn(label: Text(s.numberLabel), numeric: false),
             DataColumn(label: Text(s.description), numeric: false),

@@ -123,7 +123,7 @@ class _SupplierStatementScreenState extends State<SupplierStatementScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: <Widget>[
-            StatementView(statement: statement),
+            StatementView(statement: statement, supplier: true),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: () => PrintService.printSupplierStatement(

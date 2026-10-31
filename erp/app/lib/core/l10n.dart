@@ -1129,6 +1129,10 @@ class AppStrings {
   String get couldNotLoadStatement =>
       _t('Could not load the statement.', 'تعذّر تحميل كشف الحساب.');
   String get statementNotFound => _t('Statement not found.', 'كشف الحساب غير موجود.');
+  String get statementCollection => _t('Collection', 'تحصيل');
+  String get statementPurchaseInvoice =>
+      _t('Purchase invoice', 'فاتورة شراء');
+  String get statementReturn => _t('Return', 'مرتجع');
 
   // ---------------------------------------------------------------------------
   // Business status labels
