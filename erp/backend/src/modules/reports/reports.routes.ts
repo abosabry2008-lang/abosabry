@@ -332,6 +332,68 @@ router.get(
   }),
 );
 
+// GET /reports/cancelled-invoices
+router.get(
+  '/cancelled-invoices',
+  requirePermission('invoices.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDateEnd(req.query.to);
+    const search = asString(req.query.search);
+    const user = currentUser(req);
+    const access = invoiceAccessWhere(user) ?? {};
+
+    const where: Prisma.InvoiceWhereInput = {
+      status: 'VOID',
+      ...access,
+    };
+    if (from || to) {
+      where.updatedAt = {
+        ...(from ? { gte: from } : {}),
+        ...(to ? { lte: to } : {}),
+      };
+    }
+    if (search) {
+      where.OR = [
+        { number: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [count, aggregate, rows] = await Promise.all([
+      prisma.invoice.count({ where }),
+      prisma.invoice.aggregate({ where, _sum: { total: true } }),
+      prisma.invoice.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        take: 2000,
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          issueDate: true,
+          updatedAt: true,
+          total: true,
+          notes: true,
+          customer: { select: { id: true, name: true, code: true } },
+          currency: { select: { code: true, symbol: true } },
+        },
+      }),
+    ]);
+
+    ok(res, {
+      from: from ? from.toISOString() : null,
+      to: to ? to.toISOString() : null,
+      rows: rows.map((row) => ({ ...row, total: Number(row.total) })),
+      totals: {
+        count,
+        total: round2(Number(aggregate._sum.total ?? 0)),
+      },
+      truncated: count > rows.length,
+    });
+  }),
+);
+
 // GET /reports/sales
 router.get(
   '/sales',

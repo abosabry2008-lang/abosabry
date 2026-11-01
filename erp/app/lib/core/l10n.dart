@@ -1223,6 +1223,17 @@ class AppStrings {
         'Outstanding customer balances grouped by the salesperson who sold to them.',
         'أرصدة العملاء المستحقة مجمّعة حسب المندوب الذي باع لهم.',
       );
+  String get cancelledInvoices =>
+      _t('Cancelled invoices', 'الفواتير الملغاة');
+  String get cancelledInvoicesHint => _t(
+        'Invoices voided within the selected period, with the cancellation date.',
+        'الفواتير الملغاة خلال الفترة المحددة، مع تاريخ الإلغاء.',
+      );
+  String get cancellationDate => _t('Cancellation date', 'تاريخ الإلغاء');
+  String get noCancelledInvoices =>
+      _t('No cancelled invoices', 'لا توجد فواتير ملغاة');
+  String get searchCancelledInvoicesHint =>
+      _t('Search by invoice number or customer…', 'ابحث برقم الفاتورة أو العميل…');
   String get supplierPayables => _t('Supplier payables', 'مديونية الموردين');
   String get supplierPayablesHint => _t(
         'Full outstanding balance owed to every supplier.',

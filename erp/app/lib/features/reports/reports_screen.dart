@@ -21,6 +21,7 @@ import '../customers/customer_statement_screen.dart';
 import '../shell/navigation.dart';
 import '../suppliers/supplier_statement_screen.dart';
 import 'dormant_customers_screen.dart';
+import 'cancelled_invoices_report_screen.dart';
 import 'extra_report_screen.dart';
 import 'financial_reports_screen.dart';
 import 'general_ledger_screen.dart';
@@ -36,6 +37,9 @@ import 'salesperson_daily_invoices_screen.dart';
 import 'salesperson_customer_debt_screen.dart';
 import 'shortages_report_screen.dart';
 import 'statement_hub_screen.dart';
+
+/// Set to `true` to restore the "receivables by salesperson" report card.
+const bool _showReceivablesBySalesperson = false;
 
 /// Report hub: a search box plus grouped, responsive report cards.
 class ReportsScreen extends StatefulWidget {
@@ -262,11 +266,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
           ),
           _ReportSpec(
-            icon: Icons.support_agent_outlined,
-            title: s.receivablesBySalesperson,
-            onOpen: (controller) => controller.loadReceivables(),
-            builder: (_) => const _ReceivablesTab(),
+            icon: Icons.block_outlined,
+            title: s.cancelledInvoices,
+            builder: (_) => const CancelledInvoicesReportScreen(),
           ),
+          if (_showReceivablesBySalesperson)
+            _ReportSpec(
+              icon: Icons.support_agent_outlined,
+              title: s.receivablesBySalesperson,
+              onOpen: (controller) => controller.loadReceivables(),
+              builder: (_) => const _ReceivablesTab(),
+            ),
           _ReportSpec(
             icon: Icons.production_quantity_limits_outlined,
             title: s.shortages,
