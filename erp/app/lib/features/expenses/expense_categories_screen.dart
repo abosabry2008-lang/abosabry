@@ -140,6 +140,7 @@ class _ExpenseCategoriesScreenState extends State<ExpenseCategoriesScreen> {
                       if (category.accountCode != null)
                         '${category.accountCode} ${category.accountName ?? ''}',
                       '${s.openingBalance}: ${Formatters.money(category.openingBalance)}',
+                      '${s.balance}: ${Formatters.money(category.balance)}',
                     ].join(' · '),
                   ),
                   trailing: Row(

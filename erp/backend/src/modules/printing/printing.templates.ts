@@ -1821,24 +1821,66 @@ export function expenseCategoryStatementHtml(
 ): string {
   const ar = isArabic(lang);
   let running = round2(report.openingBalance);
-  const rows = report.expenses
-    .map((expense) => {
-      const amount = round2(Number(expense.amount));
-      running = round2(running + amount);
-      const description = [expense.payee, expense.note ?? expense.reference]
-        .filter((value): value is string => Boolean(value))
-        .join(' — ') || expense.number;
+  const entries: {
+    date: Date;
+    number: string;
+    description: string;
+    debit: number;
+    credit: number;
+  }[] = [
+    ...report.expenses.map((expense) => ({
+      date: expense.spentAt,
+      number: expense.number,
+      description:
+        [expense.payee, expense.note ?? expense.reference]
+          .filter((value): value is string => Boolean(value))
+          .join(' — ') || expense.number,
+      debit: round2(Number(expense.amount)),
+      credit: 0,
+    })),
+    ...(report.settlements ?? []).map((settlement) => ({
+      date: settlement.settledAt,
+      number: settlement.number,
+      description:
+        [
+          ar
+            ? settlement.direction === 'DECREASE'
+              ? 'تسوية — خصم من الرصيد'
+              : 'تسوية — إضافة للرصيد'
+            : settlement.direction === 'DECREASE'
+              ? 'Settlement — decrease'
+              : 'Settlement — increase',
+          settlement.note ?? settlement.reference,
+        ]
+          .filter((value): value is string => Boolean(value))
+          .join(' — '),
+      debit:
+        settlement.direction === 'INCREASE'
+          ? round2(Number(settlement.amount))
+          : 0,
+      credit:
+        settlement.direction === 'DECREASE'
+          ? round2(Number(settlement.amount))
+          : 0,
+    })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const rows = entries
+    .map((entry) => {
+      running = round2(running + entry.debit - entry.credit);
       return `      <tr>
-        <td>${escapeHtml(formatDate(expense.spentAt))}</td>
-        <td>${escapeHtml(expense.number)}</td>
-        <td>${escapeHtml(description)}</td>
-        <td class="num">${money(amount)}</td>
-        <td class="num">${money(0)}</td>
+        <td>${escapeHtml(formatDate(entry.date))}</td>
+        <td>${escapeHtml(entry.number)}</td>
+        <td>${escapeHtml(entry.description)}</td>
+        <td class="num">${entry.debit ? money(entry.debit) : ''}</td>
+        <td class="num">${entry.credit ? money(entry.credit) : ''}</td>
         <td class="num">${money(running)}</td>
       </tr>`;
     })
     .join('\n');
-  const empty = ar ? 'لا توجد مصروفات في هذه الفترة' : 'No expenses in this period';
+  const empty = ar
+    ? 'لا توجد حركات في هذه الفترة'
+    : 'No transactions in this period';
 
   const body = `    <section class="meta">
       <div><span class="label">${ar ? 'البند' : 'Category'}</span><span class="value">${escapeHtml(categoryName)}</span></div>
@@ -1863,8 +1905,8 @@ export function expenseCategoryStatementHtml(
 ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
         <tr class="total">
           <td colspan="3">${ar ? 'الإجمالي' : 'Total'}</td>
-          <td class="num">${money(report.total)}</td>
-          <td class="num">${money(0)}</td>
+          <td class="num">${money(report.totalDebit)}</td>
+          <td class="num">${money(report.totalCredit)}</td>
           <td class="num">${money(report.closingBalance)}</td>
         </tr>
       </tbody>

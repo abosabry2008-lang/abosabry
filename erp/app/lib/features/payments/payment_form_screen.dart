@@ -9,6 +9,8 @@ import '../../models/cash_box.dart';
 import '../../models/customer.dart';
 import '../../models/invoice.dart';
 import '../../models/supplier.dart';
+import '../../state/customers_controller.dart';
+import '../../state/suppliers_controller.dart';
 import '../../widgets/form_fields.dart';
 import '../../widgets/searchable_picker_field.dart';
 import '../../widgets/section_card.dart';
@@ -113,6 +115,8 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
   Future<void> _loadOptions() async {
     setState(() => _loadingOptions = true);
     final api = context.read<Session>().api;
+    final customersController = context.read<CustomersController>();
+    final suppliersController = context.read<SuppliersController>();
     try {
       final boxes = await api.getList('/treasury/boxes');
       final List<Customer> customers;
@@ -123,23 +127,17 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
         suppliers = <Supplier>[];
         invoices = <Invoice>[];
       } else {
-        final customerPage = await api.getPage<Customer>(
-          '/customers',
-          query: <String, dynamic>{'page': 1, 'pageSize': 100},
-          parse: Customer.fromJson,
-        );
-        final supplierPage = await api.getPage<Supplier>(
-          '/suppliers',
-          query: <String, dynamic>{'page': 1, 'pageSize': 100},
-          parse: Supplier.fromJson,
-        );
+        await Future.wait(<Future<void>>[
+          customersController.ensureCatalogLoaded(),
+          suppliersController.ensureCatalogLoaded(),
+        ]);
         final invoicePage = await api.getPage<Invoice>(
           '/invoices',
           query: <String, dynamic>{'page': 1, 'pageSize': 100},
           parse: Invoice.fromJson,
         );
-        customers = customerPage.items;
-        suppliers = supplierPage.items;
+        customers = customersController.catalog;
+        suppliers = suppliersController.catalog;
         invoices = invoicePage.items;
       }
       if (!mounted) return;

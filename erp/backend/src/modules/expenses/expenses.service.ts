@@ -69,10 +69,43 @@ export async function syncExpenseCategoryOpenings() {
 }
 
 export async function listExpenseCategories() {
-  return prisma.expenseCategory.findMany({
-    include: expenseCategoryInclude,
-    orderBy: { name: 'asc' },
-  });
+  const [categories, expenseTotals, settlements] = await Promise.all([
+    prisma.expenseCategory.findMany({
+      include: expenseCategoryInclude,
+      orderBy: { name: 'asc' },
+    }),
+    prisma.expense.groupBy({
+      by: ['categoryId'],
+      where: { cancelledAt: null },
+      _sum: { amount: true },
+    }),
+    prisma.accountSettlement.findMany({
+      where: { target: 'EXPENSE_CATEGORY', cancelledAt: null },
+      select: { categoryId: true, direction: true, amount: true },
+    }),
+  ]);
+
+  const expenseBy = new Map<string, number>();
+  for (const row of expenseTotals) {
+    if (row.categoryId) {
+      expenseBy.set(row.categoryId, Number(row._sum.amount ?? 0));
+    }
+  }
+  const settlementBy = new Map<string, number>();
+  for (const row of settlements) {
+    if (!row.categoryId) continue;
+    const signed = row.direction === 'INCREASE' ? Number(row.amount) : -Number(row.amount);
+    settlementBy.set(row.categoryId, (settlementBy.get(row.categoryId) ?? 0) + signed);
+  }
+
+  return categories.map((category) => ({
+    ...category,
+    balance: round2(
+      Number(category.openingBalance) +
+        (expenseBy.get(category.id) ?? 0) +
+        (settlementBy.get(category.id) ?? 0),
+    ),
+  }));
 }
 
 async function postCategoryOpeningTx(
@@ -538,7 +571,7 @@ export async function buildExpenseReport(filter: ExpenseReportFilter) {
     };
   }
 
-  const [expenses, categories] = await Promise.all([
+  const [expenses, categories, settlements] = await Promise.all([
     prisma.expense.findMany({
       where,
       include: expenseInclude,
@@ -547,6 +580,34 @@ export async function buildExpenseReport(filter: ExpenseReportFilter) {
     prisma.expenseCategory.findMany({
       where: filter.categoryId ? { id: filter.categoryId } : {},
       select: { id: true, name: true, openingBalance: true },
+    }),
+    prisma.accountSettlement.findMany({
+      where: {
+        target: 'EXPENSE_CATEGORY',
+        cancelledAt: null,
+        ...(filter.categoryId ? { categoryId: filter.categoryId } : {}),
+        ...(filter.from || filter.to
+          ? {
+              settledAt: {
+                ...(filter.from ? { gte: filter.from } : {}),
+                ...(filter.to ? { lte: filter.to } : {}),
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        number: true,
+        direction: true,
+        amount: true,
+        reference: true,
+        note: true,
+        settledAt: true,
+        createdAt: true,
+        categoryId: true,
+        category: { select: { name: true } },
+      },
+      orderBy: [{ settledAt: 'asc' }, { createdAt: 'asc' }],
     }),
   ]);
 
@@ -589,16 +650,39 @@ export async function buildExpenseReport(filter: ExpenseReportFilter) {
     byBox.set(boxKey, boxEntry);
   }
 
+  const settlementIncrease = round2(
+    settlements
+      .filter((row) => row.direction === 'INCREASE')
+      .reduce((sum, row) => sum + Number(row.amount), 0),
+  );
+  const settlementDecrease = round2(
+    settlements
+      .filter((row) => row.direction === 'DECREASE')
+      .reduce((sum, row) => sum + Number(row.amount), 0),
+  );
+  const settlementNet = round2(settlementIncrease - settlementDecrease);
+  const totalDebit = round2(total + settlementIncrease);
+  const totalCredit = settlementDecrease;
+
   return {
     from: filter.from ? filter.from.toISOString() : null,
     to: filter.to ? filter.to.toISOString() : null,
     total,
     openingBalance,
-    closingBalance: round2(openingBalance + total),
+    closingBalance: round2(openingBalance + totalDebit - totalCredit),
+    totalDebit,
+    totalCredit,
+    settlementIncrease,
+    settlementDecrease,
+    settlementNet,
     count: expenses.length,
     expenses: expenses.map((expense) => ({
       ...expense,
       amount: round2(Number(expense.amount)),
+    })),
+    settlements: settlements.map((settlement) => ({
+      ...settlement,
+      amount: round2(Number(settlement.amount)),
     })),
     categories: [...byCategory.values()].sort((a, b) => b.amount - a.amount),
     months: [...byMonth.entries()]

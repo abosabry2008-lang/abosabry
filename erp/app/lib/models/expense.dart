@@ -9,6 +9,7 @@ class ExpenseCategory {
     this.accountCode,
     this.accountName,
     this.openingBalance = 0,
+    this.balance = 0,
     this.active = true,
     this.expenseCount = 0,
   });
@@ -19,6 +20,7 @@ class ExpenseCategory {
   final String? accountCode;
   final String? accountName;
   final double openingBalance;
+  final double balance;
   final bool active;
   final int expenseCount;
 
@@ -32,6 +34,7 @@ class ExpenseCategory {
       accountCode: asStringOrNull(account['code']),
       accountName: asStringOrNull(account['name']),
       openingBalance: asDouble(json['openingBalance']),
+      balance: asDouble(json['balance'], fallback: asDouble(json['openingBalance'])),
       active: asBool(json['active'], fallback: true),
       expenseCount: asInt(count['expenses']),
     );
