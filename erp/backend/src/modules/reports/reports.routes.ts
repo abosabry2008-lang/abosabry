@@ -1225,8 +1225,10 @@ router.get(
         ...(to ? { lte: to } : {}),
       };
     }
-    if (direction === 'INBOUND' || direction === 'OUTBOUND') {
-      where.direction = direction;
+    const directionFilter =
+      direction === 'INBOUND' || direction === 'OUTBOUND' ? direction : null;
+    if (directionFilter) {
+      where.direction = directionFilter;
     }
     if (
       method === 'CASH' ||
@@ -1257,16 +1259,29 @@ router.get(
       where.AND = [{ OR: scope }];
     }
 
+    const inWhere: Prisma.PaymentWhereInput | null =
+      directionFilter === 'OUTBOUND'
+        ? null
+        : { ...where, direction: 'INBOUND' };
+    const outWhere: Prisma.PaymentWhereInput | null =
+      directionFilter === 'INBOUND'
+        ? null
+        : { ...where, direction: 'OUTBOUND' };
+
     const [count, inAgg, outAgg, rows] = await Promise.all([
       prisma.payment.count({ where }),
-      prisma.payment.aggregate({
-        where: { ...where, direction: 'INBOUND' },
-        _sum: { amount: true },
-      }),
-      prisma.payment.aggregate({
-        where: { ...where, direction: 'OUTBOUND' },
-        _sum: { amount: true },
-      }),
+      inWhere
+        ? prisma.payment.aggregate({
+            where: inWhere,
+            _sum: { amount: true },
+          })
+        : Promise.resolve({ _sum: { amount: null } }),
+      outWhere
+        ? prisma.payment.aggregate({
+            where: outWhere,
+            _sum: { amount: true },
+          })
+        : Promise.resolve({ _sum: { amount: null } }),
       prisma.payment.findMany({
         where,
         orderBy: { paidAt: 'desc' },
