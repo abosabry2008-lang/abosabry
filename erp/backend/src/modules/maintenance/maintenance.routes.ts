@@ -2,8 +2,9 @@ import { Router } from 'express';
 import { asyncHandler, ok } from '../../lib/http';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
-import { authenticate } from '../../middleware/authenticate';
+import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission } from '../../middleware/authorize';
+import { cancelSalesOrderTx } from '../sales/sales.service';
 
 /**
  * Maintenance utilities — destructive operations that would otherwise need the
@@ -547,6 +548,168 @@ router.post(
       changed: changes.length,
       valueDelta: round2(changes.reduce((sum, row) => sum + row.valueDelta, 0)),
       sample: changes.slice(0, 50),
+    });
+  }),
+);
+
+/**
+ * Lists order-backed invoices that were voided while their sales order stayed
+ * live (the old void flow did not cancel the order, so its fulfilled stock was
+ * never returned). Dry run by default; pass `dryRun: false` with the typed
+ * confirmation to cancel those orders and restore their stock.
+ */
+const VOIDED_ORDERS_CONFIRMATION = 'FIX-VOIDED-ORDERS';
+
+async function collectVoidedOrderCandidates() {
+  const invoices = await prisma.invoice.findMany({
+    where: { status: 'VOID', salesOrderId: { not: null } },
+    orderBy: { number: 'asc' },
+    select: {
+      id: true,
+      number: true,
+      issueDate: true,
+      updatedAt: true,
+      total: true,
+      salesOrder: {
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          fulfilledAt: true,
+          lines: {
+            select: {
+              productId: true,
+              fulfilledQty: true,
+              unitCost: true,
+              product: { select: { name: true, sku: true } },
+            },
+          },
+          invoices: { select: { number: true, status: true } },
+        },
+      },
+    },
+  });
+
+  return invoices
+    .filter(
+      (invoice) =>
+        invoice.salesOrder && invoice.salesOrder.status !== 'CANCELLED',
+    )
+    .map((invoice) => {
+      const order = invoice.salesOrder!;
+      const liveInvoices = order.invoices.filter(
+        (other) => other.status !== 'VOID',
+      );
+      const lines = order.lines.filter(
+        (line) => Number(line.fulfilledQty) > 0,
+      );
+      return {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.number,
+        voidedAt: invoice.updatedAt,
+        invoiceTotal: round2(Number(invoice.total)),
+        orderId: order.id,
+        orderNumber: order.number,
+        orderStatus: order.status,
+        fulfilledAt: order.fulfilledAt,
+        liveInvoices: liveInvoices.map((other) => other.number),
+        lines: lines.map((line) => ({
+          product: line.product.name,
+          sku: line.product.sku,
+          quantity: Number(line.fulfilledQty),
+          unitCost: round2(Number(line.unitCost)),
+          value: round2(Number(line.fulfilledQty) * Number(line.unitCost)),
+        })),
+        stockValue: round2(
+          lines.reduce(
+            (sum, line) =>
+              sum + Number(line.fulfilledQty) * Number(line.unitCost),
+            0,
+          ),
+        ),
+      };
+    });
+}
+
+router.get(
+  '/voided-order-invoices',
+  requirePermission('settings.write'),
+  asyncHandler(async (_req, res) => {
+    const candidates = await collectVoidedOrderCandidates();
+    const fixable = candidates.filter(
+      (candidate) => candidate.liveInvoices.length === 0,
+    );
+    ok(res, {
+      total: candidates.length,
+      fixable: fixable.length,
+      blocked: candidates.length - fixable.length,
+      stockValue: round2(
+        fixable.reduce((sum, candidate) => sum + candidate.stockValue, 0),
+      ),
+      candidates,
+    });
+  }),
+);
+
+router.post(
+  '/fix-voided-order-invoices',
+  requirePermission('settings.write'),
+  asyncHandler(async (req, res) => {
+    const body = (req.body ?? {}) as { confirmation?: unknown; dryRun?: unknown };
+    const confirmation = String(body.confirmation ?? '');
+    const dryRun = body.dryRun !== false;
+
+    if (confirmation !== VOIDED_ORDERS_CONFIRMATION) {
+      res.status(400).json({
+        error: {
+          message: `Type ${VOIDED_ORDERS_CONFIRMATION} to confirm this operation`,
+          code: 'CONFIRMATION_REQUIRED',
+        },
+      });
+      return;
+    }
+
+    const candidates = await collectVoidedOrderCandidates();
+    const userId = currentUser(req).id;
+    const fixed: { orderNumber: string; invoiceNumber: string; stockValue: number }[] = [];
+    const skipped: { orderNumber: string; invoiceNumber: string; reason: string }[] = [];
+
+    if (!dryRun) {
+      for (const candidate of candidates) {
+        if (candidate.liveInvoices.length > 0) {
+          skipped.push({
+            orderNumber: candidate.orderNumber,
+            invoiceNumber: candidate.invoiceNumber,
+            reason: `Order still has live invoices: ${candidate.liveInvoices.join(', ')}`,
+          });
+          continue;
+        }
+        try {
+          await prisma.$transaction((tx) =>
+            cancelSalesOrderTx(tx, candidate.orderId, { userId }),
+          );
+          fixed.push({
+            orderNumber: candidate.orderNumber,
+            invoiceNumber: candidate.invoiceNumber,
+            stockValue: candidate.stockValue,
+          });
+        } catch (error) {
+          skipped.push({
+            orderNumber: candidate.orderNumber,
+            invoiceNumber: candidate.invoiceNumber,
+            reason: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+    }
+
+    ok(res, {
+      dryRun,
+      candidates: candidates.length,
+      fixed: fixed.length,
+      skipped,
+      stockValue: round2(fixed.reduce((sum, row) => sum + row.stockValue, 0)),
+      fixedRows: fixed,
     });
   }),
 );

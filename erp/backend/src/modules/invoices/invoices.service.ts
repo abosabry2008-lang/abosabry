@@ -6,6 +6,7 @@ import { nextNumber } from '../../lib/sequence';
 import { getSettings, isTaxEnabled } from '../../lib/settings';
 import { ACCOUNT, postJournal, reverseJournalBySource, type JournalLineInput } from '../accounting/accounting.service';
 import { applyMovement, drawFromWarehouse } from '../inventory/inventory.service';
+import { cancelSalesOrderTx } from '../sales/sales.service';
 
 export const invoiceInclude = {
   customer: {
@@ -648,6 +649,19 @@ export async function voidInvoiceTx(tx: Tx, id: string, userId?: string) {
       reference: invoice.number,
       userId,
     });
+  }
+
+  // Voiding an order-backed invoice cancels the order it came from, which also
+  // returns its fulfilled quantities to stock and reverses the order's ledger
+  // entry. Other live invoices on the same order must be voided first.
+  if (invoice.salesOrderId) {
+    const order = await tx.salesOrder.findUnique({
+      where: { id: invoice.salesOrderId },
+      select: { status: true },
+    });
+    if (order && order.status !== 'CANCELLED') {
+      await cancelSalesOrderTx(tx, invoice.salesOrderId, { userId });
+    }
   }
 
   if (invoice.customerId) await recalcCustomerBalance(tx, invoice.customerId);

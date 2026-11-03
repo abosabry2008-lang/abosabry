@@ -763,8 +763,8 @@ class AppStrings {
   String get invoiceIssued => _t('Invoice issued.', 'تم إصدار الفاتورة.');
   String get voidInvoiceQ => _t('Void this invoice?', 'إبطال هذه الفاتورة؟');
   String get voidInvoiceMessage => _t(
-        'Voiding is permanent. Invoices with recorded payments cannot be voided.',
-        'الإبطال نهائي. لا يمكن إبطال الفواتير التي لها مدفوعات مسجلة.',
+        'Voiding is permanent. The linked sales order will also be cancelled and its quantities returned to stock. Direct payments on the invoice are cancelled too; collection receipts must be cancelled first.',
+        'الإبطال نهائي. سيتم إلغاء أمر البيع المرتبط وإرجاع كمياته إلى المخزون، وإلغاء المدفوعات المباشرة المرتبطة بالفاتورة. إذا كانت الفاتورة محصّلة عبر إيصال تحصيل، يجب إلغاء الإيصال أولًا.',
       );
   String get invoiceVoided => _t('Invoice voided.', 'تم إبطال الفاتورة.');
   String get invoiceDetails => _t('Invoice details', 'تفاصيل الفاتورة');
@@ -1158,6 +1158,8 @@ class AppStrings {
     'OVERDUE': 'متأخرة',
     'INVOICE': 'فاتورة',
     'PAYMENT': 'سداد',
+    'PAYMENT_IN': 'مدفوعات واردة',
+    'PAYMENT_OUT': 'مدفوعات صادرة',
     'PURCHASE_ORDER': 'أمر شراء',
     'RETURN': 'مرتجع',
     'SETTLEMENT': 'تسوية',
@@ -1450,6 +1452,20 @@ class AppStrings {
         'Opening balance and movements for every cash box.',
         'الرصيد الافتتاحي والحركات لكل خزنة نقدية.',
       );
+  String get treasurySummary =>
+      _t('Treasury summary', 'التقرير الشامل للخزينة');
+  String get treasurySummaryHint => _t(
+        'Every cash movement per box: opening, in, out and closing.',
+        'كل حركة نقدية لكل خزنة: افتتاحي، وارد، صادر، وختامي.',
+      );
+  String get treasurySummaryExplainer => _t(
+        'This report shows payments, collections, transfers and expenses for the selected period, with the opening and closing balance of every cash box and a breakdown by movement type.',
+        'يعرض هذا التقرير المدفوعات والتحصيلات والتحويلات والمصروفات خلال الفترة المحددة، مع رصيد كل خزنة قبل وبعد الفترة وتفصيل حسب نوع الحركة.',
+      );
+  String get treasuryMovements => _t('Cash movements', 'حركات الخزينة');
+  String get byMovementType => _t('By movement type', 'حسب نوع الحركة');
+  String get movementCount => _t('Movements', 'عدد الحركات');
+  String get boxMovements => _t('Cash box movements', 'حركة الخزائن');
   String get trialBalance => _t('Trial balance', 'ميزان المراجعة');
   String get trialBalanceHint => _t(
         'Debit and credit totals for every account.',

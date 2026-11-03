@@ -662,55 +662,61 @@ export interface CancelSalesOrderOptions {
  * reversed, so inventory and accounting no longer reflect a document we are
  * pulling back.
  */
-export async function cancelSalesOrder(id: string, options: CancelSalesOrderOptions = {}) {
-  return prisma.$transaction(async (tx) => {
-    const order = await tx.salesOrder.findUnique({
-      where: { id },
-      include: { lines: true, invoices: { select: { id: true, number: true, status: true } } },
-    });
-    if (!order) throw ApiError.notFound('Sales order not found');
-    if (order.status === 'CANCELLED') {
-      throw ApiError.badRequest('This order is already cancelled');
-    }
-
-    // Live invoices must be voided first, otherwise revenue would stay on the
-    // books for an order that no longer exists.
-    const liveInvoices = order.invoices.filter((invoice) => invoice.status !== 'VOID');
-    if (liveInvoices.length > 0) {
-      throw ApiError.conflict(
-        `This order has an active invoice (${liveInvoices.map((i) => i.number).join(', ')}) — void it first`,
-        'HAS_INVOICES',
-        { invoices: liveInvoices.map((invoice) => invoice.number) },
-      );
-    }
-
-    // Put back whatever was fulfilled.
-    await restoreFulfilledStock(
-      tx,
-      order,
-      order.lines.map((line) => ({
-        id: line.id,
-        productId: line.productId,
-        fulfilledQty: line.fulfilledQty,
-        unitCost: line.unitCost,
-      })),
-      options.userId,
-    );
-
-    // Reverse any ledger entry posted for the order itself.
-    await reverseJournalBySource(tx, {
-      sourceType: 'SALES_ORDER',
-      sourceId: order.id,
-      reversalSourceType: 'SALES_ORDER_CANCEL',
-      memo: `Sales order ${order.number} cancelled`,
-      reference: order.number,
-      userId: options.userId,
-    });
-
-    return tx.salesOrder.update({
-      where: { id },
-      data: { status: 'CANCELLED', fulfilledAt: null },
-      include: salesOrderInclude,
-    });
+export async function cancelSalesOrderTx(
+  tx: Tx,
+  id: string,
+  options: CancelSalesOrderOptions = {},
+) {
+  const order = await tx.salesOrder.findUnique({
+    where: { id },
+    include: { lines: true, invoices: { select: { id: true, number: true, status: true } } },
   });
+  if (!order) throw ApiError.notFound('Sales order not found');
+  if (order.status === 'CANCELLED') {
+    throw ApiError.badRequest('This order is already cancelled');
+  }
+
+  // Live invoices must be voided first, otherwise revenue would stay on the
+  // books for an order that no longer exists.
+  const liveInvoices = order.invoices.filter((invoice) => invoice.status !== 'VOID');
+  if (liveInvoices.length > 0) {
+    throw ApiError.conflict(
+      `This order has an active invoice (${liveInvoices.map((i) => i.number).join(', ')}) — void it first`,
+      'HAS_INVOICES',
+      { invoices: liveInvoices.map((invoice) => invoice.number) },
+    );
+  }
+
+  // Put back whatever was fulfilled.
+  await restoreFulfilledStock(
+    tx,
+    order,
+    order.lines.map((line) => ({
+      id: line.id,
+      productId: line.productId,
+      fulfilledQty: line.fulfilledQty,
+      unitCost: line.unitCost,
+    })),
+    options.userId,
+  );
+
+  // Reverse any ledger entry posted for the order itself.
+  await reverseJournalBySource(tx, {
+    sourceType: 'SALES_ORDER',
+    sourceId: order.id,
+    reversalSourceType: 'SALES_ORDER_CANCEL',
+    memo: `Sales order ${order.number} cancelled`,
+    reference: order.number,
+    userId: options.userId,
+  });
+
+  return tx.salesOrder.update({
+    where: { id },
+    data: { status: 'CANCELLED', fulfilledAt: null },
+    include: salesOrderInclude,
+  });
+}
+
+export async function cancelSalesOrder(id: string, options: CancelSalesOrderOptions = {}) {
+  return prisma.$transaction((tx) => cancelSalesOrderTx(tx, id, options));
 }

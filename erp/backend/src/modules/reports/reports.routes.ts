@@ -29,6 +29,7 @@ import {
 } from './reports.service';
 import { buildCustomerStatement, buildSupplierStatement } from './statement.service';
 import { buildBackupWorkbook } from './backup.service';
+import { buildCashBoxStatement } from '../treasury/treasury.service';
 import {
   buildAgingReport,
   buildItemMovement,
@@ -328,6 +329,88 @@ router.get(
         ...movement,
         unitCost: Number(movement.unitCost),
       })),
+    });
+  }),
+);
+
+// GET /reports/treasury-summary
+router.get(
+  '/treasury-summary',
+  requirePermission('treasury.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDateEnd(req.query.to);
+    const boxId = asString(req.query.cashBoxId);
+
+    const boxes = await prisma.cashBox.findMany({
+      where: boxId ? { id: boxId } : {},
+      orderBy: { name: 'asc' },
+    });
+
+    const statements = await Promise.all(
+      boxes.map((box) => buildCashBoxStatement(box.id, from, to)),
+    );
+
+    const boxRows = statements.map((statement) => ({
+      id: statement.box.id,
+      code: statement.box.code,
+      name: statement.box.name,
+      type: statement.box.type,
+      opening: statement.openingBalance,
+      in: statement.inTotal,
+      out: statement.outTotal,
+      closing: statement.closingBalance,
+      movements: statement.rows.length,
+    }));
+
+    const rows = statements
+      .flatMap((statement) =>
+        statement.rows.map((row) => ({
+          ...row,
+          boxId: statement.box.id,
+          boxCode: statement.box.code,
+          boxName: statement.box.name,
+        })),
+      )
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const breakdown = new Map<
+      string,
+      { type: string; in: number; out: number; net: number; count: number }
+    >();
+    for (const row of rows) {
+      const entry = breakdown.get(row.type) ?? {
+        type: row.type,
+        in: 0,
+        out: 0,
+        net: 0,
+        count: 0,
+      };
+      const amount = round2(Number(row.amount));
+      if (row.direction === 'IN') {
+        entry.in = round2(entry.in + amount);
+        entry.net = round2(entry.net + amount);
+      } else {
+        entry.out = round2(entry.out + amount);
+        entry.net = round2(entry.net - amount);
+      }
+      entry.count += 1;
+      breakdown.set(row.type, entry);
+    }
+
+    ok(res, {
+      from: from ? from.toISOString() : null,
+      to: to ? to.toISOString() : null,
+      boxes: boxRows,
+      rows,
+      breakdown: [...breakdown.values()],
+      totals: {
+        opening: round2(boxRows.reduce((sum, box) => sum + box.opening, 0)),
+        in: round2(boxRows.reduce((sum, box) => sum + box.in, 0)),
+        out: round2(boxRows.reduce((sum, box) => sum + box.out, 0)),
+        closing: round2(boxRows.reduce((sum, box) => sum + box.closing, 0)),
+        movements: rows.length,
+      },
     });
   }),
 );

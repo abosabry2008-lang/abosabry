@@ -37,6 +37,7 @@ import 'salesperson_daily_invoices_screen.dart';
 import 'salesperson_customer_debt_screen.dart';
 import 'shortages_report_screen.dart';
 import 'statement_hub_screen.dart';
+import 'treasury_summary_report_screen.dart';
 
 /// Set to `true` to restore the "receivables by salesperson" report card.
 const bool _showReceivablesBySalesperson = false;
@@ -528,6 +529,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
           title: s.treasury,
           description: s.treasuryReportsDesc,
           reports: <_ReportSpec>[
+            _ReportSpec(
+              icon: Icons.account_balance_outlined,
+              title: s.treasurySummary,
+              builder: (_) => const TreasurySummaryReportScreen(),
+            ),
             _ReportSpec(
               icon: Icons.account_balance_outlined,
               title: s.boxBalances,
