@@ -4,6 +4,7 @@ import { ApiError } from '../../lib/api-error';
 import { asyncHandler, ok } from '../../lib/http';
 import { round2 } from '../../lib/money';
 import { prisma } from '../../lib/prisma';
+import { localDayKey } from '../../lib/local-time';
 import { asDate, asDateEnd, asString } from '../../lib/query';
 import {
   assertCustomerAccess,
@@ -510,6 +511,355 @@ router.get(
     const limit = Number(asString(req.query.limit) ?? 10);
 
     ok(res, await buildTopProducts(from, to, limit, currentUser(req)));
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Customer daily performance
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Whole days between two `YYYY-MM-DD` keys (later minus earlier). */
+function daysBetween(earlier: string, later: string): number {
+  return Math.round(
+    (Date.parse(`${later}T00:00:00Z`) - Date.parse(`${earlier}T00:00:00Z`)) /
+      DAY_MS,
+  );
+}
+
+function lastPaymentDay(value: Date | null | undefined): string | null {
+  return value ? localDayKey(new Date(value)) : null;
+}
+
+// GET /reports/customer-daily-evaluation?from=&to=&salespersonId=&search=
+router.get(
+  '/customer-daily-evaluation',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const today = localDayKey(new Date());
+    const from = asDate(req.query.from) ?? asDate(today)!;
+    const to = asDateEnd(req.query.to) ?? asDateEnd(today)!;
+    const user = currentUser(req);
+    const salespersonId = scopedSalespersonId(
+      user,
+      asString(req.query.salespersonId),
+    );
+    const search = asString(req.query.search);
+    const includeAll = asString(req.query.includeAll) === 'true';
+
+    const searchWhere: Prisma.CustomerWhereInput = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { code: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const customers = await prisma.customer.findMany({
+      where: {
+        ...(customerAccessWhere(user) ?? {}),
+        ...(salespersonId ? { salespersonId } : {}),
+        ...searchWhere,
+      },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        phone: true,
+        balance: true,
+        creditLimit: true,
+        salesperson: { select: { name: true } },
+      },
+    });
+    const ids = customers.map((customer) => customer.id);
+
+    if (ids.length === 0) {
+      ok(res, {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        rows: [],
+        totals: {
+          customers: 0,
+          invoiceCount: 0,
+          invoiceTotal: 0,
+          paymentCount: 0,
+          paidTotal: 0,
+          net: 0,
+          collectionRate: 0,
+          balance: 0,
+        },
+      });
+      return;
+    }
+
+    const [invoiceGroups, paymentGroups, lastPayments] = await Promise.all([
+      prisma.invoice.groupBy({
+        by: ['customerId'],
+        where: {
+          customerId: { in: ids },
+          issueDate: { gte: from, lte: to },
+          status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+        },
+        _sum: { total: true },
+        _count: { _all: true },
+      }),
+      prisma.payment.groupBy({
+        by: ['customerId'],
+        where: {
+          customerId: { in: ids },
+          direction: 'INBOUND',
+          paidAt: { gte: from, lte: to },
+          cancelledAt: null,
+        },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      prisma.payment.groupBy({
+        by: ['customerId'],
+        where: {
+          customerId: { in: ids },
+          direction: 'INBOUND',
+          cancelledAt: null,
+        },
+        _max: { paidAt: true },
+      }),
+    ]);
+
+    const invoiceByCustomer = new Map(
+      invoiceGroups.map((group) => [
+        group.customerId,
+        {
+          count: group._count._all,
+          total: round2(Number(group._sum.total ?? 0)),
+        },
+      ]),
+    );
+    const paymentByCustomer = new Map(
+      paymentGroups.map((group) => [
+        group.customerId,
+        {
+          count: group._count._all,
+          total: round2(Number(group._sum.amount ?? 0)),
+        },
+      ]),
+    );
+    const lastPaymentByCustomer = new Map(
+      lastPayments.map((group) => [group.customerId, group._max.paidAt]),
+    );
+
+    const todayKey = localDayKey(new Date());
+    const rows = customers
+      .map((customer) => {
+        const invoices = invoiceByCustomer.get(customer.id);
+        const payments = paymentByCustomer.get(customer.id);
+        const invoiceTotal = invoices?.total ?? 0;
+        const paidTotal = payments?.total ?? 0;
+        const lastPaidAt = lastPaymentByCustomer.get(customer.id) ?? null;
+        const lastPaidDay = lastPaymentDay(lastPaidAt);
+        return {
+          id: customer.id,
+          code: customer.code,
+          name: customer.name,
+          phone: customer.phone,
+          salesperson: customer.salesperson?.name ?? null,
+          balance: round2(Number(customer.balance)),
+          creditLimit: round2(Number(customer.creditLimit)),
+          invoiceCount: invoices?.count ?? 0,
+          invoiceTotal,
+          paymentCount: payments?.count ?? 0,
+          paidTotal,
+          net: round2(invoiceTotal - paidTotal),
+          collectionRate:
+            invoiceTotal > 0
+              ? round2((paidTotal / invoiceTotal) * 100)
+              : null,
+          lastPaymentAt: lastPaidAt,
+          lastPaymentDay: lastPaidDay,
+          daysSinceLastPayment: lastPaidDay
+            ? daysBetween(lastPaidDay, todayKey)
+            : null,
+        };
+      })
+      .filter(
+        (row) =>
+          includeAll ||
+          row.invoiceTotal !== 0 ||
+          row.paidTotal !== 0 ||
+          row.balance !== 0,
+      )
+      .sort(
+        (a, b) =>
+          b.balance - a.balance || b.invoiceTotal - a.invoiceTotal,
+      );
+
+    const invoiceTotal = round2(
+      rows.reduce((sum, row) => sum + row.invoiceTotal, 0),
+    );
+    const paidTotal = round2(
+      rows.reduce((sum, row) => sum + row.paidTotal, 0),
+    );
+
+    ok(res, {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      rows,
+      totals: {
+        customers: rows.length,
+        invoiceCount: rows.reduce((sum, row) => sum + row.invoiceCount, 0),
+        invoiceTotal,
+        paymentCount: rows.reduce((sum, row) => sum + row.paymentCount, 0),
+        paidTotal,
+        net: round2(invoiceTotal - paidTotal),
+        collectionRate:
+          invoiceTotal > 0
+            ? round2((paidTotal / invoiceTotal) * 100)
+            : 0,
+        balance: round2(rows.reduce((sum, row) => sum + row.balance, 0)),
+      },
+    });
+  }),
+);
+
+// GET /reports/customers-not-paid?date=&salespersonId=&search=&onlyWithInvoices=
+router.get(
+  '/customers-not-paid',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const dayKeyValue = asString(req.query.date) ?? localDayKey(new Date());
+    const dayStart = asDate(dayKeyValue)!;
+    const dayEnd = asDateEnd(dayKeyValue)!;
+    const user = currentUser(req);
+    const salespersonId = scopedSalespersonId(
+      user,
+      asString(req.query.salespersonId),
+    );
+    const search = asString(req.query.search);
+    const onlyWithInvoices = asString(req.query.onlyWithInvoices) === 'true';
+
+    const searchWhere: Prisma.CustomerWhereInput = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { code: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const customers = await prisma.customer.findMany({
+      where: {
+        balance: { gt: 0 },
+        ...(customerAccessWhere(user) ?? {}),
+        ...(salespersonId ? { salespersonId } : {}),
+        ...searchWhere,
+      },
+      orderBy: { balance: 'desc' },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        phone: true,
+        balance: true,
+        salesperson: { select: { name: true } },
+      },
+    });
+    const ids = customers.map((customer) => customer.id);
+
+    if (ids.length === 0) {
+      ok(res, {
+        date: dayKeyValue,
+        rows: [],
+        totals: { customers: 0, balance: 0, invoiceTotal: 0, invoiceCount: 0 },
+      });
+      return;
+    }
+
+    const [paidToday, invoiceGroups, lastPayments] = await Promise.all([
+      prisma.payment.groupBy({
+        by: ['customerId'],
+        where: {
+          customerId: { in: ids },
+          direction: 'INBOUND',
+          paidAt: { gte: dayStart, lte: dayEnd },
+          cancelledAt: null,
+        },
+        _sum: { amount: true },
+      }),
+      prisma.invoice.groupBy({
+        by: ['customerId'],
+        where: {
+          customerId: { in: ids },
+          issueDate: { gte: dayStart, lte: dayEnd },
+          status: { in: ['ISSUED', 'PARTIALLY_PAID', 'PAID'] },
+        },
+        _sum: { total: true },
+        _count: { _all: true },
+      }),
+      prisma.payment.groupBy({
+        by: ['customerId'],
+        where: {
+          customerId: { in: ids },
+          direction: 'INBOUND',
+          cancelledAt: null,
+        },
+        _max: { paidAt: true },
+      }),
+    ]);
+
+    const paidIds = new Set(paidToday.map((group) => group.customerId));
+    const invoiceByCustomer = new Map(
+      invoiceGroups.map((group) => [
+        group.customerId,
+        {
+          count: group._count._all,
+          total: round2(Number(group._sum.total ?? 0)),
+        },
+      ]),
+    );
+    const lastPaymentByCustomer = new Map(
+      lastPayments.map((group) => [group.customerId, group._max.paidAt]),
+    );
+
+    const rows = customers
+      .filter((customer) => !paidIds.has(customer.id))
+      .map((customer) => {
+        const invoices = invoiceByCustomer.get(customer.id);
+        const lastPaidAt = lastPaymentByCustomer.get(customer.id) ?? null;
+        const lastPaidDay = lastPaymentDay(lastPaidAt);
+        return {
+          id: customer.id,
+          code: customer.code,
+          name: customer.name,
+          phone: customer.phone,
+          salesperson: customer.salesperson?.name ?? null,
+          balance: round2(Number(customer.balance)),
+          invoiceCount: invoices?.count ?? 0,
+          invoiceTotal: invoices?.total ?? 0,
+          lastPaymentAt: lastPaidAt,
+          lastPaymentDay: lastPaidDay,
+          daysSinceLastPayment: lastPaidDay
+            ? daysBetween(lastPaidDay, dayKeyValue)
+            : null,
+        };
+      })
+      .filter((row) => !onlyWithInvoices || row.invoiceCount > 0);
+
+    ok(res, {
+      date: dayKeyValue,
+      rows,
+      totals: {
+        customers: rows.length,
+        balance: round2(rows.reduce((sum, row) => sum + row.balance, 0)),
+        invoiceCount: rows.reduce((sum, row) => sum + row.invoiceCount, 0),
+        invoiceTotal: round2(
+          rows.reduce((sum, row) => sum + row.invoiceTotal, 0),
+        ),
+      },
+    });
   }),
 );
 

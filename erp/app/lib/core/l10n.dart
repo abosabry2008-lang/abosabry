@@ -990,6 +990,43 @@ class AppStrings {
       );
   String get neverInvoiced => _t('Never invoiced', 'لم تُصدر له فاتورة');
   String get lastInvoice => _t('Last invoice', 'آخر فاتورة');
+  String get customerDailyEvaluation =>
+      _t('Customer daily evaluation', 'تقييم العملاء اليومي');
+  String get customerDailyEvaluationHint => _t(
+        'Each customer\'s invoices and collections for the selected period, with the collection rate and remaining balance.',
+        'فواتير وتحصيلات كل عميل خلال الفترة المحددة، مع نسبة التحصيل والرصيد المتبقي.',
+      );
+  String get customerDailyEvaluationExplainer => _t(
+        'This report compares what was invoiced to each customer with what they actually paid in the same period. A collection rate below 100% means part of the period\'s sales is still unpaid; a rate above 100% means the customer also settled older debt.',
+        'يقارن هذا التقرير قيمة ما تمت فوترته لكل عميل بما دفعه فعليًا في نفس الفترة. نسبة تحصيل أقل من 100% تعني أن جزءًا من مبيعات الفترة لم يُسدد بعد، ونسبة أعلى من 100% تعني أن العميل سدد أيضًا مديونية قديمة.',
+      );
+  String get customersNotPaid =>
+      _t('Customers who did not pay today', 'عملاء لم يدفعوا اليوم');
+  String get customersNotPaidHint => _t(
+        'Debtor customers with no collection recorded on the selected date.',
+        'العملاء المدينون الذين لم يُسجل لهم أي تحصيل في التاريخ المحدد.',
+      );
+  String get customersNotPaidExplainer => _t(
+        'Only customers with an outstanding balance appear here. Anyone who paid any amount on the selected date is excluded. Use it at the end of the day to follow up on collections.',
+        'يظهر هنا فقط العملاء الذين عليهم رصيد مستحق. ويُستبعد أي عميل سدد أي مبلغ في التاريخ المحدد. استخدمه في نهاية اليوم لمتابعة التحصيل.',
+      );
+  String get collectionRate => _t('Collection rate', 'نسبة التحصيل');
+  String get invoiceCountHeader => _t('Invoice count', 'عدد الفواتير');
+  String get invoiceValueHeader => _t('Invoice value', 'قيمة الفواتير');
+  String get paymentCountHeader => _t('Payment count', 'عدد الدفعات');
+  String get paymentValueHeader => _t('Collected amount', 'قيمة التحصيل');
+  String get lastPayment => _t('Last payment', 'آخر دفعة');
+  String get daysSinceLastPayment =>
+      _t('Days since last payment', 'أيام منذ آخر دفعة');
+  String get todayInvoices => _t('Today\'s invoices', 'فواتير اليوم');
+  String get onlyWithInvoicesToday =>
+      _t('Only customers invoiced on this day', 'الذين لديهم فواتير في هذا اليوم فقط');
+  String get noCustomersNotPaid => _t(
+        'All debtors paid on this date',
+        'كل العملاء المدينين سددوا في هذا التاريخ',
+      );
+  String get noCustomerActivity =>
+      _t('No customer activity in this period', 'لا توجد حركة عملاء في هذه الفترة');
   String get supplierBalances => _t('Supplier balances', 'أرصدة الموردين');
   String get noSalesInPeriod => _t('No sales in this period', 'لا توجد مبيعات في هذه الفترة');
   String get salesByDay => _t('Sales by day', 'المبيعات حسب اليوم');

@@ -21,6 +21,8 @@ import '../customers/customer_statement_screen.dart';
 import '../shell/navigation.dart';
 import '../suppliers/supplier_statement_screen.dart';
 import 'cancelled_invoices_report_screen.dart';
+import 'customer_daily_evaluation_screen.dart';
+import 'customers_not_paid_screen.dart';
 import 'dormant_customers_screen.dart';
 import 'expense_report_screen.dart';
 import 'extra_report_screen.dart';
@@ -407,6 +409,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
           title: s.customers,
           description: s.customersReportsDesc,
           reports: <_ReportSpec>[
+            _ReportSpec(
+              icon: Icons.insights_outlined,
+              title: s.customerDailyEvaluation,
+              builder: (_) => const CustomerDailyEvaluationScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.person_off_outlined,
+              title: s.customersNotPaid,
+              builder: (_) => const CustomersNotPaidScreen(),
+            ),
             _ReportSpec(
               icon: Icons.account_balance_wallet_outlined,
               title: s.customerBalances,
