@@ -1918,8 +1918,8 @@ class AppStrings {
         'التقييم وأرصدة المخزون والحركة والأصناف الراكدة.',
       );
   String get treasuryReportsDesc => _t(
-        'Cash box balances, cash flow, expenses and payment methods.',
-        'أرصدة الخزائن والحركة النقدية والمصروفات وطرق الدفع.',
+        'Comprehensive treasury report, cash box balances, cash flow, expenses and payment methods.',
+        'تقرير شامل للخزينة، وأرصدة الخزائن، والحركة النقدية، والمصروفات، وطرق الدفع.',
       );
   String get accountingReportsDesc => _t(
         'Trial balance, income statement and balance sheet.',
