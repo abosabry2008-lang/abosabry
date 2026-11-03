@@ -791,6 +791,16 @@ class AppStrings {
   String get inboundReceived => _t('Inbound (received)', 'وارد (مستلَم)');
   String get outboundPaid => _t('Outbound (paid)', 'صادر (مدفوع)');
   String get noPayments => _t('No payments', 'لا توجد مدفوعات');
+  String get paymentsReport => _t('Payments report', 'تقرير المدفوعات');
+  String get paymentsReportHint => _t(
+        'Every customer receipt and supplier payment recorded in the selected period.',
+        'كل تحصيلات العملاء ومدفوعات الموردين المسجلة خلال الفترة المحددة.',
+      );
+  String get paymentsReportExplainer => _t(
+        'Received amounts are money collected from customers (cash, card, wallet or transfer). Paid amounts are money paid to suppliers or against expenses. Cancelled payments are excluded so the totals match the cash boxes.',
+        'المبالغ الواردة هي ما تم تحصيله من العملاء (نقدًا أو بطاقة أو محفظة أو تحويل). والمبالغ الصادرة هي ما تم دفعه للموردين أو على المصروفات. المدفوعات الملغاة مستبعدة حتى تتطابق الإجماليات مع الخزائن.',
+      );
+  String get party => _t('Party', 'الطرف');
   String get paymentsHint =>
       _t('Payments recorded against invoices appear here.', 'ستظهر هنا المدفوعات المسجلة على الفواتير.');
   String get inbound => _t('Inbound', 'وارد');

@@ -1203,6 +1203,115 @@ router.get(
   }),
 );
 
+// GET /reports/payments?from=&to=&direction=&method=&cashBoxId=&search=
+router.get(
+  '/payments',
+  requirePermission('payments.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDateEnd(req.query.to);
+    const direction = asString(req.query.direction);
+    const method = asString(req.query.method);
+    const cashBoxId = asString(req.query.cashBoxId);
+    const search = asString(req.query.search);
+    const includeCancelled = asString(req.query.includeCancelled) === 'true';
+    const user = currentUser(req);
+
+    const where: Prisma.PaymentWhereInput = {};
+    if (!includeCancelled) where.cancelledAt = null;
+    if (from || to) {
+      where.paidAt = {
+        ...(from ? { gte: from } : {}),
+        ...(to ? { lte: to } : {}),
+      };
+    }
+    if (direction === 'INBOUND' || direction === 'OUTBOUND') {
+      where.direction = direction;
+    }
+    if (
+      method === 'CASH' ||
+      method === 'CARD' ||
+      method === 'BANK_TRANSFER' ||
+      method === 'MOBILE_MONEY' ||
+      method === 'CHEQUE' ||
+      method === 'OTHER'
+    ) {
+      where.method = method;
+    }
+    if (cashBoxId) where.cashBoxId = cashBoxId;
+    if (search) {
+      where.OR = [
+        { number: { contains: search, mode: 'insensitive' } },
+        { reference: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { supplier: { name: { contains: search, mode: 'insensitive' } } },
+        { invoice: { number: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+    if (isSalesperson(user)) {
+      const scope: Prisma.PaymentWhereInput[] = [
+        { customer: { salespersonId: user.id } },
+        { invoice: { customer: { salespersonId: user.id } } },
+        { invoice: { customerId: null, salesOrder: { userId: user.id } } },
+      ];
+      where.AND = [{ OR: scope }];
+    }
+
+    const [count, inAgg, outAgg, rows] = await Promise.all([
+      prisma.payment.count({ where }),
+      prisma.payment.aggregate({
+        where: { ...where, direction: 'INBOUND' },
+        _sum: { amount: true },
+      }),
+      prisma.payment.aggregate({
+        where: { ...where, direction: 'OUTBOUND' },
+        _sum: { amount: true },
+      }),
+      prisma.payment.findMany({
+        where,
+        orderBy: { paidAt: 'desc' },
+        take: 3000,
+        select: {
+          id: true,
+          number: true,
+          direction: true,
+          method: true,
+          amount: true,
+          reference: true,
+          note: true,
+          paidAt: true,
+          cancelledAt: true,
+          collectionVoucherId: true,
+          customer: { select: { id: true, name: true, code: true } },
+          supplier: { select: { id: true, name: true, code: true } },
+          invoice: { select: { id: true, number: true } },
+          cashBox: { select: { id: true, name: true } },
+          currency: { select: { code: true, symbol: true } },
+        },
+      }),
+    ]);
+
+    const inTotal = round2(Number(inAgg._sum.amount ?? 0));
+    const outTotal = round2(Number(outAgg._sum.amount ?? 0));
+
+    ok(res, {
+      from: from ? from.toISOString() : null,
+      to: to ? to.toISOString() : null,
+      rows: rows.map((row) => ({
+        ...row,
+        amount: round2(Number(row.amount)),
+      })),
+      totals: {
+        count,
+        inTotal,
+        outTotal,
+        net: round2(inTotal - outTotal),
+      },
+      truncated: count > rows.length,
+    });
+  }),
+);
+
 // GET /reports/payments-by-method
 router.get(
   '/payments-by-method',

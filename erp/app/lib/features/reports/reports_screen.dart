@@ -20,17 +20,18 @@ import '../../widgets/section_card.dart';
 import '../customers/customer_statement_screen.dart';
 import '../shell/navigation.dart';
 import '../suppliers/supplier_statement_screen.dart';
-import 'dormant_customers_screen.dart';
 import 'cancelled_invoices_report_screen.dart';
+import 'dormant_customers_screen.dart';
+import 'expense_report_screen.dart';
 import 'extra_report_screen.dart';
 import 'financial_reports_screen.dart';
 import 'general_ledger_screen.dart';
 import 'investment_equation_screen.dart';
-import 'expense_report_screen.dart';
 import 'item_movement_screen.dart';
 import 'operations_reports_screen.dart';
-import 'price_list_screen.dart';
 import 'order_fulfilment_report_screen.dart';
+import 'payments_report_screen.dart';
+import 'price_list_screen.dart';
 import 'report_widgets.dart';
 import 'salespeople_reports_screen.dart';
 import 'salesperson_daily_invoices_screen.dart';
@@ -533,6 +534,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
               icon: Icons.account_balance_outlined,
               title: s.treasurySummary,
               builder: (_) => const TreasurySummaryReportScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.payments_outlined,
+              title: s.paymentsReport,
+              builder: (_) => const PaymentsReportScreen(),
             ),
             _ReportSpec(
               icon: Icons.account_balance_outlined,
