@@ -764,6 +764,7 @@ router.get(
         name: true,
         phone: true,
         balance: true,
+        salespersonId: true,
         salesperson: { select: { name: true } },
       },
     });
@@ -773,6 +774,7 @@ router.get(
       ok(res, {
         date: dayKeyValue,
         rows: [],
+        bySalesperson: [],
         totals: { customers: 0, balance: 0, invoiceTotal: 0, invoiceCount: 0 },
       });
       return;
@@ -835,6 +837,7 @@ router.get(
           code: customer.code,
           name: customer.name,
           phone: customer.phone,
+          salespersonId: customer.salespersonId,
           salesperson: customer.salesperson?.name ?? null,
           balance: round2(Number(customer.balance)),
           invoiceCount: invoices?.count ?? 0,
@@ -848,9 +851,40 @@ router.get(
       })
       .filter((row) => !onlyWithInvoices || row.invoiceCount > 0);
 
+    const bySalesperson = new Map<
+      string,
+      {
+        salespersonId: string | null;
+        salesperson: string | null;
+        customers: number;
+        balance: number;
+        invoiceCount: number;
+        invoiceTotal: number;
+      }
+    >();
+    for (const row of rows) {
+      const key = row.salespersonId ?? '';
+      const entry = bySalesperson.get(key) ?? {
+        salespersonId: row.salespersonId,
+        salesperson: row.salesperson,
+        customers: 0,
+        balance: 0,
+        invoiceCount: 0,
+        invoiceTotal: 0,
+      };
+      entry.customers += 1;
+      entry.balance = round2(entry.balance + row.balance);
+      entry.invoiceCount += row.invoiceCount;
+      entry.invoiceTotal = round2(entry.invoiceTotal + row.invoiceTotal);
+      bySalesperson.set(key, entry);
+    }
+
     ok(res, {
       date: dayKeyValue,
       rows,
+      bySalesperson: [...bySalesperson.values()].sort(
+        (a, b) => b.balance - a.balance,
+      ),
       totals: {
         customers: rows.length,
         balance: round2(rows.reduce((sum, row) => sum + row.balance, 0)),
