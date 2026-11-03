@@ -122,7 +122,7 @@ class _CustomerDailyEvaluationScreenState
           ),
           FilterChip(
             selected: _includeAll,
-            label: Text(s.allCustomers),
+            label: Text(s.showAllCustomers),
             onSelected: (value) {
               setState(() => _includeAll = value);
               _load();
@@ -272,7 +272,7 @@ class _CustomerDailyEvaluationScreenState
                       DataCell(
                         Text(
                           asDate(row['lastPaymentAt']) == null
-                              ? '—'
+                              ? s.neverPaid
                               : Formatters.date(asDate(row['lastPaymentAt'])),
                         ),
                       ),

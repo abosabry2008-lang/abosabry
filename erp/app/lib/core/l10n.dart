@@ -1016,6 +1016,7 @@ class AppStrings {
   String get paymentCountHeader => _t('Payment count', 'عدد الدفعات');
   String get paymentValueHeader => _t('Collected amount', 'قيمة التحصيل');
   String get lastPayment => _t('Last payment', 'آخر دفعة');
+  String get neverPaid => _t('Never paid', 'لم يدفع');
   String get daysSinceLastPayment =>
       _t('Days since last payment', 'أيام منذ آخر دفعة');
   String get todayInvoices => _t('Today\'s invoices', 'فواتير اليوم');

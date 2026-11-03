@@ -233,7 +233,7 @@ class _CustomersNotPaidScreenState extends State<CustomersNotPaidScreen> {
                       DataCell(
                         Text(
                           asDate(row['lastPaymentAt']) == null
-                              ? '—'
+                              ? s.neverPaid
                               : Formatters.date(asDate(row['lastPaymentAt'])),
                         ),
                       ),
