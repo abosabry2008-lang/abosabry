@@ -216,7 +216,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
         body: <String, dynamic>{
           'fromWarehouseId': fromId,
           'toWarehouseId': toId,
-          'note': _note.text.trim().isEmpty ? null : _note.text.trim(),
+          if (_note.text.trim().isNotEmpty) 'note': _note.text.trim(),
           'items': items,
         },
       );

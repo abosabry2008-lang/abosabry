@@ -60,13 +60,13 @@ const transferSchema = z.object({
   fromLocationId: z.string().min(1),
   toLocationId: z.string().min(1),
   quantity: z.number().int().positive(),
-  note: z.string().optional(),
+  note: z.string().nullish(),
 });
 
 const batchTransferSchema = z.object({
   fromWarehouseId: z.string().min(1),
   toWarehouseId: z.string().min(1),
-  note: z.string().optional(),
+  note: z.string().nullish(),
   items: z
     .array(
       z.object({
@@ -331,7 +331,11 @@ router.post(
   requirePermission('inventory.write'),
   validateBody(transferSchema),
   asyncHandler(async (req, res) => {
-    const result = await transferStock({ ...req.body, userId: currentUser(req).id });
+    const result = await transferStock({
+      ...req.body,
+      note: req.body.note ?? undefined,
+      userId: currentUser(req).id,
+    });
     created(res, result);
   }),
 );
@@ -344,6 +348,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const result = await transferStockBatch({
       ...req.body,
+      note: req.body.note ?? undefined,
       userId: currentUser(req).id,
     });
     created(res, result);
