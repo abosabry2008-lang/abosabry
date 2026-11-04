@@ -471,6 +471,17 @@ class AppStrings {
   String get low => _t('Low', 'منخفض');
   String get adjust => _t('Adjust', 'تعديل');
   String get transfer => _t('Transfer', 'تحويل');
+  String get transferVoucher =>
+      _t('Stock transfer voucher', 'إذن تحويل مخزون');
+  String get transferVoucherHint => _t(
+        'Move several items between warehouses in one voucher. Quantities are posted in boxes; packaged products can be entered in cartons.',
+        'حوّل عدة أصناف بين المخازن في إذن واحد. تُرحَّل الكميات بالعلب، ويمكن إدخال المنتجات المعلبة بالكراتين.',
+      );
+  String get carton => _t('Carton', 'كرتونة');
+  String get transferNoItems =>
+      _t('Add at least one item to the voucher', 'أضف صنفًا واحدًا على الأقل للإذن');
+  String get transferWarehousesDiffer =>
+      _t('Choose two different warehouses', 'اختر مخزنين مختلفين');
   String get receive => _t('Receive', 'استلام');
   String get quantityStar => _t('Quantity *', 'الكمية *');
   String get positiveAddsStock =>

@@ -2,6 +2,7 @@ import { MovementType } from '@prisma/client';
 import { ApiError } from '../../lib/api-error';
 import { round2 } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
+import { nextNumber } from '../../lib/sequence';
 import { ACCOUNT, postJournal } from '../accounting/accounting.service';
 
 export interface MovementInput {
@@ -245,6 +246,200 @@ export interface TransferStockInput {
   quantity: number;
   note?: string;
   userId?: string;
+}
+
+export interface TransferBatchItem {
+  productId: string;
+  /// Quantity in the chosen sell unit (see [sellUnit]).
+  quantity: number;
+  sellUnit?: 'unit' | 'box' | 'carton';
+}
+
+export interface TransferBatchInput {
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  note?: string;
+  items: TransferBatchItem[];
+  userId?: string;
+}
+
+export interface TransferBatchResult {
+  number: string;
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  totalLines: number;
+  totalBoxes: number;
+  items: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    sellUnit: string;
+    boxes: number;
+    unitCost: number;
+  }[];
+}
+
+/**
+ * Posts a multi-line stock transfer between two warehouses as one voucher.
+ *
+ * Every line writes a TRANSFER_OUT / TRANSFER_IN pair sharing the same
+ * `TRF-YYYY-#####` reference, so the voucher can still be reconstructed from
+ * the stock movements without a separate table. Quantities may be entered in
+ * cartons; they are converted to boxes (the stored base unit) using the
+ * product's packaging.
+ */
+export async function transferStockBatch(
+  input: TransferBatchInput,
+): Promise<TransferBatchResult> {
+  if (input.fromWarehouseId === input.toWarehouseId) {
+    throw ApiError.badRequest(
+      'Source and destination warehouses must differ',
+      'WAREHOUSES_MUST_DIFFER',
+    );
+  }
+  if (input.items.length === 0) {
+    throw ApiError.badRequest('Add at least one item', 'EMPTY_TRANSFER');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const fromLocation = await resolveLocation(tx, input.fromWarehouseId);
+    const toLocation = await resolveLocation(tx, input.toWarehouseId);
+
+    const productIds = [...new Set(input.items.map((item) => item.productId))];
+    const products = await tx.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, name: true, boxesPerCarton: true, costPrice: true },
+    });
+    const productById = new Map(products.map((product) => [product.id, product]));
+
+    const number = await nextNumber(
+      tx,
+      'stock_transfer',
+      'TRF',
+      new Date(),
+      async (candidate) =>
+        (await tx.stockMovement.count({ where: { reference: candidate } })) > 0,
+    );
+
+    const lines: TransferBatchResult['items'] = [];
+    for (const item of input.items) {
+      const product = productById.get(item.productId);
+      if (!product) {
+        throw ApiError.badRequest('Product not found', 'PRODUCT_NOT_FOUND');
+      }
+
+      const boxesPerCarton = Number(product.boxesPerCarton ?? 0);
+      const sellUnit =
+        item.sellUnit === 'carton'
+          ? 'carton'
+          : item.sellUnit === 'box'
+            ? 'box'
+            : 'unit';
+      if (sellUnit === 'carton' && boxesPerCarton <= 0) {
+        throw ApiError.badRequest(
+          `${product.name} has no carton packaging`,
+          'NO_CARTON_PACKAGING',
+          { productId: product.id },
+        );
+      }
+
+      const boxes =
+        sellUnit === 'carton'
+          ? Math.round(item.quantity * boxesPerCarton)
+          : Math.round(item.quantity);
+      if (!(boxes > 0)) {
+        throw ApiError.badRequest(
+          `Quantity for ${product.name} must be greater than zero`,
+          'INVALID_QUANTITY',
+          { productId: product.id },
+        );
+      }
+
+      // Reading the level inside the loop makes repeated products respect the
+      // stock already moved by earlier lines.
+      const level = await tx.stockLevel.findUnique({
+        where: {
+          productId_locationId: {
+            productId: product.id,
+            locationId: fromLocation.id,
+          },
+        },
+      });
+      const available = level?.quantity ?? 0;
+      if (available < boxes) {
+        throw ApiError.badRequest(
+          `Insufficient stock for ${product.name}: ${available} available, ${boxes} requested`,
+          'INSUFFICIENT_STOCK',
+          { productId: product.id, available, requested: boxes },
+        );
+      }
+
+      const unitCost = Number(product.costPrice);
+      const movementNote =
+        input.note?.trim() ||
+        `Stock transfer ${number} — ${product.name}`;
+
+      await applyMovement(tx, {
+        type: 'TRANSFER_OUT',
+        productId: product.id,
+        locationId: fromLocation.id,
+        quantity: -boxes,
+        unitCost,
+        reference: number,
+        note: movementNote,
+        userId: input.userId,
+      });
+      await applyMovement(tx, {
+        type: 'TRANSFER_IN',
+        productId: product.id,
+        locationId: toLocation.id,
+        quantity: boxes,
+        unitCost,
+        reference: number,
+        note: movementNote,
+        userId: input.userId,
+      });
+
+      lines.push({
+        productId: product.id,
+        productName: product.name,
+        quantity: Math.round(item.quantity),
+        sellUnit,
+        boxes,
+        unitCost,
+      });
+    }
+
+    return {
+      number,
+      fromWarehouseId: input.fromWarehouseId,
+      toWarehouseId: input.toWarehouseId,
+      totalLines: lines.length,
+      totalBoxes: lines.reduce((sum, line) => sum + line.boxes, 0),
+      items: lines,
+    };
+  });
+}
+
+/** Stock per product at the location a transfer would draw from. */
+export async function warehouseAvailability(
+  warehouseId: string,
+): Promise<{ productId: string; quantity: number }[]> {
+  const location = await prisma.location.findFirst({
+    where: { warehouseId, active: true },
+    orderBy: { code: 'asc' },
+    select: { id: true },
+  });
+  if (!location) return [];
+  const groups = await prisma.stockLevel.groupBy({
+    by: ['productId'],
+    where: { locationId: location.id },
+    _sum: { quantity: true },
+  });
+  return groups.map((group) => ({
+    productId: group.productId,
+    quantity: group._sum.quantity ?? 0,
+  }));
 }
 
 export async function transferStock(input: TransferStockInput): Promise<{ fromBalance: number; toBalance: number }> {

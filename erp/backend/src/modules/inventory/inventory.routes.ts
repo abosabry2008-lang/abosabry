@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler, created, getPaging, ok, paginated } from '../../lib/http';
 import { prisma } from '../../lib/prisma';
-import { asDate, asEnum, asString } from '../../lib/query';
+import { asDate, asDateEnd, asEnum, asString } from '../../lib/query';
 import { authenticate, currentUser } from '../../middleware/authenticate';
 import { requirePermission, requireAdmin } from '../../middleware/authorize';
 import { validateBody } from '../../middleware/validate';
@@ -14,6 +14,8 @@ import {
   lowStockProducts,
   receiveStock,
   transferStock,
+  transferStockBatch,
+  warehouseAvailability,
 } from './inventory.service';
 
 const router = Router();
@@ -59,6 +61,21 @@ const transferSchema = z.object({
   toLocationId: z.string().min(1),
   quantity: z.number().int().positive(),
   note: z.string().optional(),
+});
+
+const batchTransferSchema = z.object({
+  fromWarehouseId: z.string().min(1),
+  toWarehouseId: z.string().min(1),
+  note: z.string().optional(),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        quantity: z.number().int().positive(),
+        sellUnit: z.enum(['unit', 'box', 'carton']).optional(),
+      }),
+    )
+    .min(1),
 });
 
 const cycleCountSchema = z.object({
@@ -293,6 +310,22 @@ router.post(
   }),
 );
 
+// GET /inventory/availability?warehouseId=
+router.get(
+  '/availability',
+  requirePermission('inventory.read'),
+  asyncHandler(async (req, res) => {
+    const warehouseId = asString(req.query.warehouseId);
+    if (!warehouseId) {
+      res.status(400).json({
+        error: { message: 'warehouseId is required', code: 'WAREHOUSE_REQUIRED' },
+      });
+      return;
+    }
+    ok(res, await warehouseAvailability(warehouseId));
+  }),
+);
+
 router.post(
   '/transfer',
   requirePermission('inventory.write'),
@@ -300,6 +333,163 @@ router.post(
   asyncHandler(async (req, res) => {
     const result = await transferStock({ ...req.body, userId: currentUser(req).id });
     created(res, result);
+  }),
+);
+
+// POST /inventory/transfers — one multi-item transfer voucher.
+router.post(
+  '/transfers',
+  requirePermission('inventory.write'),
+  validateBody(batchTransferSchema),
+  asyncHandler(async (req, res) => {
+    const result = await transferStockBatch({
+      ...req.body,
+      userId: currentUser(req).id,
+    });
+    created(res, result);
+  }),
+);
+
+// GET /inventory/transfers?from=&to=&warehouseId=&search=
+router.get(
+  '/transfers',
+  requirePermission('inventory.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDateEnd(req.query.to);
+    const warehouseId = asString(req.query.warehouseId);
+    const search = asString(req.query.search);
+    const limit = Math.min(
+      300,
+      Math.max(1, Number(asString(req.query.limit) ?? 100)),
+    );
+
+    const baseWhere: Prisma.StockMovementWhereInput = {
+      type: { in: ['TRANSFER_OUT', 'TRANSFER_IN'] },
+      reference: { startsWith: 'TRF-' },
+      ...(from || to
+        ? {
+            createdAt: {
+              ...(from ? { gte: from } : {}),
+              ...(to ? { lte: to } : {}),
+            },
+          }
+        : {}),
+      ...(warehouseId ? { warehouseId } : {}),
+      ...(search
+        ? {
+            OR: [
+              { reference: { contains: search, mode: 'insensitive' } },
+              { product: { name: { contains: search, mode: 'insensitive' } } },
+              { product: { sku: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+    };
+
+    const matched = await prisma.stockMovement.findMany({
+      where: baseWhere,
+      select: { reference: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: limit * 6,
+    });
+    const references = [
+      ...new Set(
+        matched
+          .map((row) => row.reference)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ].slice(0, limit);
+
+    if (references.length === 0) {
+      ok(res, { rows: [], count: 0 });
+      return;
+    }
+
+    const [movements, warehouses] = await Promise.all([
+      prisma.stockMovement.findMany({
+        where: {
+          reference: { in: references },
+          type: { in: ['TRANSFER_OUT', 'TRANSFER_IN'] },
+        },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          product: {
+            select: { id: true, name: true, sku: true, boxesPerCarton: true },
+          },
+        },
+      }),
+      prisma.warehouse.findMany({
+        select: { id: true, code: true, name: true },
+      }),
+    ]);
+    const warehouseName = new Map(
+      warehouses.map((warehouse) => [warehouse.id, warehouse]),
+    );
+
+    const grouped = new Map<
+      string,
+      {
+        number: string;
+        date: Date;
+        fromWarehouseId: string | null;
+        toWarehouseId: string | null;
+        note: string | null;
+        lines: {
+          productId: string;
+          name: string;
+          sku: string | null;
+          boxes: number;
+        }[];
+      }
+    >();
+
+    for (const movement of movements) {
+      const number = movement.reference!;
+      const entry = grouped.get(number) ?? {
+        number,
+        date: movement.createdAt,
+        fromWarehouseId: null,
+        toWarehouseId: null,
+        note: movement.note,
+        lines: [],
+      };
+      if (movement.createdAt < entry.date) entry.date = movement.createdAt;
+      if (movement.type === 'TRANSFER_OUT') {
+        entry.fromWarehouseId = movement.warehouseId;
+        entry.lines.push({
+          productId: movement.product.id,
+          name: movement.product.name,
+          sku: movement.product.sku,
+          boxes: Math.abs(movement.quantity),
+        });
+      } else {
+        entry.toWarehouseId = movement.warehouseId;
+      }
+      grouped.set(number, entry);
+    }
+
+    const rows = [...grouped.values()]
+      .map((entry) => ({
+        number: entry.number,
+        date: entry.date.toISOString(),
+        fromWarehouseId: entry.fromWarehouseId,
+        fromWarehouse: entry.fromWarehouseId
+          ? (warehouseName.get(entry.fromWarehouseId) ?? null)
+          : null,
+        toWarehouseId: entry.toWarehouseId,
+        toWarehouse: entry.toWarehouseId
+          ? (warehouseName.get(entry.toWarehouseId) ?? null)
+          : null,
+        note: entry.note,
+        lineCount: entry.lines.length,
+        totalBoxes: entry.lines.reduce((sum, line) => sum + line.boxes, 0),
+        lines: entry.lines,
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, limit);
+
+    ok(res, { rows, count: rows.length });
   }),
 );
 
