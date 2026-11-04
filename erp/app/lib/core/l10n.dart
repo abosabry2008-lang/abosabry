@@ -1306,6 +1306,26 @@ class AppStrings {
         'On-hand quantity and value for counting and review.',
         'الكمية والقيمة المتاحة للجرد والمراجعة.',
       );
+  String get stockSoldRemaining =>
+      _t('Stock sold and remaining', 'المباع والمتبقي من المخزون');
+  String get stockSoldRemainingHint => _t(
+        'For each warehouse and product: the balance before the period, what came in, what was sold, other issues, and the remaining balance at the end of the period.',
+        'لكل مخزن وصنف: الرصيد قبل الفترة، الوارد، المباع، الصادر الآخر، والرصيد المتبقي في نهاية الفترة.',
+      );
+  String get stockSoldRemainingExplainer => _t(
+        'Choose the period, then review each warehouse separately. "Sold" counts sales only; transfers, purchase returns and negative adjustments appear under "Other issues". The remaining balance equals the previous balance plus receipts minus sales and other issues.',
+        'اختر الفترة ثم راجع كل مخزن على حدة. «المباع» يشمل مبيعات الفواتير فقط، أما التحويلات ومرتجعات المشتريات والتسويات السالبة فتظهر تحت «صادر آخر». الرصيد المتبقي = الرصيد السابق + الوارد − المباع − الصادر الآخر.',
+      );
+  String get openingStock => _t('Previous balance', 'الرصيد السابق');
+  String get receivedStock => _t('Received', 'الوارد');
+  String get soldStock => _t('Sold', 'المباع');
+  String get otherOut => _t('Other issues', 'صادر آخر');
+  String get remainingStock => _t('Remaining', 'المتبقي');
+  String get byWarehouse => _t('By warehouse', 'حسب المخزن');
+  String get noStockMovement => _t(
+        'No stock movement in the selected period',
+        'لا توجد حركة مخزون في الفترة المحددة',
+      );
   String get itemMovement => _t('Item movement', 'حركة صنف');
   String get itemMovementHint => _t(
         'Every movement of a single product with a running balance.',

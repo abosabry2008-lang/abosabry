@@ -1368,6 +1368,221 @@ router.get(
   }),
 );
 
+// GET /reports/stock-sold-remaining?from=&to=&warehouseId=&categoryId=&search=
+router.get(
+  '/stock-sold-remaining',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const today = localDayKey(new Date());
+    const from = asDate(req.query.from) ?? asDate(today)!;
+    const to = asDateEnd(req.query.to) ?? asDateEnd(today)!;
+    const warehouseId = asString(req.query.warehouseId);
+    const categoryId = asString(req.query.categoryId);
+    const search = asString(req.query.search);
+
+    const productWhere: Prisma.ProductWhereInput = {
+      ...(categoryId ? { categoryId } : {}),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { sku: { contains: search, mode: 'insensitive' } },
+              { barcode: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const baseWhere: Prisma.StockMovementWhereInput = {
+      ...(warehouseId ? { warehouseId } : {}),
+      ...(Object.keys(productWhere).length > 0 ? { product: productWhere } : {}),
+    };
+
+    const [openingGroups, periodGroups] = await Promise.all([
+      prisma.stockMovement.groupBy({
+        by: ['warehouseId', 'productId'],
+        where: { ...baseWhere, createdAt: { lt: from } },
+        _sum: { quantity: true },
+      }),
+      prisma.stockMovement.groupBy({
+        by: ['warehouseId', 'productId', 'type'],
+        where: { ...baseWhere, createdAt: { gte: from, lte: to } },
+        _sum: { quantity: true },
+      }),
+    ]);
+
+    const keyOf = (warehouse: string, product: string) =>
+      `${warehouse}:${product}`;
+
+    const openingBy = new Map<string, number>();
+    for (const group of openingGroups) {
+      openingBy.set(
+        keyOf(group.warehouseId, group.productId),
+        round2(Number(group._sum.quantity ?? 0)),
+      );
+    }
+
+    const periodBy = new Map<
+      string,
+      { inQty: number; sold: number; outOther: number }
+    >();
+    for (const group of periodGroups) {
+      const key = keyOf(group.warehouseId, group.productId);
+      const entry = periodBy.get(key) ?? { inQty: 0, sold: 0, outOther: 0 };
+      const quantity = Number(group._sum.quantity ?? 0);
+      if (group.type === 'SALE') {
+        entry.sold = round2(entry.sold + Math.abs(quantity));
+      } else if (quantity >= 0) {
+        entry.inQty = round2(entry.inQty + quantity);
+      } else {
+        entry.outOther = round2(entry.outOther + Math.abs(quantity));
+      }
+      periodBy.set(key, entry);
+    }
+
+    const keys = new Set<string>([...openingBy.keys(), ...periodBy.keys()]);
+    const productIds = new Set<string>();
+    const warehouseIds = new Set<string>();
+    for (const key of keys) {
+      const [warehouseId, productId] = key.split(':');
+      if (warehouseId) warehouseIds.add(warehouseId);
+      if (productId) productIds.add(productId);
+    }
+
+    const [products, warehouses] = await Promise.all([
+      prisma.product.findMany({
+        where: { id: { in: [...productIds] } },
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          unit: true,
+          boxesPerCarton: true,
+          category: { select: { name: true } },
+        },
+      }),
+      prisma.warehouse.findMany({
+        where: { id: { in: [...warehouseIds] } },
+        select: { id: true, code: true, name: true },
+      }),
+    ]);
+    const productById = new Map(products.map((product) => [product.id, product]));
+    const warehouseById = new Map(
+      warehouses.map((warehouse) => [warehouse.id, warehouse]),
+    );
+
+    const rows: {
+      warehouseId: string;
+      warehouse: string;
+      productId: string;
+      product: string;
+      sku: string | null;
+      unit: string;
+      boxesPerCarton: number;
+      category: string | null;
+      opening: number;
+      inQty: number;
+      sold: number;
+      outOther: number;
+      remaining: number;
+    }[] = [];
+
+    for (const key of keys) {
+      const [warehouseId, productId] = key.split(':');
+      const product = productById.get(productId);
+      const warehouse = warehouseById.get(warehouseId);
+      if (!product || !warehouse) continue;
+      const opening = openingBy.get(key) ?? 0;
+      const period = periodBy.get(key) ?? { inQty: 0, sold: 0, outOther: 0 };
+      const remaining = round2(
+        opening + period.inQty - period.sold - period.outOther,
+      );
+      if (
+        opening === 0 &&
+        period.inQty === 0 &&
+        period.sold === 0 &&
+        period.outOther === 0 &&
+        remaining === 0
+      ) {
+        continue;
+      }
+      rows.push({
+        warehouseId,
+        warehouse: warehouse.name,
+        productId,
+        product: product.name,
+        sku: product.sku,
+        unit: product.unit,
+        boxesPerCarton: product.boxesPerCarton,
+        category: product.category?.name ?? null,
+        opening,
+        inQty: period.inQty,
+        sold: period.sold,
+        outOther: period.outOther,
+        remaining,
+      });
+    }
+
+    rows.sort(
+      (a, b) =>
+        a.warehouse.localeCompare(b.warehouse, 'ar') ||
+        a.product.localeCompare(b.product, 'ar'),
+    );
+
+    const byWarehouseMap = new Map<
+      string,
+      {
+        warehouseId: string;
+        warehouse: string;
+        products: number;
+        opening: number;
+        inQty: number;
+        sold: number;
+        outOther: number;
+        remaining: number;
+      }
+    >();
+    for (const row of rows) {
+      const entry = byWarehouseMap.get(row.warehouseId) ?? {
+        warehouseId: row.warehouseId,
+        warehouse: row.warehouse,
+        products: 0,
+        opening: 0,
+        inQty: 0,
+        sold: 0,
+        outOther: 0,
+        remaining: 0,
+      };
+      entry.products += 1;
+      entry.opening = round2(entry.opening + row.opening);
+      entry.inQty = round2(entry.inQty + row.inQty);
+      entry.sold = round2(entry.sold + row.sold);
+      entry.outOther = round2(entry.outOther + row.outOther);
+      entry.remaining = round2(entry.remaining + row.remaining);
+      byWarehouseMap.set(row.warehouseId, entry);
+    }
+
+    const byWarehouse = [...byWarehouseMap.values()].sort((a, b) =>
+      a.warehouse.localeCompare(b.warehouse, 'ar'),
+    );
+
+    ok(res, {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      rows,
+      byWarehouse,
+      totals: {
+        products: rows.length,
+        opening: round2(rows.reduce((sum, row) => sum + row.opening, 0)),
+        inQty: round2(rows.reduce((sum, row) => sum + row.inQty, 0)),
+        sold: round2(rows.reduce((sum, row) => sum + row.sold, 0)),
+        outOther: round2(rows.reduce((sum, row) => sum + row.outOther, 0)),
+        remaining: round2(rows.reduce((sum, row) => sum + row.remaining, 0)),
+      },
+    });
+  }),
+);
+
 // GET /reports/stock-balance
 router.get(
   '/stock-balance',

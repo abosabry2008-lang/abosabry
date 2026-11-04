@@ -40,6 +40,7 @@ import 'salespeople_reports_screen.dart';
 import 'salesperson_daily_invoices_screen.dart';
 import 'salesperson_customer_debt_screen.dart';
 import 'shortages_report_screen.dart';
+import 'stock_sold_remaining_screen.dart';
 import 'statement_hub_screen.dart';
 import 'treasury_summary_report_screen.dart';
 
@@ -500,6 +501,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
               icon: Icons.timeline_outlined,
               title: s.itemMovement,
               builder: (_) => const ItemMovementScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.inventory_outlined,
+              title: s.stockSoldRemaining,
+              builder: (_) => const StockSoldRemainingScreen(),
             ),
             _ReportSpec(
               icon: Icons.production_quantity_limits_outlined,
