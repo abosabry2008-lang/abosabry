@@ -320,6 +320,25 @@ class _InvoiceLinesEditorState extends State<InvoiceLinesEditor> {
           ),
           child: Column(
             children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        s.lineCountLabel,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                    Text(
+                      '${lines.where((line) => line.isValid).length}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               _SummaryRow(label: s.subtotal, value: subtotal),
               _SummaryRow(label: s.discountWord, value: -discountTotal),
               _SummaryRow(label: s.tax, value: taxTotal),

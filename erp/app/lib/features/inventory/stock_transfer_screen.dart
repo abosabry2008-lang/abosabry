@@ -473,7 +473,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
               spacing: 20,
               runSpacing: 6,
               children: <Widget>[
-                _FooterStat(label: s.lines, value: '$lineCount'),
+                _FooterStat(label: s.lineCountLabel, value: '$lineCount'),
                 _FooterStat(label: s.totalInBoxes, value: '$_totalBoxes'),
               ],
             ),

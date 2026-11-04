@@ -333,7 +333,9 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
             ],
             SectionCard(
               title: s.lines,
-              subtitle: s.productsAndServices,
+              subtitle: s.lineCount(
+                _lines.where((line) => line.isValid).length,
+              ),
               trailing: session.isAdmin
                   ? TextButton.icon(
                       onPressed: () =>

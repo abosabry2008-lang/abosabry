@@ -657,6 +657,7 @@ class AppStrings {
   String get received => _t('Received', 'المستلم');
   String get noLinesOnOrder => _t('No lines on this order.', 'لا توجد أسطر في هذا الأمر.');
   String lineCount(int n) => _t('$n line(s)', '$n سطر');
+  String get lineCountLabel => _t('Line count', 'عدد الأسطر');
   String get tax => _t('Tax', 'الضريبة');
   String get approve => _t('Approve', 'اعتماد');
   String get approvePurchaseOrderQ =>

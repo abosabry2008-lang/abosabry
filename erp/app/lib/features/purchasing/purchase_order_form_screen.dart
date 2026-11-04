@@ -189,7 +189,9 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
             const SizedBox(height: 16),
             SectionCard(
               title: s.lines,
-              subtitle: s.productsToOrder,
+              subtitle: s.lineCount(
+                _lines.where((line) => line.isValid).length,
+              ),
               child: OrderLinesEditor(
                 lines: _lines,
                 enabled: !_saving,
