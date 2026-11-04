@@ -32,8 +32,10 @@ class StockController extends PagedListController<StockLevel> {
   @override
   String get path => '/inventory/stock';
 
+  /// Stock is loaded as soon as the screen opens; the warehouse selector and
+  /// the search box narrow it down from there.
   @override
-  bool get requiresSearch => true;
+  bool get requiresSearch => false;
 
   @override
   Map<String, dynamic> queryParameters() => <String, dynamic>{

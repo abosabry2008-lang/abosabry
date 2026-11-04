@@ -83,6 +83,26 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   onChanged: controller.searchWith,
                 ),
                 const SizedBox(height: 8),
+                AppSelectField<String>(
+                  label: s.warehouse,
+                  value: controller.warehouseId ?? '',
+                  hint: s.allWarehouses,
+                  prefixIcon: Icons.warehouse_outlined,
+                  options: <SelectOption<String>>[
+                    SelectOption<String>('', s.allWarehouses),
+                    ..._warehouses.map(
+                      (warehouse) => SelectOption<String>(
+                        warehouse.id,
+                        '${warehouse.code} — ${warehouse.name}',
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      controller.filterByWarehouse(
+                        value == null || value.isEmpty ? null : value,
+                      ),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: <Widget>[
                     Expanded(
