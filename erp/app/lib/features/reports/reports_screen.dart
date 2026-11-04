@@ -24,6 +24,7 @@ import 'cancelled_invoices_report_screen.dart';
 import 'customer_daily_evaluation_screen.dart';
 import 'customers_not_paid_screen.dart';
 import 'dormant_customers_screen.dart';
+import 'expense_category_statement_screen.dart';
 import 'expense_report_screen.dart';
 import 'extra_report_screen.dart';
 import 'financial_reports_screen.dart';
@@ -591,6 +592,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 title: s.expenseReport,
                 onOpen: (controller) => controller.loadExpenseReport(),
                 builder: (_) => const ExpenseReportScreen(),
+              ),
+            if (session.can('expenses'))
+              _ReportSpec(
+                icon: Icons.receipt_long_outlined,
+                title: s.expenseCategoryStatement,
+                builder: (_) => const ExpenseCategoryStatementScreen(),
               ),
             _ReportSpec(
               icon: Icons.credit_card_outlined,

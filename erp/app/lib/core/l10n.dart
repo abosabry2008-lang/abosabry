@@ -1725,6 +1725,25 @@ class AppStrings {
         'Expenses grouped by category, month and cash box for the chosen period.',
         'المصروفات مجمّعة حسب التصنيف والشهر والخزنة خلال الفترة المختارة.',
       );
+  String get expenseCategoryStatement =>
+      _t('Expense category statement', 'كشف حساب تصنيف المصروفات');
+  String get expenseCategoryStatementHint => _t(
+        'Expenses and settlements of one category, with the balance brought forward and the running balance after every movement.',
+        'مصروفات وتسويات تصنيف واحد، مع الرصيد السابق والرصيد بعد كل حركة.',
+      );
+  String get expenseCategoryStatementExplainer => _t(
+        'The balance brought forward is everything recorded for this category before the period start (its opening balance plus earlier expenses and settlements). Each expense increases the balance and each decrease settlement reduces it, so the closing balance always matches the category balance.',
+        'الرصيد السابق هو كل ما سُجل على هذا التصنيف قبل بداية الفترة (الرصيد الافتتاحي + المصروفات والتسويات السابقة). كل مصروف يزيد الرصيد وكل تسوية خصم تقلله، وبذلك يتطابق الرصيد الختامي مع رصيد التصنيف.',
+      );
+  String get broughtForward => _t('Brought forward', 'الرصيد السابق');
+  String get settlementIncreaseEntry =>
+      _t('Settlement — increase', 'تسوية — إضافة');
+  String get settlementDecreaseEntry =>
+      _t('Settlement — decrease', 'تسوية — خصم');
+  String get noCategoryStatementMoves => _t(
+        'No movements for this category in the selected period',
+        'لا توجد حركات لهذا التصنيف في الفترة المحددة',
+      );
   String get expensesByCategory => _t('By category', 'حسب التصنيف');
   String get expensesByMonth => _t('By month', 'حسب الشهر');
   String get expensesByBox => _t('By cash box', 'حسب الخزنة');

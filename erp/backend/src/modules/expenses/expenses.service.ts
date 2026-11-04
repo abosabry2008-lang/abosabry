@@ -613,9 +613,49 @@ export async function buildExpenseReport(filter: ExpenseReportFilter) {
 
   // Opening balances are carried into every report so a category whose
   // balance was entered once keeps showing it on its statements.
-  const openingBalance = round2(
+  const categoryOpeningBalance = round2(
     categories.reduce((sum, row) => sum + Number(row.openingBalance), 0),
   );
+
+  // When the statement starts mid-life, everything that happened before the
+  // period is folded into the brought-forward balance so the running balance
+  // and the closing balance are correct for the selected period.
+  let openingBalance = categoryOpeningBalance;
+  if (filter.from) {
+    const priorExpenseWhere: Prisma.ExpenseWhereInput = {
+      cancelledAt: null,
+      spentAt: { lt: filter.from },
+      ...(filter.categoryId ? { categoryId: filter.categoryId } : {}),
+      ...(filter.cashBoxId ? { cashBoxId: filter.cashBoxId } : {}),
+    };
+    const [priorExpenses, priorSettlements] = await Promise.all([
+      prisma.expense.aggregate({
+        where: priorExpenseWhere,
+        _sum: { amount: true },
+      }),
+      prisma.accountSettlement.findMany({
+        where: {
+          target: 'EXPENSE_CATEGORY',
+          cancelledAt: null,
+          settledAt: { lt: filter.from },
+          ...(filter.categoryId ? { categoryId: filter.categoryId } : {}),
+        },
+        select: { direction: true, amount: true },
+      }),
+    ]);
+    const priorIncrease = priorSettlements
+      .filter((row) => row.direction === 'INCREASE')
+      .reduce((sum, row) => sum + Number(row.amount), 0);
+    const priorDecrease = priorSettlements
+      .filter((row) => row.direction === 'DECREASE')
+      .reduce((sum, row) => sum + Number(row.amount), 0);
+    openingBalance = round2(
+      categoryOpeningBalance +
+        Number(priorExpenses._sum.amount ?? 0) +
+        priorIncrease -
+        priorDecrease,
+    );
+  }
 
   const byCategory = new Map<string, { categoryId: string | null; name: string; amount: number; count: number }>();
   const byMonth = new Map<string, number>();
@@ -664,10 +704,74 @@ export async function buildExpenseReport(filter: ExpenseReportFilter) {
   const totalDebit = round2(total + settlementIncrease);
   const totalCredit = settlementDecrease;
 
+  // A single chronological statement, so the screen and the printed copy show
+  // exactly the same rows and the same running balance.
+  const sortedEntries: {
+    date: Date;
+    kind: 'EXPENSE' | 'SETTLEMENT';
+    direction: 'INCREASE' | 'DECREASE' | null;
+    number: string;
+    description: string;
+    debit: number;
+    credit: number;
+    cashBox: string | null;
+    reference: string | null;
+    note: string | null;
+  }[] = [
+    ...expenses.map((expense) => ({
+      date: expense.spentAt,
+      kind: 'EXPENSE' as const,
+      direction: null,
+      number: expense.number,
+      description:
+        [expense.payee, expense.note ?? expense.reference]
+          .filter((value): value is string => Boolean(value))
+          .join(' — ') || expense.number,
+      debit: round2(Number(expense.amount)),
+      credit: 0,
+      cashBox: expense.cashBox?.name ?? null,
+      reference: expense.reference ?? null,
+      note: expense.note ?? null,
+    })),
+    ...settlements.map((settlement) => ({
+      date: settlement.settledAt,
+      kind: 'SETTLEMENT' as const,
+      direction: settlement.direction,
+      number: settlement.number,
+      description:
+        [
+          settlement.direction === 'INCREASE'
+            ? 'تسوية — إضافة للرصيد'
+            : 'تسوية — خصم من الرصيد',
+          settlement.note ?? settlement.reference,
+        ]
+          .filter((value): value is string => Boolean(value))
+          .join(' — '),
+      debit:
+        settlement.direction === 'INCREASE'
+          ? round2(Number(settlement.amount))
+          : 0,
+      credit:
+        settlement.direction === 'DECREASE'
+          ? round2(Number(settlement.amount))
+          : 0,
+      cashBox: null,
+      reference: settlement.reference ?? null,
+      note: settlement.note ?? null,
+    })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  let running = openingBalance;
+  const entries = sortedEntries.map((entry) => {
+    running = round2(running + entry.debit - entry.credit);
+    return { ...entry, balance: running };
+  });
+
   return {
     from: filter.from ? filter.from.toISOString() : null,
     to: filter.to ? filter.to.toISOString() : null,
     total,
+    categoryOpeningBalance,
     openingBalance,
     closingBalance: round2(openingBalance + totalDebit - totalCredit),
     totalDebit,
@@ -676,6 +780,7 @@ export async function buildExpenseReport(filter: ExpenseReportFilter) {
     settlementDecrease,
     settlementNet,
     count: expenses.length,
+    entries,
     expenses: expenses.map((expense) => ({
       ...expense,
       amount: round2(Number(expense.amount)),

@@ -1820,61 +1820,30 @@ export function expenseCategoryStatementHtml(
   lang = 'en',
 ): string {
   const ar = isArabic(lang);
-  let running = round2(report.openingBalance);
-  const entries: {
-    date: Date;
-    number: string;
-    description: string;
-    debit: number;
-    credit: number;
-  }[] = [
-    ...report.expenses.map((expense) => ({
-      date: expense.spentAt,
-      number: expense.number,
-      description:
-        [expense.payee, expense.note ?? expense.reference]
-          .filter((value): value is string => Boolean(value))
-          .join(' — ') || expense.number,
-      debit: round2(Number(expense.amount)),
-      credit: 0,
-    })),
-    ...(report.settlements ?? []).map((settlement) => ({
-      date: settlement.settledAt,
-      number: settlement.number,
-      description:
-        [
-          ar
-            ? settlement.direction === 'DECREASE'
-              ? 'تسوية — خصم من الرصيد'
-              : 'تسوية — إضافة للرصيد'
-            : settlement.direction === 'DECREASE'
-              ? 'Settlement — decrease'
-              : 'Settlement — increase',
-          settlement.note ?? settlement.reference,
-        ]
-          .filter((value): value is string => Boolean(value))
-          .join(' — '),
-      debit:
-        settlement.direction === 'INCREASE'
-          ? round2(Number(settlement.amount))
-          : 0,
-      credit:
-        settlement.direction === 'DECREASE'
-          ? round2(Number(settlement.amount))
-          : 0,
-    })),
-  ].sort((a, b) => a.date.getTime() - b.date.getTime());
-
-  const rows = entries
+  const rows = report.entries
     .map((entry) => {
-      running = round2(running + entry.debit - entry.credit);
+      const description =
+        entry.kind === 'SETTLEMENT'
+          ? [
+              ar
+                ? entry.direction === 'DECREASE'
+                  ? 'تسوية — خصم من الرصيد'
+                  : 'تسوية — إضافة للرصيد'
+                : entry.direction === 'DECREASE'
+                  ? 'Settlement — decrease'
+                  : 'Settlement — increase',
+              entry.note ?? entry.reference,
+            ]
+              .filter((value): value is string => Boolean(value))
+              .join(' — ')
+          : entry.description;
       return `      <tr>
         <td>${escapeHtml(formatDate(entry.date))}</td>
         <td>${escapeHtml(entry.number)}</td>
-        <td>${escapeHtml(entry.description)}</td>
+        <td>${escapeHtml(description)}</td>
         <td class="num">${entry.debit ? money(entry.debit) : ''}</td>
         <td class="num">${entry.credit ? money(entry.credit) : ''}</td>
-        <td class="num">${money(running)}</td>
+        <td class="num">${money(entry.balance)}</td>
       </tr>`;
     })
     .join('\n');
@@ -1899,7 +1868,7 @@ export function expenseCategoryStatementHtml(
       </thead>
       <tbody>
         <tr class="muted">
-          <td colspan="5">${ar ? 'رصيد افتتاحي' : 'Opening balance'}</td>
+          <td colspan="5">${ar ? 'الرصيد السابق' : 'Brought forward'}</td>
           <td class="num">${money(report.openingBalance)}</td>
         </tr>
 ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
