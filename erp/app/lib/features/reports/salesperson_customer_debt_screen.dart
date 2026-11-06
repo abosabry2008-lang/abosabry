@@ -167,7 +167,7 @@ class _DebtTable extends StatelessWidget {
     );
     final dataStyle = theme.textTheme.bodyMedium?.copyWith(
       fontSize: 14.5,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w700,
     );
 
     return SingleChildScrollView(

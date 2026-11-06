@@ -236,8 +236,8 @@ const SALESPERSON_DEBT_A5_CSS = `
   .doc-title h2 { font-size: 16px; margin-bottom: 2px; }
   section.meta { gap: 3px 12px; padding: 5px 9px; margin-bottom: 7px; font-size: 11.5px; }
   table.data { width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: auto; }
-  table.data th, table.data td { border: 1px solid #8e9aa8; padding: 4px 5px; font-size: 12.5px; text-align: center; }
-  table.data thead th { background: #0f172a; color: #ffffff; font-size: 11px; padding: 4px 5px; text-align: center; }
+  table.data th, table.data td { border: 1px solid #8e9aa8; padding: 4px 5px; font-size: 12.5px; font-weight: 700; text-align: center; }
+  table.data thead th { background: #0f172a; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 5px; text-align: center; }
   table.data tbody tr:nth-child(even) { background: #f5f7f9; }
   table.data tr.total td { background: #e2e8f0; font-weight: 700; border-top: 2px solid #0f172a; }
   table.data th.num, table.data td.num { text-align: center; }
