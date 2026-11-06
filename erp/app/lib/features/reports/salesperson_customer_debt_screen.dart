@@ -163,9 +163,10 @@ class _DebtTable extends StatelessWidget {
     final headerStyle = theme.textTheme.titleSmall?.copyWith(
       fontWeight: FontWeight.w700,
       color: theme.colorScheme.onSurface,
+      fontSize: 14,
     );
     final dataStyle = theme.textTheme.bodyMedium?.copyWith(
-      fontSize: 13.5,
+      fontSize: 14.5,
       fontWeight: FontWeight.w500,
     );
 
@@ -191,16 +192,26 @@ class _DebtTable extends StatelessWidget {
           dataRowMinHeight: 40,
           dataRowMaxHeight: 48,
           columns: <DataColumn>[
-            DataColumn(label: Text('#', style: headerStyle)),
-            DataColumn(label: Text(s.customer, style: headerStyle)),
+            DataColumn(label: Center(child: Text('#', style: headerStyle))),
             DataColumn(
-              label: Text(s.previousBalance, style: headerStyle),
+              label: Center(child: Text(s.customer, style: headerStyle)),
+            ),
+            DataColumn(
+              label: Center(
+                child: Text(s.previousBalance, style: headerStyle),
+              ),
               numeric: true,
             ),
-            DataColumn(label: Text(s.debit, style: headerStyle), numeric: true),
-            DataColumn(label: Text(s.credit, style: headerStyle), numeric: true),
             DataColumn(
-              label: Text(s.balance, style: headerStyle),
+              label: Center(child: Text(s.debit, style: headerStyle)),
+              numeric: true,
+            ),
+            DataColumn(
+              label: Center(child: Text(s.credit, style: headerStyle)),
+              numeric: true,
+            ),
+            DataColumn(
+              label: Center(child: Text(s.balance, style: headerStyle)),
               numeric: true,
             ),
           ],
@@ -208,15 +219,30 @@ class _DebtTable extends StatelessWidget {
             for (var index = 0; index < rows.length; index++)
               DataRow(
                 cells: <DataCell>[
-                  DataCell(Text('${index + 1}')),
-                  DataCell(Text(asString(rows[index]['customer']))),
-                  DataCell(MoneyText(asDouble(rows[index]['previous']))),
-                  DataCell(MoneyText(asDouble(rows[index]['debit']))),
-                  DataCell(_creditCell(rows[index]['credit'])),
+                  DataCell(Center(child: Text('${index + 1}'))),
                   DataCell(
-                    MoneyText(
-                      asDouble(rows[index]['balance']),
-                      colorNegative: true,
+                    Center(
+                      child: Text(
+                        asString(rows[index]['customer']),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Center(
+                      child: MoneyText(asDouble(rows[index]['previous'])),
+                    ),
+                  ),
+                  DataCell(
+                    Center(child: MoneyText(asDouble(rows[index]['debit']))),
+                  ),
+                  DataCell(Center(child: _creditCell(rows[index]['credit']))),
+                  DataCell(
+                    Center(
+                      child: MoneyText(
+                        asDouble(rows[index]['balance']),
+                        colorNegative: true,
+                      ),
                     ),
                   ),
                 ],
@@ -226,21 +252,28 @@ class _DebtTable extends StatelessWidget {
                 theme.colorScheme.surfaceContainerHighest,
               ),
               cells: <DataCell>[
-                const DataCell(Text('')),
+                const DataCell(Center(child: Text(''))),
                 DataCell(
-                  Text(
-                    s.total,
-                    style: headerStyle,
+                  Center(
+                    child: Text(
+                      s.total,
+                      style: headerStyle,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
-                DataCell(MoneyText(asDouble(totals['previous']))),
-                DataCell(MoneyText(asDouble(totals['debit']))),
-                DataCell(_creditCell(totals['credit'])),
                 DataCell(
-                  MoneyText(
-                    asDouble(totals['balance']),
-                    colorNegative: true,
-                    style: theme.textTheme.titleSmall,
+                  Center(child: MoneyText(asDouble(totals['previous']))),
+                ),
+                DataCell(Center(child: MoneyText(asDouble(totals['debit'])))),
+                DataCell(Center(child: _creditCell(totals['credit']))),
+                DataCell(
+                  Center(
+                    child: MoneyText(
+                      asDouble(totals['balance']),
+                      colorNegative: true,
+                      style: theme.textTheme.titleSmall,
+                    ),
                   ),
                 ),
               ],
