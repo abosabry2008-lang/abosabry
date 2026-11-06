@@ -225,6 +225,31 @@ const COMPACT_TABLE_CSS = `
   .doc-footer { margin-top: 8px; padding-top: 4px; font-size: 9px; }
 `;
 
+/** A5 ledger for the salesperson customer-debt report: full grid, bold rows. */
+const SALESPERSON_DEBT_A5_CSS = `
+  @page { size: A5; margin: 6mm; }
+  body { padding: 0; background: #ffffff; font-size: 11.5px; line-height: 1.3; }
+  .page { max-width: none; width: auto; margin: 0; padding: 0; border: 0; border-radius: 0; }
+  .doc-header { padding-bottom: 6px; margin-bottom: 8px; }
+  .company h1 { font-size: 17px; }
+  .company .muted { font-size: 10px; }
+  .doc-title h2 { font-size: 15px; margin-bottom: 2px; }
+  section.meta { gap: 3px 12px; padding: 5px 9px; margin-bottom: 7px; font-size: 10.5px; }
+  table.data { width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: auto; }
+  table.data th, table.data td { border: 1px solid #8e9aa8; padding: 4px 5px; font-size: 11.5px; }
+  table.data thead th { background: #0f172a; color: #ffffff; font-size: 10px; padding: 4px 5px; }
+  table.data tbody tr:nth-child(even) { background: #f5f7f9; }
+  table.data tr.total td { background: #e2e8f0; font-weight: 700; border-top: 2px solid #0f172a; }
+  table.data th.num, table.data td.num { text-align: right; }
+  table.data tr { page-break-inside: avoid; break-inside: avoid; }
+  table.data thead { display: table-header-group; }
+  .doc-footer { margin-top: 8px; padding-top: 4px; font-size: 9px; }
+  @media print {
+    table.data thead th { background: #0f172a !important; color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    table.data tr.total td { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+`;
+
 export interface PageOptions {
   title: string;
   company: AppSettings;
@@ -1492,7 +1517,7 @@ export function salespersonCustomerDebtHtml(
         <td>${escapeHtml(row.customer)}</td>
         <td class="num">${money(row.previous)}</td>
         <td class="num">${money(row.debit)}</td>
-        <td class="num">${money(row.credit)}</td>
+        <td class="num">${row.credit ? money(row.credit) : ''}</td>
         <td class="num">${money(row.balance)}</td>
       </tr>`,
     )
@@ -1524,11 +1549,11 @@ export function salespersonCustomerDebtHtml(
       </thead>
       <tbody>
 ${rows || `        <tr><td colspan="6" class="muted center">${empty}</td></tr>`}
-        <tr class="total"><td></td><td>${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${money(report.totals.previous)}</td><td class="num">${money(report.totals.debit)}</td><td class="num">${money(report.totals.credit)}</td><td class="num">${money(report.totals.balance)}</td></tr>
+        <tr class="total"><td></td><td>${ar ? 'الإجمالي' : 'Totals'}</td><td class="num">${money(report.totals.previous)}</td><td class="num">${money(report.totals.debit)}</td><td class="num">${report.totals.credit ? money(report.totals.credit) : ''}</td><td class="num">${money(report.totals.balance)}</td></tr>
       </tbody>
     </table>`;
 
-  const compactCss = COMPACT_TABLE_CSS;
+  const compactCss = SALESPERSON_DEBT_A5_CSS;
 
   return renderPage({
     title: ar ? 'مديونية عملاء المندوب' : 'Salesperson customer debt',

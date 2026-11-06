@@ -160,9 +160,13 @@ class _DebtTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.s;
     final theme = Theme.of(context);
-    final headerStyle = theme.textTheme.labelMedium?.copyWith(
-      fontWeight: FontWeight.w600,
-      color: theme.colorScheme.outline,
+    final headerStyle = theme.textTheme.titleSmall?.copyWith(
+      fontWeight: FontWeight.w700,
+      color: theme.colorScheme.onSurface,
+    );
+    final dataStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontSize: 13.5,
+      fontWeight: FontWeight.w500,
     );
 
     return SingleChildScrollView(
@@ -173,13 +177,19 @@ class _DebtTable extends StatelessWidget {
         ),
         child: DataTable(
           border: TableBorder.all(
-            color: theme.colorScheme.outlineVariant,
-            width: 0.6,
+            color: theme.colorScheme.outline,
+            width: 0.8,
           ),
           showCheckboxColumn: false,
+          headingRowColor: WidgetStatePropertyAll<Color>(
+            theme.colorScheme.surfaceContainerHighest,
+          ),
           headingTextStyle: headerStyle,
-          dataTextStyle: theme.textTheme.bodyMedium,
-          columnSpacing: 18,
+          dataTextStyle: dataStyle,
+          horizontalMargin: 12,
+          columnSpacing: 22,
+          dataRowMinHeight: 40,
+          dataRowMaxHeight: 48,
           columns: <DataColumn>[
             DataColumn(label: Text('#', style: headerStyle)),
             DataColumn(label: Text(s.customer, style: headerStyle)),
@@ -202,7 +212,7 @@ class _DebtTable extends StatelessWidget {
                   DataCell(Text(asString(rows[index]['customer']))),
                   DataCell(MoneyText(asDouble(rows[index]['previous']))),
                   DataCell(MoneyText(asDouble(rows[index]['debit']))),
-                  DataCell(MoneyText(asDouble(rows[index]['credit']))),
+                  DataCell(_creditCell(rows[index]['credit'])),
                   DataCell(
                     MoneyText(
                       asDouble(rows[index]['balance']),
@@ -225,7 +235,7 @@ class _DebtTable extends StatelessWidget {
                 ),
                 DataCell(MoneyText(asDouble(totals['previous']))),
                 DataCell(MoneyText(asDouble(totals['debit']))),
-                DataCell(MoneyText(asDouble(totals['credit']))),
+                DataCell(_creditCell(totals['credit'])),
                 DataCell(
                   MoneyText(
                     asDouble(totals['balance']),
@@ -239,5 +249,12 @@ class _DebtTable extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// The credit column stays blank when nothing was collected in the period.
+  Widget _creditCell(dynamic value) {
+    final amount = asDouble(value);
+    if (amount == 0) return const Text('');
+    return MoneyText(amount);
   }
 }
