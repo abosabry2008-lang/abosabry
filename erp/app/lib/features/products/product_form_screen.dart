@@ -356,6 +356,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     decimal: false,
                     onChanged: (_) => _recalculateFromBoxes(),
                     prefixIcon: Icons.view_module_outlined,
+                    helperText: s.packagingHelper,
                   ),
                   const SizedBox(height: 14),
                   Row(

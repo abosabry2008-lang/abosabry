@@ -235,6 +235,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                             quantity: line.quantity,
                             unitPrice: line.unitPrice,
                             total: line.total,
+                            sellUnit: line.sellUnit,
+                            boxesPerCarton: line.boxesPerCarton,
                             currencyCode: invoice.currencyCode,
                             profit: _showProfit && session.canViewProfit
                                 ? line.profit
@@ -429,6 +431,8 @@ class _LineTile extends StatelessWidget {
     required this.quantity,
     required this.unitPrice,
     required this.total,
+    this.sellUnit = 'unit',
+    this.boxesPerCarton = 0,
     this.currencyCode,
     this.profit,
   });
@@ -437,6 +441,8 @@ class _LineTile extends StatelessWidget {
   final int quantity;
   final double unitPrice;
   final double total;
+  final String sellUnit;
+  final int boxesPerCarton;
   final String? currencyCode;
   /// Line profit; null hides it (non-managers, or the toggle is off).
   final double? profit;
@@ -445,6 +451,12 @@ class _LineTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.s;
     final theme = Theme.of(context);
+    final carton = sellUnit == 'carton' &&
+        boxesPerCarton > 0 &&
+        quantity % boxesPerCarton == 0;
+    final shownQuantity = carton ? quantity ~/ boxesPerCarton : quantity;
+    final shownPrice = carton ? unitPrice * boxesPerCarton : unitPrice;
+    final title = carton ? '$description · ${s.carton}' : description;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -454,12 +466,12 @@ class _LineTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(description.isEmpty ? s.itemFallback : description,
+                Text(title.isEmpty ? s.itemFallback : title,
                     style: theme.textTheme.bodyLarge),
                 Text(
                   s.qtyTimesPrice(
-                    '$quantity',
-                    Formatters.money(unitPrice, currencyCode: currencyCode),
+                    '$shownQuantity',
+                    Formatters.money(shownPrice, currencyCode: currencyCode),
                   ),
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.outline),

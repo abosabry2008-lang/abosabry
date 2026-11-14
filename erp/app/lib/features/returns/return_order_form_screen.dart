@@ -8,6 +8,7 @@ import '../../models/product.dart';
 import '../../models/return_order.dart';
 import '../../models/warehouse.dart';
 import '../../state/customers_controller.dart';
+import '../../state/product_catalog.dart';
 import '../../state/returns_controller.dart';
 import '../../state/salespeople_controller.dart';
 import '../../state/suppliers_controller.dart';
@@ -66,16 +67,41 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
               quantity: line.quantity.toDouble(),
               price: line.unitPrice,
               taxRate: line.taxRate,
+              sellUnit: line.sellUnit,
             ),
           ),
         );
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       context.read<CustomersController>().ensureCatalogLoaded();
       context.read<SuppliersController>().ensureCatalogLoaded();
       context.read<SalespeopleController>().ensureLoaded();
       _loadWarehouses();
+      final catalog = context.read<ProductCatalog>();
+      await catalog.ensureLoaded();
+      if (!mounted) return;
+      setState(() {
+        for (final draft in _lines) {
+          final product = draft.product;
+          if (product == null) continue;
+          final full = catalog.byId(product.id);
+          if (full == null) continue;
+          draft.product = full;
+          final boxes = full.boxesPerCarton;
+          if (draft.sellUnit == 'carton' && boxes > 0) {
+            final baseQty = draft.quantity;
+            final basePrice = draft.price;
+            if (baseQty >= boxes && baseQty % boxes == 0) {
+              draft.quantityController.text = (baseQty ~/ boxes).toString();
+              draft.priceController.text =
+                  (basePrice * boxes).toString();
+            } else {
+              draft.sellUnit = 'unit';
+            }
+          }
+        }
+      });
     });
   }
 
@@ -134,6 +160,7 @@ class _ReturnOrderFormScreenState extends State<ReturnOrderFormScreen> {
               'quantity': line.quantity,
               'unitPrice': line.price,
               'taxRate': line.taxRate,
+              'sellUnit': line.sellUnit,
             },
           )
           .toList(),

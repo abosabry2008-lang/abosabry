@@ -352,6 +352,10 @@ class AppStrings {
   String get taxRatePercent => _t('Tax rate %', 'نسبة الضريبة %');
   String get unit => _t('Unit', 'الوحدة');
   String get boxesPerCarton => _t('Boxes per carton', 'عدد العلب في الكرتونة');
+  String get packagingHelper => _t(
+        'Stock is stored in boxes. Enter the box price first, then the carton price, so sales can be made by box or carton.',
+        'المخزون يُحفظ بالعلبة. أدخل سعر العلبة أولًا ثم سعر الكرتونة، حتى يتم البيع بالعلبة أو الكرتونة.',
+      );
   String get boxPrice => _t('Box price', 'سعر العلبة');
   String get cartonPrice => _t('Carton price', 'سعر الكرتونة');
   String get cartonCost => _t('Carton cost', 'تكلفة الكرتونة');
@@ -1571,6 +1575,8 @@ class AppStrings {
   String get lastSalePriceToCustomer => _t('Last sale price to this customer', 'آخر سعر بيع لهذا العميل');
   String get showProfit => _t('Show profit', 'إظهار الربح');
   String get hideProfit => _t('Hide profit', 'إخفاء الربح');
+  String get showCost => _t('Show cost', 'إظهار التكلفة');
+  String get hideCost => _t('Hide cost', 'إخفاء التكلفة');
   String get marginPercent => _t('Margin %', 'الهامش %');
   String get outputTax => _t('Output tax (sales)', 'ضريبة المخرجات (المبيعات)');
   String get inputTax =>

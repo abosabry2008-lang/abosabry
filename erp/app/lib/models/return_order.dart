@@ -10,6 +10,7 @@ class ReturnLine {
     this.unitPrice = 0,
     this.unitCost = 0,
     this.taxRate = 0,
+    this.sellUnit = 'unit',
     this.productName,
     this.sku,
   });
@@ -21,6 +22,8 @@ class ReturnLine {
   final double unitPrice;
   final double unitCost;
   final double taxRate;
+  /// unit | box | carton
+  final String sellUnit;
   final String? productName;
   final String? sku;
 
@@ -36,6 +39,7 @@ class ReturnLine {
       unitPrice: asDouble(json['unitPrice']),
       unitCost: asDouble(json['unitCost']),
       taxRate: asDouble(json['taxRate']),
+      sellUnit: asString(json['sellUnit'], fallback: 'unit'),
       productName: asStringOrNull(product['name']),
       sku: asStringOrNull(product['sku']),
     );

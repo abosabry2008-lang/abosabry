@@ -9,16 +9,40 @@ class PosCartLine {
   PosCartLine({
     required this.product,
     this.quantity = 1,
+    String? sellUnit,
     double? unitPrice,
     this.discount = 0,
-  }) : unitPrice = unitPrice ?? product.salePrice;
+  })  : sellUnit = sellUnit ??
+            (product.boxesPerCarton > 0 ? 'carton' : 'unit'),
+        unitPrice = unitPrice ??
+            priceFor(
+              product,
+              sellUnit ?? (product.boxesPerCarton > 0 ? 'carton' : 'unit'),
+            );
 
   final Product product;
   int quantity;
+  /// unit | box | carton
+  String sellUnit;
   double unitPrice;
   double discount;
 
   double get lineTotal => (quantity * unitPrice) - discount;
+
+  double get unitFactor =>
+      sellUnit == 'carton' && product.boxesPerCarton > 0
+          ? product.boxesPerCarton.toDouble()
+          : 1;
+
+  int get baseQuantity => (quantity * unitFactor).round();
+
+  static double priceFor(Product product, String unit) {
+    final boxes = product.boxesPerCarton;
+    if (unit == 'carton' && boxes > 0) {
+      return product.cartonPrice ?? product.salePrice * boxes;
+    }
+    return product.boxPrice ?? product.salePrice;
+  }
 }
 
 /// State for the point-of-sale screen.
@@ -36,7 +60,7 @@ class PosController extends ChangeNotifier {
   String? error;
 
   int get itemCount =>
-      lines.fold<int>(0, (sum, line) => sum + line.quantity);
+      lines.fold<int>(0, (sum, line) => sum + line.baseQuantity);
 
   double get subtotal =>
       lines.fold<double>(0, (sum, line) => sum + line.lineTotal);
@@ -63,50 +87,67 @@ class PosController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addProduct(Product product, {int quantity = 1}) {
+  void addProduct(Product product, {int quantity = 1, String? sellUnit}) {
+    final unit = sellUnit ??
+        (product.boxesPerCarton > 0 ? 'carton' : 'unit');
     for (final line in lines) {
-      if (line.product.id == product.id) {
+      if (line.product.id == product.id && line.sellUnit == unit) {
         line.quantity += quantity;
         notifyListeners();
         return;
       }
     }
-    lines.add(PosCartLine(product: product, quantity: quantity));
+    lines.add(
+      PosCartLine(product: product, quantity: quantity, sellUnit: unit),
+    );
     notifyListeners();
   }
 
-  void setQuantity(String productId, int quantity) {
+  void setQuantity(PosCartLine line, int quantity) {
     if (quantity <= 0) {
-      removeProduct(productId);
+      removeLine(line);
       return;
     }
-    for (final line in lines) {
-      if (line.product.id == productId) {
-        line.quantity = quantity;
-        notifyListeners();
-        return;
-      }
-    }
+    line.quantity = quantity;
+    notifyListeners();
   }
 
-  void setUnitPrice(String productId, double price) {
-    for (final line in lines) {
-      if (line.product.id == productId) {
-        line.unitPrice = price;
-        notifyListeners();
-        return;
+  void setUnit(PosCartLine line, String unit) {
+    if (line.sellUnit == unit) return;
+    final baseQty = line.baseQuantity;
+    final total = line.quantity * line.unitPrice;
+    final boxes = line.product.boxesPerCarton;
+    line.sellUnit = unit;
+    if (unit == 'carton' && boxes > 0) {
+      if (baseQty >= boxes && baseQty % boxes == 0) {
+        final cartons = baseQty ~/ boxes;
+        line.quantity = cartons;
+        line.unitPrice = total / cartons;
+      } else {
+        line.quantity = 1;
+        line.unitPrice = PosCartLine.priceFor(line.product, 'carton');
       }
+    } else {
+      line.quantity = baseQty;
+      line.unitPrice = baseQty <= 0
+          ? PosCartLine.priceFor(line.product, 'box')
+          : total / baseQty;
     }
+    notifyListeners();
   }
 
-  void setDiscount(String productId, double discount) {
-    for (final line in lines) {
-      if (line.product.id == productId) {
-        line.discount = discount;
-        notifyListeners();
-        return;
-      }
-    }
+  void setUnitPrice(PosCartLine line, double price) {
+    line.unitPrice = price;
+    notifyListeners();
+  }
+
+  void setDiscount(PosCartLine line, double discount) {
+    line.discount = discount;
+    notifyListeners();
+  }
+
+  void removeLine(PosCartLine line) {
+    if (lines.remove(line)) notifyListeners();
   }
 
   void removeProduct(String productId) {
@@ -150,6 +191,7 @@ class PosController extends ChangeNotifier {
                     'quantity': line.quantity,
                     'unitPrice': line.unitPrice,
                     'discount': line.discount,
+                    'sellUnit': line.sellUnit,
                   })
               .toList(),
           'method': method,

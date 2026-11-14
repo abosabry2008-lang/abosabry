@@ -151,9 +151,14 @@ class _ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = context.s;
     final cart = context.watch<PosController>();
     final inCart = cart.lines
         .any((line) => line.product.id == (product.id as String? ?? ''));
+    final packaged = product.boxesPerCarton > 0;
+    final displayPrice = packaged
+        ? (product.cartonPrice ?? product.salePrice * product.boxesPerCarton)
+        : product.salePrice;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -179,7 +184,7 @@ class _ProductCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '${product.sku}',
+                '${product.sku}${packaged ? ' · ${s.carton}' : ''}',
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: theme.colorScheme.outline),
                 overflow: TextOverflow.ellipsis,
@@ -189,7 +194,7 @@ class _ProductCard extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: MoneyText(
-                      product.salePrice,
+                      displayPrice,
                       currencyCode: product.currencyCode,
                       style: theme.textTheme.titleMedium,
                     ),
@@ -491,6 +496,22 @@ class _CartLineRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(line.product.name, style: theme.textTheme.bodyLarge),
+                if (line.product.boxesPerCarton > 0)
+                  DropdownButton<String>(
+                    value: line.sellUnit == 'carton' ? 'carton' : 'box',
+                    isDense: true,
+                    underline: const SizedBox.shrink(),
+                    items: <DropdownMenuItem<String>>[
+                      DropdownMenuItem(value: 'box', child: Text(s.box)),
+                      DropdownMenuItem(
+                        value: 'carton',
+                        child: Text(s.carton),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) cart.setUnit(line, value);
+                    },
+                  ),
                 MoneyText(
                   line.lineTotal,
                   style: theme.textTheme.bodyMedium,
@@ -501,19 +522,19 @@ class _CartLineRow extends StatelessWidget {
           IconButton(
             tooltip: s.decrease,
             onPressed: () =>
-                cart.setQuantity(line.product.id, line.quantity - 1),
+                cart.setQuantity(line, line.quantity - 1),
             icon: const Icon(Icons.remove_circle_outline),
           ),
           Text('${line.quantity}', style: theme.textTheme.titleMedium),
           IconButton(
             tooltip: s.increase,
             onPressed: () =>
-                cart.setQuantity(line.product.id, line.quantity + 1),
+                cart.setQuantity(line, line.quantity + 1),
             icon: const Icon(Icons.add_circle_outline),
           ),
           IconButton(
             tooltip: s.remove,
-            onPressed: () => cart.removeProduct(line.product.id),
+            onPressed: () => cart.removeLine(line),
             icon: const Icon(Icons.delete_outline),
           ),
         ],

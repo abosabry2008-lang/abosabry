@@ -335,6 +335,8 @@ class _SalesOrderDetailScreenState extends State<SalesOrderDetailScreen> {
                             quantity: line.quantity,
                             fulfilled: line.fulfilledQty,
                             unitPrice: line.unitPrice,
+                            sellUnit: line.sellUnit,
+                            boxesPerCarton: line.boxesPerCarton,
                             currencyCode: order.currencyCode,
                           ),
                       ],
@@ -476,6 +478,8 @@ class _LineTile extends StatelessWidget {
     required this.quantity,
     required this.fulfilled,
     required this.unitPrice,
+    this.sellUnit = 'unit',
+    this.boxesPerCarton = 0,
     this.currencyCode,
   });
 
@@ -484,12 +488,19 @@ class _LineTile extends StatelessWidget {
   final int quantity;
   final int fulfilled;
   final double unitPrice;
+  final String sellUnit;
+  final int boxesPerCarton;
   final String? currencyCode;
 
   @override
   Widget build(BuildContext context) {
     final s = context.s;
     final theme = Theme.of(context);
+    final carton = sellUnit == 'carton' && boxesPerCarton > 0;
+    final shownQty = carton ? quantity ~/ boxesPerCarton : quantity;
+    final shownFulfilled = carton ? fulfilled ~/ boxesPerCarton : fulfilled;
+    final shownPrice = carton ? unitPrice * boxesPerCarton : unitPrice;
+    final title = carton ? '$name · ${s.carton}' : name;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -499,9 +510,9 @@ class _LineTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(name, style: theme.textTheme.bodyLarge),
+                Text(title, style: theme.textTheme.bodyLarge),
                 Text(
-                  '${sku ?? '—'} · ${s.lineQtyFulfilled(quantity, fulfilled)}',
+                  '${sku ?? '—'} · ${s.lineQtyFulfilled(shownQty, shownFulfilled)}',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.outline),
                 ),
@@ -510,7 +521,7 @@ class _LineTile extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           MoneyText(
-            unitPrice,
+            shownPrice,
             currencyCode: currencyCode,
             style: theme.textTheme.bodyMedium,
           ),

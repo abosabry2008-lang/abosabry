@@ -95,6 +95,7 @@ class _PurchaseOrderFormScreenState extends State<PurchaseOrderFormScreen> {
                   'quantity': line.quantity,
                   'unitCost': line.price,
                   'taxRate': line.taxRate,
+                  'sellUnit': line.sellUnit,
                 },
               )
               .toList(),

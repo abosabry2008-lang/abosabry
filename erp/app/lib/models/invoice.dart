@@ -14,6 +14,7 @@ class InvoiceLine {
     this.total = 0,
     this.sellUnit = 'unit',
     this.unitCost = 0,
+    this.boxesPerCarton = 0,
   });
 
   final String id;
@@ -28,6 +29,8 @@ class InvoiceLine {
   final String sellUnit;
   /// Product cost per unit, used for profit (managers and admins only).
   final double unitCost;
+  /// Packaging snapshot used to show carton quantities on the detail screen.
+  final int boxesPerCarton;
 
   /// Revenue before tax: quantity × price minus the line discount.
   double get netRevenue => quantity * unitPrice - discount;
@@ -51,6 +54,7 @@ class InvoiceLine {
       sellUnit: asString(json['sellUnit'], fallback: 'unit'),
       unitCost: asDoubleOrNull(json['unitCost']) ??
           asDouble(product['costPrice']),
+      boxesPerCarton: asInt(product['boxesPerCarton']),
     );
   }
 

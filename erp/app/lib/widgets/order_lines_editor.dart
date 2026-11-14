@@ -60,15 +60,27 @@ class OrderLineDraft {
   /// Pre-tax revenue and cost for this line (admin-only profit view).
   double get revenue => net;
 
-  double get cost => quantity * (product?.costPrice ?? 0);
+  /// The sell unit expressed in base boxes (stock is stored in boxes).
+  int get baseQuantity {
+    final boxes = product?.boxesPerCarton ?? 0;
+    return sellUnit == 'carton' && boxes > 0 ? quantity * boxes : quantity;
+  }
+
+  double get cost => baseQuantity * (product?.costPrice ?? 0);
 
   double get profit => revenue - cost;
 
   bool get isValid => product != null && product!.id.isNotEmpty && quantity > 0;
 
-  /// True when a priced line sells below the product's recorded cost.
-  bool get priceBelowCost =>
-      product != null && price > 0 && price < product!.costPrice;
+  /// True when the price per base box sells below the recorded cost.
+  bool get priceBelowCost {
+    final value = product;
+    if (value == null || price <= 0) return false;
+    final boxes = value.boxesPerCarton;
+    final perBox =
+        sellUnit == 'carton' && boxes > 0 ? price / boxes : price;
+    return perBox < value.costPrice;
+  }
 
   void applyPackPrice({bool preferSalePrice = true}) {
     final p = product;
@@ -94,12 +106,12 @@ class OrderLineDraft {
           priceController.text = _format(p.boxPrice!);
         } else if (p.cartonPrice != null && p.cartonPrice! > 0 && bpc > 0) {
           priceController.text = _format((p.cartonPrice! / bpc).toDouble());
-        } else if (p.salePrice > 0 && bpc > 0) {
-          priceController.text = _format((p.salePrice * bpc).toDouble());
+        } else if (p.salePrice > 0) {
+          priceController.text = _format(p.salePrice);
         } else if (p.costPrice > 0) {
           priceController.text = _format(p.costPrice);
         } else {
-          priceController.text = _format(((p.salePrice / bpc)).clamp(0, double.infinity).toDouble());
+          priceController.text = _format(p.salePrice);
         }
       } else {
         if (p.costPrice > 0) {
@@ -109,7 +121,7 @@ class OrderLineDraft {
         } else if (p.cartonPrice != null && p.cartonPrice! > 0 && bpc > 0) {
           priceController.text = _format((p.cartonPrice! / bpc).toDouble());
         } else {
-          priceController.text = _format(((p.salePrice / bpc)).clamp(0, double.infinity).toDouble());
+          priceController.text = _format(p.salePrice);
         }
       }
     } else if (sellUnit == 'carton') {
@@ -222,6 +234,7 @@ class OrderLinesEditor extends StatelessWidget {
     this.customerId,
     this.supplierId,
     this.showProfit = false,
+    this.showCost = false,
     this.showHistoryHint = true,
   });
 
@@ -250,6 +263,9 @@ class OrderLinesEditor extends StatelessWidget {
 
   /// Admin-only: show revenue, cost and profit for the document being entered.
   final bool showProfit;
+
+  /// Admin-only: show the box/carton cost under each line.
+  final bool showCost;
 
   /// Shows the "last price" hint under each line. Sales orders hide it to keep
   /// the sheet compact (the price is already pre-filled from that history).
@@ -358,6 +374,7 @@ class OrderLinesEditor extends StatelessWidget {
                 customerId: customerId,
                 supplierId: supplierId,
                 showHistoryHint: showHistoryHint,
+                showCost: showCost,
                 onProductPicked: (product, target) =>
                     _prefillLastPrice(context, target, product),
                 onChanged: onChanged,
@@ -432,6 +449,7 @@ class _OrderLineRow extends StatefulWidget {
     this.customerId,
     this.supplierId,
     this.showHistoryHint = true,
+    this.showCost = false,
     this.onProductPicked,
     required this.onChanged,
     required this.onRemove,
@@ -447,6 +465,7 @@ class _OrderLineRow extends StatefulWidget {
   final String? customerId;
   final String? supplierId;
   final bool showHistoryHint;
+  final bool showCost;
   final void Function(Product product, OrderLineDraft line)? onProductPicked;
   final VoidCallback onChanged;
   final VoidCallback onRemove;
@@ -582,6 +601,31 @@ class _OrderLineRowState extends State<_OrderLineRow> {
                 ),
               ],
             ),
+            if (widget.showCost && product != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Wrap(
+                  spacing: 14,
+                  runSpacing: 4,
+                  children: <Widget>[
+                    Text(
+                      '${s.boxCostPrice}: ${Formatters.money(product.costPrice)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.tertiary,
+                      ),
+                    ),
+                    if (product.boxesPerCarton > 0)
+                      Text(
+                        '${s.cartonCost}: ${Formatters.money(product.costPrice * product.boxesPerCarton)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.tertiary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             if (product != null) ...<Widget>[
               if (widget.showHistoryHint && widget.customerId != null)
                 LastSalePriceLoader(

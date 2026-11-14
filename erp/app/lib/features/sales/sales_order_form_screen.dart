@@ -49,6 +49,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
   bool _saving = false;
   bool _linesDirty = false;
   bool _showProfit = false;
+  bool _showCost = false;
   bool _showPayment = false;
 
   bool get _editing => widget.order != null;
@@ -487,17 +488,36 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                           _lines.where((line) => line.isValid).length,
                         ),
                         trailing: session.isAdmin
-                            ? TextButton.icon(
-                                onPressed: () =>
-                                    setState(() => _showProfit = !_showProfit),
-                                icon: Icon(
-                                  _showProfit
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                ),
-                                label: Text(
-                                  _showProfit ? s.hideProfit : s.showProfit,
-                                ),
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  TextButton.icon(
+                                    onPressed: () => setState(
+                                      () => _showCost = !_showCost,
+                                    ),
+                                    icon: Icon(
+                                      _showCost
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
+                                    label: Text(
+                                      _showCost ? s.hideCost : s.showCost,
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: () => setState(
+                                      () => _showProfit = !_showProfit,
+                                    ),
+                                    icon: Icon(
+                                      _showProfit
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
+                                    label: Text(
+                                      _showProfit ? s.hideProfit : s.showProfit,
+                                    ),
+                                  ),
+                                ],
                               )
                             : null,
                         child: OrderLinesEditor(
@@ -509,6 +529,7 @@ class _SalesOrderFormScreenState extends State<SalesOrderFormScreen> {
                           showHistoryHint: false,
                           customerId: _customerId,
                           showProfit: session.isAdmin && _showProfit,
+                          showCost: session.isAdmin && _showCost,
                           onChanged: () => setState(() => _linesDirty = true),
                         ),
                       ),

@@ -98,6 +98,7 @@ class _PurchaseOrderEditScreenState extends State<PurchaseOrderEditScreen> {
                     'quantity': line.quantity,
                     'unitCost': line.price,
                     'taxRate': line.taxRate,
+                    'sellUnit': line.sellUnit,
                   },
                 )
                 .toList(),

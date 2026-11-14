@@ -44,6 +44,8 @@ const lineSchema = z.object({
   unitPrice: z.number().min(0),
   discount: z.number().min(0).optional(),
   taxRate: z.number().min(0).max(100).optional(),
+  sellUnit: z.enum(['unit', 'box', 'carton']).optional(),
+  unitCost: z.number().min(0).optional(),
 });
 
 const createSchema = z
@@ -381,6 +383,27 @@ router.patch(
           lines: { select: { productId: true, quantity: true } },
         },
       });
+      // `orderLines` carries the editor's sell units; the stored order lines
+      // are always in base boxes, so compare apples to apples here.
+      const boxesById = new Map(
+        (
+          await prisma.product.findMany({
+            where: {
+              id: {
+                in: [...new Set(orderLines.map((line) => line.productId))],
+              },
+            },
+            select: { id: true, boxesPerCarton: true },
+          })
+        ).map((product) => [product.id, Number(product.boxesPerCarton ?? 0)]),
+      );
+      const comparableLines = orderLines.map((line) => ({
+        productId: line.productId,
+        quantity:
+          line.sellUnit === 'carton'
+            ? line.quantity * (boxesById.get(line.productId) ?? 1)
+            : line.quantity,
+      }));
       const signature = (rows: { productId: string; quantity: number }[]) =>
         rows
           .map((row) => `${row.productId}:${row.quantity}`)
@@ -388,7 +411,7 @@ router.patch(
           .join('|');
       if (
         !currentOrder ||
-        signature(currentOrder.lines) !== signature(orderLines)
+        signature(currentOrder.lines) !== signature(comparableLines)
       ) {
         await updateSalesOrder(
           existing.salesOrderId,

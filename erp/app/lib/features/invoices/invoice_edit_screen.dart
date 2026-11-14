@@ -73,7 +73,8 @@ class _InvoiceEditScreenState extends State<InvoiceEditScreen> {
       setState(() {
         for (final line in _lines) {
           if (line.product == null && line.productId != null) {
-            line.product = catalog.byId(line.productId!);
+            final product = catalog.byId(line.productId!);
+            if (product != null) line.applyLoadedProduct(product);
           }
         }
       });

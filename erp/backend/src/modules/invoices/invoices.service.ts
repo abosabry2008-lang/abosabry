@@ -389,32 +389,48 @@ async function buildFromLines(
   const products = productIds.length
     ? await tx.product.findMany({
         where: { id: { in: productIds } },
-        select: { id: true, costPrice: true },
+        select: { id: true, costPrice: true, boxesPerCarton: true },
       })
     : [];
   const costById = new Map(
     products.map((product) => [product.id, Number(product.costPrice)]),
   );
+  const boxesById = new Map(
+    products.map((product) => [product.id, Number(product.boxesPerCarton ?? 0)]),
+  );
   const lines = provided.map((line) => {
     const taxRate = taxEnabled ? line.taxRate ?? 0 : 0;
+    // Direct invoices accept quantities and prices in the sell unit the
+    // operator picked. Stock and stored line values are always in base boxes,
+    // so a carton line is converted here (price is split across its boxes).
+    const sellUnit =
+      line.sellUnit === 'carton' || line.sellUnit === 'box'
+        ? line.sellUnit
+        : 'unit';
+    const boxesPerCarton = line.productId
+      ? boxesById.get(line.productId) ?? 0
+      : 0;
+    const factor = sellUnit === 'carton' && boxesPerCarton > 0 ? boxesPerCarton : 1;
+    const quantity = Math.round(Number(line.quantity) * factor);
+    const unitPrice = factor > 1 ? Number(line.unitPrice) / factor : Number(line.unitPrice);
     const totals = lineTotals({
-      quantity: line.quantity,
-      unitPrice: line.unitPrice,
+      quantity,
+      unitPrice,
       discount: line.discount,
       taxRate,
     });
     return {
       productId: line.productId ?? null,
       description: line.description ?? 'Item',
-      quantity: line.quantity,
-      unitPrice: line.unitPrice,
+      quantity,
+      unitPrice,
       unitCost:
         line.unitCost ??
         (line.productId ? costById.get(line.productId) ?? 0 : 0),
       discount: line.discount ?? 0,
       taxRate,
       total: totals.total,
-      sellUnit: line.sellUnit ?? 'unit',
+      sellUnit,
     } as any;
   });
   return {
