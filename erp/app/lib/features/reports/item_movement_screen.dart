@@ -191,8 +191,13 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
 
     final unit = asString(product['unit']);
     final boxesPerCarton = asInt(product['boxesPerCarton']);
-    final unitLabel =
-        boxesPerCarton > 0 || unit.isEmpty || unit == 'carton' ? s.box : unit;
+    final unitLabel = boxesPerCarton > 0 ||
+            unit.isEmpty ||
+            unit == 'carton' ||
+            unit == 'pc' ||
+            unit == 'unit'
+        ? s.box
+        : unit;
     final openingQty = _num(opening['quantity']);
     final openingValue = _num(opening['value']);
     final inQty = _num(totals['inQty']);

@@ -62254,7 +62254,7 @@ if(d2.d==null)d7=d7.gh()==="ar"?"\u0627\u062e\u062a\u0631 \u0635\u0646\u0641\u06
 else d7=d7.gh()==="ar"?"\u0644\u0627 \u062a\u0648\u062c\u062f \u0628\u064a\u0627\u0646\u0627\u062a \u0644\u0644\u0641\u0644\u0627\u062a\u0631 \u0627\u0644\u0645\u062d\u062f\u062f\u0629.":"No data for the selected filters."
 return new A.hF(B.os,m,d7,d3,d3)}l=A.D(q.i(0,"unit"),"")
 k=A.cd(q.i(0,"boxesPerCarton"),0)
-if(k>0||l.length===0||l==="carton")j=d7.a.gh()==="ar"?"\u0627\u0644\u062e\u0632\u0646\u0629":"Box"
+if(k>0||l.length===0||l==="carton"||l==="pc"||l==="unit")j=d7.a.gh()==="ar"?"\u0627\u0644\u062e\u0632\u0646\u0629":"Box"
 else j=l
 i=A.n9(p.i(0,d6))
 h=A.n9(p.i(0,"value"))

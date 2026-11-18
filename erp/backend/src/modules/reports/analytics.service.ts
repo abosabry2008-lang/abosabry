@@ -569,7 +569,8 @@ export async function buildItemMovement(
     };
   });
 
-  const closingValue = round2(openingValue + inValue - outValue);
+  const closingValue =
+    running === 0 ? 0 : round2(openingValue + inValue - outValue);
 
   return {
     product: {
