@@ -1583,6 +1583,308 @@ router.get(
   }),
 );
 
+// GET /reports/negative-stock
+router.get(
+  '/negative-stock',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const warehouseId = asString(req.query.warehouseId);
+    const categoryId = asString(req.query.categoryId);
+    const search = asString(req.query.search);
+
+    const rows = await prisma.stockLevel.findMany({
+      where: {
+        quantity: { lt: 0 },
+        ...(warehouseId ? { warehouseId } : {}),
+        product: {
+          deletedAt: null,
+          ...(categoryId ? { categoryId } : {}),
+          ...(search
+            ? {
+                OR: [
+                  { name: { contains: search, mode: 'insensitive' } },
+                  { sku: { contains: search, mode: 'insensitive' } },
+                  { barcode: { contains: search, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
+      },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            unit: true,
+            boxesPerCarton: true,
+            costPrice: true,
+            category: { select: { name: true } },
+          },
+        },
+        warehouse: { select: { id: true, name: true, code: true } },
+        location: { select: { code: true, name: true } },
+      },
+      orderBy: { quantity: 'asc' },
+    });
+
+    ok(res, {
+      rows: rows.map((row) => ({
+        id: row.id,
+        warehouseId: row.warehouseId,
+        warehouse: row.warehouse.name,
+        location: row.location.name ?? row.location.code,
+        productId: row.productId,
+        product: row.product.name,
+        sku: row.product.sku,
+        unit: row.product.unit,
+        boxesPerCarton: row.product.boxesPerCarton,
+        category: row.product.category?.name ?? null,
+        quantity: row.quantity,
+        unitCost: round2(Number(row.product.costPrice)),
+        value: round2(Math.abs(row.quantity) * Number(row.product.costPrice)),
+      })),
+      totals: {
+        items: rows.length,
+        quantity: rows.reduce((sum, row) => sum + row.quantity, 0),
+        value: round2(
+          rows.reduce(
+            (sum, row) =>
+              sum + Math.abs(row.quantity) * Number(row.product.costPrice),
+            0,
+          ),
+        ),
+      },
+    });
+  }),
+);
+
+// GET /reports/stock-adjustments?from=&to=&warehouseId=&search=
+router.get(
+  '/stock-adjustments',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDateEnd(req.query.to);
+    const warehouseId = asString(req.query.warehouseId);
+    const search = asString(req.query.search);
+
+    const rows = await prisma.stockMovement.findMany({
+      where: {
+        type: 'ADJUSTMENT',
+        ...(warehouseId ? { warehouseId } : {}),
+        ...(from || to
+          ? {
+              createdAt: {
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {}),
+              },
+            }
+          : {}),
+        ...(search
+          ? {
+              OR: [
+                { product: { name: { contains: search, mode: 'insensitive' } } },
+                { product: { sku: { contains: search, mode: 'insensitive' } } },
+                { reference: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        product: {
+          select: { name: true, sku: true, unit: true, boxesPerCarton: true },
+        },
+        location: { select: { code: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 3000,
+    });
+
+    const warehouses = await prisma.warehouse.findMany({
+      select: { id: true, name: true },
+    });
+    const warehouseById = new Map(
+      warehouses.map((warehouse) => [warehouse.id, warehouse.name]),
+    );
+
+    const inQty = rows
+      .filter((row) => row.quantity > 0)
+      .reduce((sum, row) => sum + row.quantity, 0);
+    const outQty = rows
+      .filter((row) => row.quantity < 0)
+      .reduce((sum, row) => sum + Math.abs(row.quantity), 0);
+
+    ok(res, {
+      from: from ? from.toISOString() : null,
+      to: to ? to.toISOString() : null,
+      rows: rows.map((row) => ({
+        date: row.createdAt.toISOString(),
+        reference: row.reference,
+        note: row.note,
+        warehouse: warehouseById.get(row.warehouseId) ?? null,
+        location: row.location.name ?? row.location.code,
+        product: row.product.name,
+        sku: row.product.sku,
+        unit: row.product.unit,
+        boxesPerCarton: row.product.boxesPerCarton,
+        quantity: row.quantity,
+        unitCost: round2(Number(row.unitCost)),
+        value: round2(Math.abs(row.quantity) * Number(row.unitCost)),
+      })),
+      totals: {
+        count: rows.length,
+        inQty,
+        outQty,
+        value: round2(
+          rows.reduce(
+            (sum, row) => sum + Math.abs(row.quantity) * Number(row.unitCost),
+            0,
+          ),
+        ),
+      },
+    });
+  }),
+);
+
+// GET /reports/cycle-counts?from=&to=&warehouseId=&search=
+router.get(
+  '/cycle-counts',
+  requirePermission('reports.read'),
+  asyncHandler(async (req, res) => {
+    const from = asDate(req.query.from);
+    const to = asDateEnd(req.query.to);
+    const warehouseId = asString(req.query.warehouseId);
+    const search = asString(req.query.search);
+
+    const movements = await prisma.stockMovement.findMany({
+      where: {
+        type: 'CYCLE_COUNT',
+        ...(warehouseId ? { warehouseId } : {}),
+        ...(from || to
+          ? {
+              createdAt: {
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {}),
+              },
+            }
+          : {}),
+        ...(search
+          ? {
+              OR: [
+                { product: { name: { contains: search, mode: 'insensitive' } } },
+                { product: { sku: { contains: search, mode: 'insensitive' } } },
+                { reference: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        product: {
+          select: {
+            name: true,
+            sku: true,
+            unit: true,
+            boxesPerCarton: true,
+          },
+        },
+        location: { select: { id: true, code: true, name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 3000,
+    });
+
+    const warehouses = await prisma.warehouse.findMany({
+      select: { id: true, name: true },
+    });
+    const warehouseById = new Map(
+      warehouses.map((warehouse) => [warehouse.id, warehouse.name]),
+    );
+
+    const rows = movements.map((movement) => {
+      const counted = movement.balanceAfter ?? movement.quantity;
+      const system = counted - movement.quantity;
+      return {
+        date: movement.createdAt.toISOString(),
+        reference:
+          movement.reference ??
+          `${localDayKey(movement.createdAt)} · ${movement.location.code}`,
+        warehouse: warehouseById.get(movement.warehouseId) ?? null,
+        location: movement.location.name ?? movement.location.code,
+        product: movement.product.name,
+        sku: movement.product.sku,
+        unit: movement.product.unit,
+        boxesPerCarton: movement.product.boxesPerCarton,
+        systemQty: system,
+        countedQty: counted,
+        difference: movement.quantity,
+        unitCost: round2(Number(movement.unitCost)),
+        value: round2(Math.abs(movement.quantity) * Number(movement.unitCost)),
+      };
+    });
+
+    const sessionMap = new Map<
+      string,
+      {
+        reference: string;
+        date: string;
+        warehouse: string | null;
+        location: string;
+        items: number;
+        shortageQty: number;
+        surplusQty: number;
+        netQty: number;
+        value: number;
+      }
+    >();
+    for (const row of rows) {
+      const key = `${row.reference}|${row.location}`;
+      const entry = sessionMap.get(key) ?? {
+        reference: row.reference,
+        date: row.date,
+        warehouse: row.warehouse,
+        location: row.location,
+        items: 0,
+        shortageQty: 0,
+        surplusQty: 0,
+        netQty: 0,
+        value: 0,
+      };
+      entry.items += 1;
+      entry.netQty += row.difference;
+      entry.value = round2(entry.value + row.value);
+      if (row.difference < 0) {
+        entry.shortageQty += Math.abs(row.difference);
+      } else {
+        entry.surplusQty += row.difference;
+      }
+      if (row.date < entry.date) entry.date = row.date;
+      sessionMap.set(key, entry);
+    }
+    const sessions = [...sessionMap.values()].sort((a, b) =>
+      b.date.localeCompare(a.date),
+    );
+
+    ok(res, {
+      from: from ? from.toISOString() : null,
+      to: to ? to.toISOString() : null,
+      rows: rows.reverse(),
+      sessions,
+      totals: {
+        sessions: sessions.length,
+        items: rows.length,
+        shortageQty: rows
+          .filter((row) => row.difference < 0)
+          .reduce((sum, row) => sum + Math.abs(row.difference), 0),
+        surplusQty: rows
+          .filter((row) => row.difference > 0)
+          .reduce((sum, row) => sum + row.difference, 0),
+        value: round2(rows.reduce((sum, row) => sum + row.value, 0)),
+      },
+    });
+  }),
+);
+
 // GET /reports/stock-balance
 router.get(
   '/stock-balance',

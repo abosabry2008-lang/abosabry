@@ -588,25 +588,41 @@ export async function cycleCount(
       });
       const expected = level?.quantity ?? 0;
       const difference = item.countedQty - expected;
-      if (difference !== 0) {
-        const cost = await movementCost(tx, item.productId);
-        await applyMovement(tx, {
-          type: 'CYCLE_COUNT',
-          productId: item.productId,
-          locationId: input.locationId,
-          quantity: difference,
-          unitCost: cost,
-          note: input.note ?? 'Cycle count adjustment',
-          userId: input.userId,
-        });
-        await postInventoryValue(tx, {
-          increase: difference > 0,
-          value: round2(Math.abs(difference) * cost),
-          note: input.note ?? 'Cycle count adjustment',
-          userId: input.userId,
-        });
-      }
       results.push({ productId: item.productId, expected, counted: item.countedQty, difference });
+    }
+
+    const adjusted = results.filter((row) => row.difference !== 0);
+    if (adjusted.length === 0) return results;
+
+    // One number per counting session, shared by every difference movement, so
+    // the stocktake report can show the whole session as one document.
+    const reference = await nextNumber(
+      tx,
+      'cycle_count',
+      'CC',
+      new Date(),
+      async (candidate) =>
+        (await tx.stockMovement.count({ where: { reference: candidate } })) > 0,
+    );
+
+    for (const row of adjusted) {
+      const cost = await movementCost(tx, row.productId);
+      await applyMovement(tx, {
+        type: 'CYCLE_COUNT',
+        productId: row.productId,
+        locationId: input.locationId,
+        quantity: row.difference,
+        unitCost: cost,
+        reference,
+        note: input.note ?? `Cycle count ${reference}`,
+        userId: input.userId,
+      });
+      await postInventoryValue(tx, {
+        increase: row.difference > 0,
+        value: round2(Math.abs(row.difference) * cost),
+        note: input.note ?? `Cycle count ${reference}`,
+        userId: input.userId,
+      });
     }
     return results;
   });

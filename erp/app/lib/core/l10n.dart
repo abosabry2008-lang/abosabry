@@ -1330,6 +1330,50 @@ class AppStrings {
         'No stock movement in the selected period',
         'لا توجد حركة مخزون في الفترة المحددة',
       );
+  String get negativeStock => _t('Negative stock', 'أصناف برصيد سالب');
+  String get negativeStockHint => _t(
+        'Stock levels whose quantity fell below zero — review them before selling again.',
+        'أرصدة المخزون التي أصبحت أقل من صفر — راجعها قبل البيع مرة أخرى.',
+      );
+  String get negativeStockExplainer => _t(
+        'A negative balance means more was sold, transferred or issued than the recorded stock. Use it with the item movement report to find the document that caused the shortfall, then correct it with a stocktake or an adjustment.',
+        'الرصيد السالب يعني أنه تم بيع أو تحويل أو صرف كمية أكبر من المخزون المسجل. استخدمه مع تقرير حركة الصنف لمعرفة المستند الذي سبب العجز، ثم صححه بجرد أو تسوية مخزون.',
+      );
+  String get noNegativeStock =>
+      _t('No negative stock', 'لا توجد أصناف برصيد سالب');
+  String get stockAdjustments => _t('Stock adjustments', 'تسويات المخزون');
+  String get stockAdjustmentsHint => _t(
+        'Manual stock adjustments with their quantities, cost and value.',
+        'تسويات المخزون اليدوية مع الكميات والتكلفة والقيمة.',
+      );
+  String get cycleCountReport => _t('Stocktake (cycle count)', 'جرد المخزون');
+  String get cycleCountReportHint => _t(
+        'Counted quantities compared with the system balance, session by session.',
+        'الكميات المجرودة مقارنة برصيد النظام، جلسة بجلسة.',
+      );
+  String get cycleCountReportExplainer => _t(
+        'Each stocktake session shows the system balance before counting, the quantity actually counted, and the difference. A negative difference is a shortage and a positive difference is a surplus; the total value is the cost of the adjustment.',
+        'كل جلسة جرد توضح رصيد النظام قبل الجرد، والكمية المجرودة فعليًا، والفرق. الفرق السالب عجز والموجب زيادة، والقيمة الإجمالية هي تكلفة التسوية.',
+      );
+  String get stockTransfersReport =>
+      _t('Stock transfers', 'تحويلات المخزون');
+  String get stockTransfersHint => _t(
+        'Transfer vouchers between warehouses with their items and quantities.',
+        'أذون تحويل المخزون بين المخازن مع أصنافها وكمياتها.',
+      );
+  String get systemQty => _t('System quantity', 'رصيد النظام');
+  String get differenceLabel => _t('Difference', 'الفرق');
+  String get surplus => _t('Surplus', 'زيادة');
+  String get sessionLabel => _t('Session', 'جلسة');
+  String get stocktakeValue => _t('Adjustment value', 'قيمة التسوية');
+  String get netAdjustment => _t('Net adjustment', 'صافي التسوية');
+  String get transferItems => _t('Items', 'الأصناف');
+  String get noStockTransfers =>
+      _t('No transfers in the selected period', 'لا توجد تحويلات في الفترة المحددة');
+  String get noStockAdjustments =>
+      _t('No adjustments in the selected period', 'لا توجد تسويات في الفترة المحددة');
+  String get noCycleCounts =>
+      _t('No stocktakes in the selected period', 'لا توجد جرد في الفترة المحددة');
   String get itemMovement => _t('Item movement', 'حركة صنف');
   String get itemMovementHint => _t(
         'Every movement of a single product with a running balance.',

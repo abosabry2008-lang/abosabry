@@ -387,6 +387,7 @@ export interface ItemMovementReport {
     name: string;
     category: string | null;
     unit: string;
+    boxesPerCarton: number;
     unitCost: number;
   };
   warehouseId: string | null;
@@ -421,6 +422,7 @@ export async function buildItemMovement(
       sku: true,
       name: true,
       unit: true,
+      boxesPerCarton: true,
       costPrice: true,
       category: { select: { name: true } },
     },
@@ -576,6 +578,7 @@ export async function buildItemMovement(
       name: product.name,
       category: product.category?.name ?? null,
       unit: product.unit,
+      boxesPerCarton: product.boxesPerCarton,
       unitCost: Number(product.costPrice),
     },
     warehouseId: warehouseId ?? null,

@@ -22,6 +22,7 @@ import '../shell/navigation.dart';
 import '../suppliers/supplier_statement_screen.dart';
 import 'cancelled_invoices_report_screen.dart';
 import 'customer_daily_evaluation_screen.dart';
+import 'cycle_count_report_screen.dart';
 import 'customers_not_paid_screen.dart';
 import 'dormant_customers_screen.dart';
 import 'expense_category_statement_screen.dart';
@@ -31,6 +32,7 @@ import 'financial_reports_screen.dart';
 import 'general_ledger_screen.dart';
 import 'investment_equation_screen.dart';
 import 'item_movement_screen.dart';
+import 'negative_stock_screen.dart';
 import 'operations_reports_screen.dart';
 import 'order_fulfilment_report_screen.dart';
 import 'payments_report_screen.dart';
@@ -40,7 +42,9 @@ import 'salespeople_reports_screen.dart';
 import 'salesperson_daily_invoices_screen.dart';
 import 'salesperson_customer_debt_screen.dart';
 import 'shortages_report_screen.dart';
+import 'stock_adjustments_screen.dart';
 import 'stock_sold_remaining_screen.dart';
+import 'stock_transfers_screen.dart';
 import 'statement_hub_screen.dart';
 import 'treasury_summary_report_screen.dart';
 
@@ -506,6 +510,26 @@ class _ReportsScreenState extends State<ReportsScreen> {
               icon: Icons.inventory_outlined,
               title: s.stockSoldRemaining,
               builder: (_) => const StockSoldRemainingScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.fact_check_outlined,
+              title: s.cycleCountReport,
+              builder: (_) => const CycleCountReportScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.swap_horiz,
+              title: s.stockTransfersReport,
+              builder: (_) => const StockTransfersScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.tune,
+              title: s.stockAdjustments,
+              builder: (_) => const StockAdjustmentsScreen(),
+            ),
+            _ReportSpec(
+              icon: Icons.warning_amber_outlined,
+              title: s.negativeStock,
+              builder: (_) => const NegativeStockScreen(),
             ),
             _ReportSpec(
               icon: Icons.production_quantity_limits_outlined,

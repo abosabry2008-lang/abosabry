@@ -190,6 +190,9 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
     }
 
     final unit = asString(product['unit']);
+    final boxesPerCarton = asInt(product['boxesPerCarton']);
+    final unitLabel =
+        boxesPerCarton > 0 || unit.isEmpty || unit == 'carton' ? s.box : unit;
     final openingQty = _num(opening['quantity']);
     final openingValue = _num(opening['value']);
     final inQty = _num(totals['inQty']);
@@ -234,7 +237,8 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
                         label: s.openingShort,
                         quantity: openingQty,
                         value: openingValue,
-                        unit: unit,
+                        unit: unitLabel,
+                        boxesPerCarton: boxesPerCarton,
                       ),
                     ),
                     SizedBox(
@@ -243,7 +247,8 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
                         label: s.inShort,
                         quantity: inQty,
                         value: _num(totals['inValue']),
-                        unit: unit,
+                        unit: unitLabel,
+                        boxesPerCarton: boxesPerCarton,
                         color: theme.colorScheme.primary,
                       ),
                     ),
@@ -253,7 +258,8 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
                         label: s.outShort,
                         quantity: outQty,
                         value: _num(totals['outValue']),
-                        unit: unit,
+                        unit: unitLabel,
+                        boxesPerCarton: boxesPerCarton,
                         color: theme.colorScheme.error,
                       ),
                     ),
@@ -263,7 +269,8 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
                         label: s.closingShort,
                         quantity: closingQty,
                         value: closingValue,
-                        unit: unit,
+                        unit: unitLabel,
+                        boxesPerCarton: boxesPerCarton,
                         emphasise: true,
                       ),
                     ),
@@ -281,6 +288,14 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
               scrollDirection: Axis.horizontal,
               child: DataTable(
                 showCheckboxColumn: false,
+                border: TableBorder(
+                  horizontalInside: BorderSide(
+                    color: theme.colorScheme.outlineVariant,
+                  ),
+                ),
+                headingRowColor: WidgetStatePropertyAll<Color>(
+                  theme.colorScheme.surfaceContainerHighest,
+                ),
                 columnSpacing: 18,
                 horizontalMargin: 12,
                 headingRowHeight: 38,
@@ -321,7 +336,7 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
                     ],
                   ),
                   for (var index = 0; index < rows.length; index++)
-                    _movementRow(context, rows[index], index),
+                    _movementRow(context, rows[index], index, boxesPerCarton),
                   DataRow(
                     color: WidgetStatePropertyAll<Color>(
                       AppTheme.sectionHeaderColor(context),
@@ -379,10 +394,44 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
     );
   }
 
+  /// A quantity with its carton + loose-box breakdown underneath.
+  Widget _qtyCell(
+    BuildContext context,
+    double value,
+    int boxesPerCarton, {
+    Color? color,
+  }) {
+    final s = context.s;
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: <Widget>[
+        Text(
+          Formatters.integer(value),
+          textAlign: TextAlign.end,
+          style: TextStyle(fontWeight: FontWeight.w700, color: color),
+        ),
+        if (boxesPerCarton > 0)
+          Text(
+            s.packStock(
+              value.abs() ~/ boxesPerCarton,
+              (value.abs() % boxesPerCarton).toInt(),
+            ),
+            textAlign: TextAlign.end,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.outline,
+            ),
+          ),
+      ],
+    );
+  }
+
   DataRow _movementRow(
     BuildContext context,
     Map<String, dynamic> row,
     int index,
+    int boxesPerCarton,
   ) {
     final s = context.s;
     final theme = Theme.of(context);
@@ -463,34 +512,26 @@ class _ItemMovementScreenState extends State<ItemMovementScreen> {
         ),
         DataCell(
           isIn
-              ? Text(
-                  Formatters.integer(quantity),
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.primary,
-                  ),
+              ? _qtyCell(
+                  context,
+                  quantity,
+                  boxesPerCarton,
+                  color: theme.colorScheme.primary,
                 )
               : const Text(''),
         ),
         DataCell(
           isIn
               ? const Text('')
-              : Text(
-                  Formatters.integer(quantity),
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.error,
-                  ),
+              : _qtyCell(
+                  context,
+                  quantity,
+                  boxesPerCarton,
+                  color: theme.colorScheme.error,
                 ),
         ),
         DataCell(
-          Text(
-            Formatters.integer(_num(row['balance'])),
-            textAlign: TextAlign.end,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
+          _qtyCell(context, _num(row['balance']), boxesPerCarton),
         ),
         DataCell(MoneyText(_num(row['value']))),
       ],
@@ -505,6 +546,7 @@ class _SummaryTile extends StatelessWidget {
     required this.quantity,
     required this.value,
     required this.unit,
+    this.boxesPerCarton = 0,
     this.color,
     this.emphasise = false,
   });
@@ -513,12 +555,14 @@ class _SummaryTile extends StatelessWidget {
   final double quantity;
   final double value;
   final String unit;
+  final int boxesPerCarton;
   final Color? color;
   final bool emphasise;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = context.s;
     final quantityColor = color ?? theme.colorScheme.onSurface;
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
@@ -549,6 +593,16 @@ class _SummaryTile extends StatelessWidget {
               Text(unit, style: theme.textTheme.bodySmall),
             ],
           ),
+          if (boxesPerCarton > 0)
+            Text(
+              s.packStock(
+                quantity.abs() ~/ boxesPerCarton,
+                (quantity.abs() % boxesPerCarton).toInt(),
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
           const SizedBox(height: 1),
           MoneyText(
             value,
